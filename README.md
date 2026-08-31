@@ -9,13 +9,17 @@ App Router app.
 - **Next.js 16** (App Router) + **React 19**
 - **Tailwind CSS v4** (CSS-first config in `app/globals.css`)
 - **lucide-react** icons
-- Persistence: `localStorage` shim (`lib/storage.ts`) — same async shape as the artifact's
-  `window.storage`, so swapping in Prisma/Supabase-backed API routes is a one-file change.
+- **Prisma 6** ORM — SQLite locally, Postgres in production
+- Persistence: the terminal reads/writes one portfolio blob through `lib/storage.ts`
+  (`get`/`set`, unchanged signatures), now backed by `/api/portfolio` + Prisma instead
+  of `localStorage`.
 
 ## Run
 
 ```bash
-npm install
+npm install            # runs `prisma generate` via postinstall
+cp .env.example .env    # DATABASE_URL="file:./dev.db" is the only required var
+npm run db:migrate      # creates prisma/dev.db and applies migrations
 npm run dev
 ```
 
@@ -53,6 +57,7 @@ app/
   api/
     market-data/route.ts      crypto proxy (CoinGecko); 501 stub for NSE/BSE vendor
     fiidii/route.ts           returns the seeded mock; wire a daily cron for real data
+    portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
 components/
   ZestoxxProvider.tsx         all terminal state + the sim/CoinGecko/persistence effects
   AppShell.tsx                provider + layout chrome
@@ -61,8 +66,54 @@ components/
   views/                      one component per terminal view, each consuming useZestoxx()
 lib/
   symbols.ts    indicators.ts    pulse.ts    formula.ts
-  history.ts    helpers.ts       storage.ts  types.ts
+  history.ts    helpers.ts       types.ts
+  db.ts                        Prisma client singleton
+  auth.ts                      getCurrentUser() — demo user until real auth
+  portfolio.ts                 blob <-> relational tables (loadPortfolio / savePortfolio)
+  storage.ts                   get/set shim -> fetch('/api/portfolio')
+prisma/
+  schema.prisma                User, Watchlist, Holding, Order, Alert
+  migrations/                  committed; run `npm run db:migrate` to apply
 ```
+
+## Data layer
+
+The terminal keeps the authoritative portfolio in React state and, 600 ms after any
+change, `PUT`s the whole blob (`watchlist`, `cash`, `holdings`, `orderLog`, `alerts`)
+to `/api/portfolio`. The route decomposes it across the relational tables in one
+transaction (`lib/portfolio.ts`); `GET` reassembles the same shape, or returns `null`
+when nothing is saved yet so the client keeps its default watchlist.
+
+There is no auth yet, so every request resolves to one shared demo user
+(`lib/auth.ts` → `getCurrentUser()`). Wiring real auth (NextAuth / Clerk / Supabase
+Auth) touches only that function.
+
+Useful scripts: `npm run db:migrate` (dev migration), `npm run db:studio` (Prisma
+Studio), `npm run db:reset` (drop + re-seed), `npm run db:deploy` (apply migrations in
+CI/prod).
+
+### Switching to Postgres for production
+
+1. In `prisma/schema.prisma`, change the datasource:
+   ```prisma
+   datasource db {
+     provider = "postgresql"   // was "sqlite"
+     url      = env("DATABASE_URL")
+   }
+   ```
+2. Set `DATABASE_URL` to your Postgres/Supabase connection string (in Vercel project
+   env vars, not committed) — e.g.
+   `postgresql://user:pass@host:5432/zestoxx?schema=public&sslmode=require`.
+3. Regenerate the migration history against Postgres (SQLite and Postgres migration
+   SQL differ), then deploy:
+   ```bash
+   rm -rf prisma/migrations          # local only, before first Postgres migrate
+   npm run db:migrate -- --name init # creates the Postgres migration
+   ```
+   In CI/production the build runs `prisma generate`; add `npm run db:deploy` to your
+   deploy step (or a Vercel build command) to apply migrations.
+4. No application code changes — `lib/db.ts`, `lib/portfolio.ts` and the route are
+   provider-agnostic.
 
 ## What changed from the artifact
 
@@ -70,7 +121,8 @@ lib/
 - `AppTerminal`'s giant prop-drilled state → `ZestoxxProvider` context; each view reads
   `useZestoxx()`. Tailwind classes and component logic are otherwise unchanged.
 - `activeView` state → the URL. `setActiveView("trade")` → `router.push("/app/trade/<selected>")`.
-- `window.storage` → `lib/storage.ts` (localStorage).
+- `window.storage` → `lib/storage.ts`, now hitting `/api/portfolio` (Prisma) — see
+  "Data layer" above. Same `get`/`set` signatures, so components are untouched.
 - Inline `<style>` font imports → `next/font/google`; keyframes moved to `globals.css`.
 - Crypto (BTC/ETH/SOL) still fetches CoinGecko client-side; everything else is the seeded
   random walk. See `app/api/market-data/route.ts` and the handoff brief §4 for wiring a
@@ -80,5 +132,6 @@ lib/
 
 1. Pick a market-data vendor, wire it into `app/api/market-data/route.ts`, add keys in
    Vercel env (see `.env.example`).
-2. Add `prisma/schema.prisma` + `lib/db.ts`; replace the `storage` shim with API routes.
-3. Deploy to Vercel, point `zestoxx.com` at it.
+2. ~~Add Prisma + replace the `storage` shim with API routes.~~ ✅ done — see "Data layer".
+3. Add real auth; update `lib/auth.ts` `getCurrentUser()`.
+4. Deploy to Vercel with Postgres (see "Switching to Postgres"), point `zestoxx.com` at it.

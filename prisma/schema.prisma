@@ -1,0 +1,93 @@
+// Zestoxx data layer — handoff brief §3/§5.
+//
+// Local dev uses SQLite (zero-setup). For production, switch the datasource
+// `provider` to "postgresql" and point DATABASE_URL at your Postgres/Supabase
+// instance — see README "Switching to Postgres".
+//
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  // Virtual paper-trading cash balance (₹). Starts at ₹10,00,000.
+  cash      Float    @default(1000000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  watchlist Watchlist[]
+  holdings  Holding[]
+  orders    Order[]
+  alerts    Alert[]
+}
+
+/// One watched symbol for a user. `position` preserves the on-screen ordering.
+model Watchlist {
+  id       String @id @default(cuid())
+  userId   String
+  symbol   String
+  position Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+  @@index([userId])
+}
+
+/// An open position: quantity held and the average entry price.
+model Holding {
+  id       String @id @default(cuid())
+  userId   String
+  symbol   String
+  qty      Float
+  avgPrice Float
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+  @@index([userId])
+}
+
+/// Filled orders (history) and resting limit orders, distinguished by `status`.
+model Order {
+  id         String   @id @default(cuid())
+  userId     String
+  symbol     String
+  side       String // "buy" | "sell"
+  mode       String // "market" | "limit"
+  qty        Float
+  price      Float? // fill price — set once the order is filled
+  limitPrice Float? // trigger price — set for resting limit orders
+  status     String   @default("filled") // "filled" | "open" | "cancelled"
+  timeLabel  String? // the "h:mm:ss AM/PM" label the terminal renders
+  placedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+/// A price alert that fires once when the symbol crosses `target`.
+model Alert {
+  id             String   @id @default(cuid())
+  userId         String
+  symbol         String
+  condition      String // "above" | "below"
+  target         Float
+  createdAtLabel String? // the localized time label shown in the UI
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
