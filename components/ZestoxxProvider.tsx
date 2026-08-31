@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { SYMBOLS, SYMBOL_MAP, VOL, EXPIRIES, COINGECKO_IDS } from "@/lib/symbols";
+import { SYMBOLS, SYMBOL_MAP, VOL, EXPIRIES } from "@/lib/symbols";
 import { buildHistory } from "@/lib/history";
 import { fmt } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
@@ -282,54 +282,54 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [tickTargets, live, openOrders, fillOrder, alerts, liveSource]);
 
-  /* ---- real crypto data ----
-   * Stocks and indices stay simulated — there's no free, key-less feed for NSE/BSE data.
-   * Crypto genuinely can be live, so BTC/ETH/SOL are upgraded to real prices (proxied
-   * through our own /api/market-data route to avoid browser CORS) when the fetch
-   * succeeds, and silently stay on the simulation if it fails — the "LIVE"/"SIM" badge
-   * tells you which. */
+  /* ---- real market data ----
+   * Everything is a seeded random walk until a real feed answers for a symbol, then that
+   * symbol is upgraded in place and its badge flips to "Live data":
+   *   - crypto (BTC/ETH/SOL): CoinGecko, key-less
+   *   - NSE/BSE equities & indices: Upstox (Analytics Token), when configured
+   * Both are proxied through /api/market-data so credentials and CORS stay server-side.
+   * Any failure is silent — the simulation just keeps running for that symbol. */
   useEffect(() => {
     let cancelled = false;
+
+    const applyHistory = (data: Record<string, number[][]>) => {
+      const ids = Object.keys(data).filter((id) => Array.isArray(data[id]) && data[id].length >= 10);
+      if (cancelled || ids.length === 0) return;
+      setHistories((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => {
+          next[id] = data[id].map((c) => ({
+            open: c[1],
+            high: c[2],
+            low: c[3],
+            close: c[4],
+            // real feeds send volume at index 5; CoinGecko's OHLC doesn't, so synthesize
+            volume: Number.isFinite(c[5]) ? c[5] : Math.round((50000 + Math.random() * 480000) * 3),
+          }));
+        });
+        return next;
+      });
+      setLive((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => (next[id] = data[id][data[id].length - 1][4]));
+        return next;
+      });
+      setLiveSource((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => (next[id] = "live"));
+        return next;
+      });
+    };
+
     (async () => {
-      try {
-        const res = await fetch("/api/market-data?asset=crypto-ohlc");
-        if (!res.ok) return;
-        const data: Record<string, number[][]> = await res.json();
-        if (cancelled) return;
-        const entries = Object.keys(COINGECKO_IDS);
-        setHistories((prev) => {
-          const next = { ...prev };
-          entries.forEach((symId) => {
-            const raw = data[symId];
-            if (!Array.isArray(raw) || raw.length < 10) return;
-            next[symId] = raw.map(([, o, h, l, c]) => ({
-              open: o,
-              high: h,
-              low: l,
-              close: c,
-              volume: Math.round((50000 + Math.random() * 480000) * 3),
-            }));
-          });
-          return next;
-        });
-        setLive((prev) => {
-          const next = { ...prev };
-          entries.forEach((symId) => {
-            const raw = data[symId];
-            if (Array.isArray(raw) && raw.length) next[symId] = raw[raw.length - 1][4];
-          });
-          return next;
-        });
-        const liveIds = entries.filter((symId) => Array.isArray(data[symId]) && data[symId].length);
-        if (liveIds.length) {
-          setLiveSource((prev) => {
-            const next = { ...prev };
-            liveIds.forEach((symId) => (next[symId] = "live"));
-            return next;
-          });
+      for (const asset of ["crypto-ohlc", "equity-ohlc"]) {
+        try {
+          const res = await fetch(`/api/market-data?asset=${asset}`);
+          if (!res.ok || cancelled) continue;
+          applyHistory(await res.json());
+        } catch {
+          // that family stays simulated
         }
-      } catch {
-        // proxy or CoinGecko unreachable — stays simulated silently
       }
     })();
     return () => {
@@ -338,35 +338,46 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const poll = setInterval(async () => {
-      try {
-        const res = await fetch("/api/market-data?asset=crypto");
-        if (!res.ok) return;
-        const priceFor: Record<string, number | undefined> = await res.json();
-        setLive((prev) => {
-          const next = { ...prev };
-          Object.entries(priceFor).forEach(([symId, p]) => {
-            if (p) next[symId] = p;
+    const pull = async () => {
+      for (const asset of ["crypto", "equity"]) {
+        try {
+          const res = await fetch(`/api/market-data?asset=${asset}`);
+          if (!res.ok) continue;
+          const priceFor: Record<string, number> = await res.json();
+          const ids = Object.keys(priceFor).filter((id) => priceFor[id] > 0);
+          if (ids.length === 0) continue;
+          setLive((prev) => {
+            const next = { ...prev };
+            ids.forEach((id) => (next[id] = priceFor[id]));
+            return next;
           });
-          return next;
-        });
-        setHistories((prev) => {
-          const next = { ...prev };
-          Object.entries(priceFor).forEach(([symId, p]) => {
-            if (!p || !next[symId]) return;
-            const arr = next[symId];
-            const last = arr[arr.length - 1];
-            next[symId] = [
-              ...arr.slice(0, -1),
-              { ...last, close: p, high: Math.max(last.high, p), low: Math.min(last.low, p) },
-            ];
+          setHistories((prev) => {
+            const next = { ...prev };
+            ids.forEach((id) => {
+              if (!next[id]) return;
+              const arr = next[id];
+              const last = arr[arr.length - 1];
+              const p = priceFor[id];
+              next[id] = [
+                ...arr.slice(0, -1),
+                { ...last, close: p, high: Math.max(last.high, p), low: Math.min(last.low, p) },
+              ];
+            });
+            return next;
           });
-          return next;
-        });
-      } catch {
-        // stays on last known value if the network call fails
+          setLiveSource((prev) => {
+            if (ids.every((id) => prev[id] === "live")) return prev;
+            const next = { ...prev };
+            ids.forEach((id) => (next[id] = "live"));
+            return next;
+          });
+        } catch {
+          // keep last known values
+        }
       }
-    }, 25000);
+    };
+    pull();
+    const poll = setInterval(pull, 25000);
     return () => clearInterval(poll);
   }, []);
 

@@ -55,7 +55,7 @@ app/
     <view>/page.tsx           thin wrappers around components/views/*
     trade/[symbol]/page.tsx   validates symbol, renders <TradeView symbol=… />
   api/
-    market-data/route.ts      crypto proxy (CoinGecko); 501 stub for NSE/BSE vendor
+    market-data/route.ts      CoinGecko (crypto) + Upstox (NSE/BSE) proxy
     fiidii/route.ts           returns the seeded mock; wire a daily cron for real data
     portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
 components/
@@ -67,6 +67,7 @@ components/
 lib/
   symbols.ts    indicators.ts    pulse.ts    formula.ts
   history.ts    helpers.ts       types.ts
+  upstox.ts                    Upstox instrument keys + LTP / historical fetchers
   db.ts                        Prisma client singleton
   auth.ts                      getCurrentUser() — demo user until real auth
   portfolio.ts                 blob <-> relational tables (loadPortfolio / savePortfolio)
@@ -115,6 +116,31 @@ CI/prod).
 4. No application code changes — `lib/db.ts`, `lib/portfolio.ts` and the route are
    provider-agnostic.
 
+## Live market data
+
+Every symbol starts as a seeded random walk. `ZestoxxProvider` then asks
+`/api/market-data` for real data and, per symbol that a feed answers for, swaps in real
+candles + price and flips that symbol's badge from **Simulated** to **Live data**:
+
+| Symbols | Feed | Auth | Refresh |
+|---|---|---|---|
+| BTC, ETH, SOL | CoinGecko | none | price 25 s, history on load |
+| RELIANCE, TCS, INFY, HDFCBANK, SBIN, TATAMOTORS, NIFTY50, SENSEX, BANKNIFTY | Upstox v3 | `UPSTOX_ANALYTICS_TOKEN` | LTP 25 s (cached 10 s), ~400 d of daily candles on load (cached 1 h) |
+
+Both are proxied server-side through `app/api/market-data/route.ts` so no credential or
+CORS issue reaches the browser. The Upstox token is a **long-lived, read-only Analytics
+Token** used as a static `Authorization: Bearer` header — there is no OAuth login or
+callback route. Instrument keys live in `lib/upstox.ts` (`UPSTOX_KEYS`).
+
+Setup: put the token in `.env.local` (gitignored) as `UPSTOX_ANALYTICS_TOKEN=…`, or in
+Vercel project env for production. With no token the equity endpoints return `{}` and
+those symbols stay simulated — nothing breaks.
+
+Note: "Chg %" for a symbol is the return over its *loaded history window* (same as the
+crypto symbols already behaved), not an intraday day-change. Making it a true
+prev-close day-change would use Upstox's `cp` field and touch the change math in
+`ZestoxxProvider` + the views — left as a follow-up.
+
 ## What changed from the artifact
 
 - `Root` component's landing/app toggle → real routes (`/` and `/app/*`).
@@ -124,9 +150,9 @@ CI/prod).
 - `window.storage` → `lib/storage.ts`, now hitting `/api/portfolio` (Prisma) — see
   "Data layer" above. Same `get`/`set` signatures, so components are untouched.
 - Inline `<style>` font imports → `next/font/google`; keyframes moved to `globals.css`.
-- Crypto (BTC/ETH/SOL) still fetches CoinGecko client-side; everything else is the seeded
-  random walk. See `app/api/market-data/route.ts` and the handoff brief §4 for wiring a
-  real vendor.
+- Market data: see "Live market data" below. Crypto via CoinGecko, NSE/BSE via Upstox,
+  both proxied through `/api/market-data`; anything a feed doesn't answer for stays a
+  seeded random walk.
 
 ## Next steps (from the handoff brief)
 

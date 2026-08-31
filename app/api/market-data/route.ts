@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import { COINGECKO_IDS } from "@/lib/symbols";
+import { upstoxToken, fetchUpstoxLtp, fetchUpstoxHistory } from "@/lib/upstox";
 
 /**
- * Market-data proxy. See the handoff brief §4:
+ * Market-data proxy. Keeps vendor credentials server-side and the browser on one origin.
  *
- * - Crypto (BTC/ETH/SOL) genuinely can be live and key-less via CoinGecko. Proxying it
- *   here (rather than calling CoinGecko from the browser) sidesteps CORS and keeps the
- *   client on one origin. The client still falls back to the seeded simulation if this
- *   route fails.
- * - NSE/BSE equities & indices need a real vendor (Zerodha Kite Connect, Upstox,
- *   Angel One SmartAPI, TrueData…). Wire the chosen vendor's calls in here and read
- *   the key from `process.env.MARKET_DATA_API_KEY` — never expose it to the browser.
+ * - Crypto (BTC/ETH/SOL): CoinGecko, key-less, public.
+ * - NSE/BSE equities & indices: Upstox, using the static Analytics Token in
+ *   `UPSTOX_ANALYTICS_TOKEN` as a Bearer header (see lib/upstox.ts). If the token is
+ *   absent or Upstox errors, these endpoints return `{}` and the client stays on the
+ *   seeded simulation.
  *
  * GET /api/market-data?asset=crypto        -> { [symId]: usdPrice }
- * GET /api/market-data?asset=crypto-ohlc   -> { [symId]: [[t,o,h,l,c], ...] }  (30d)
- * GET /api/market-data?asset=equity&...    -> 501 until a vendor is wired up
+ * GET /api/market-data?asset=crypto-ohlc   -> { [symId]: [[t,o,h,l,c], ...] }        (30d)
+ * GET /api/market-data?asset=equity        -> { [symId]: inrPrice }
+ * GET /api/market-data?asset=equity-ohlc   -> { [symId]: [[t,o,h,l,c,v], ...] }      (~400d)
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -60,12 +60,21 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json(
-    {
-      error: "not_implemented",
-      detail:
-        "Live NSE/BSE data requires a real vendor (Kite Connect / Upstox / Angel One SmartAPI / TrueData). Wire it into app/api/market-data/route.ts and set MARKET_DATA_API_KEY.",
-    },
-    { status: 501 }
-  );
+  if (asset === "equity" || asset === "equity-ohlc") {
+    const token = upstoxToken();
+    if (!token) {
+      // No token configured — no live equities. Client keeps the simulation.
+      return NextResponse.json({});
+    }
+    try {
+      const data =
+        asset === "equity" ? await fetchUpstoxLtp(token) : await fetchUpstoxHistory(token);
+      return NextResponse.json(data);
+    } catch (err) {
+      console.error(`[/api/market-data] upstox ${asset} failed:`, err);
+      return NextResponse.json({});
+    }
+  }
+
+  return NextResponse.json({ error: "unknown asset" }, { status: 400 });
 }
