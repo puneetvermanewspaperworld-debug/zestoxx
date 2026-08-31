@@ -9,7 +9,6 @@ export default function DepthLadder({ price, type }: { price: number; type: Asse
   // desync hydration. Server renders the deterministic price-seeded snapshot.
   const [jitter, setJitter] = useState(0);
   useEffect(() => {
-    setJitter(Date.now() % 997);
     const t = setInterval(() => setJitter(Date.now() % 997), 2000);
     return () => clearInterval(t);
   }, []);

@@ -11,7 +11,6 @@ export function computeCustomSeries(
   const closes = candles.map((c) => c.close);
   let fn: (...args: unknown[]) => unknown;
   try {
-    // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
     fn = new Function(
       "close",
       "open",

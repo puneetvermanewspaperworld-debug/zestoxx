@@ -280,7 +280,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
       });
     }, 2000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickTargets, live, openOrders, fillOrder, alerts, liveSource]);
 
   /* ---- real crypto data ----

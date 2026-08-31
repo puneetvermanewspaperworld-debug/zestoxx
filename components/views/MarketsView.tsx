@@ -7,11 +7,37 @@ import { SYMBOLS } from "@/lib/symbols";
 import { fmt } from "@/lib/helpers";
 
 type SortKey = "price" | "chg" | "dayHigh" | "dayLow" | "volume";
+type SortDir = "asc" | "desc";
+
+function SortHead({
+  label,
+  k,
+  align = "right",
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  k: SortKey;
+  align?: string;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+}) {
+  return (
+    <th
+      onClick={() => onSort(k)}
+      className={`cursor-pointer px-3 py-2 text-${align} font-medium text-slate-500 hover:text-slate-900`}
+    >
+      {label} {sortKey === k && (sortDir === "desc" ? "↓" : "↑")}
+    </th>
+  );
+}
 
 export default function MarketsView() {
   const { live, histories, setSelected, setActiveView } = useZestoxx();
   const [sortKey, setSortKey] = useState<SortKey>("chg");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [view, setView] = useState<"table" | "heatmap">("table");
 
   const rows = SYMBOLS.map((s) => {
@@ -32,13 +58,8 @@ export default function MarketsView() {
       setSortDir("desc");
     }
   };
-  const Head = ({ label, k, align = "right" }: { label: string; k: SortKey; align?: string }) => (
-    <th
-      onClick={() => toggleSort(k)}
-      className={`cursor-pointer px-3 py-2 text-${align} font-medium text-slate-500 hover:text-slate-900`}
-    >
-      {label} {sortKey === k && (sortDir === "desc" ? "↓" : "↑")}
-    </th>
+  const head = (label: string, k: SortKey) => (
+    <SortHead label={label} k={k} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
   );
 
   return (
@@ -77,11 +98,11 @@ export default function MarketsView() {
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="px-3 py-2 text-left font-medium text-slate-500">Symbol</th>
-                <Head label="Price" k="price" />
-                <Head label="Chg %" k="chg" />
-                <Head label="Day High" k="dayHigh" />
-                <Head label="Day Low" k="dayLow" />
-                <Head label="Volume" k="volume" />
+                {head("Price", "price")}
+                {head("Chg %", "chg")}
+                {head("Day High", "dayHigh")}
+                {head("Day Low", "dayLow")}
+                {head("Volume", "volume")}
               </tr>
             </thead>
             <tbody>
