@@ -8,7 +8,7 @@ import { SYMBOLS, SYMBOL_MAP, NEWS } from "@/lib/symbols";
 import { fmt, fmtINR } from "@/lib/helpers";
 
 export default function DashboardView() {
-  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView } =
+  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor } =
     useZestoxx();
 
   const holdingsValue = Object.entries(holdings).reduce(
@@ -19,11 +19,7 @@ export default function DashboardView() {
     (s, [id, h]) => s + (live[id] - h.avgPrice) * h.qty,
     0
   );
-  const movers = SYMBOLS.map((s) => {
-    const open = histories[s.id][0].open;
-    const chg = ((live[s.id] - open) / open) * 100;
-    return { ...s, chg };
-  }).sort((a, b) => b.chg - a.chg);
+  const movers = SYMBOLS.map((s) => ({ ...s, chg: chgFor(s.id) })).sort((a, b) => b.chg - a.chg);
   const gainers = movers.slice(0, 3),
     losers = movers.slice(-3).reverse();
   const sym = SYMBOL_MAP[selected];
@@ -127,8 +123,7 @@ export default function DashboardView() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {watchlist.map((id) => {
               const s = SYMBOL_MAP[id];
-              const open = histories[id][0].open;
-              const chg = ((live[id] - open) / open) * 100;
+              const chg = chgFor(id);
               return (
                 <div
                   key={id}

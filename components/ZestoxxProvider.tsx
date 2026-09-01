@@ -88,6 +88,10 @@ interface ZestoxxContextValue {
   sym: SymbolInfo;
   price: number;
   chg: number;
+  /** Day-change % for any symbol (price vs previous close). */
+  chgFor: (id: string) => number;
+  /** Previous-close reference for any symbol. */
+  prevCloseFor: (id: string) => number;
   setActiveView: (v: ViewId) => void;
   onTrade: (t: TradeInput) => void;
   onAddAlert: (symId: string) => void;
@@ -129,11 +133,14 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [live, setLive] = useState<Record<string, number>>(() => {
     const l: Record<string, number> = {};
     SYMBOLS.forEach((s) => {
-      const c = buildHistory(s);
+      const c = histories[s.id];
       l[s.id] = c[c.length - 1].close;
     });
     return l;
   });
+  // Previous close per symbol, from the live feeds (Upstox `cp` / crypto 24h). Symbols
+  // without a feed entry fall through to the simulated history in `prevCloseFor`.
+  const [prevClose, setPrevClose] = useState<Record<string, number>>({});
   const [cash, setCash] = useState(1000000);
   const [holdings, setHoldings] = useState<Holdings>({});
   const [orderLog, setOrderLog] = useState<OrderLogEntry[]>([]);
@@ -343,12 +350,19 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await fetch(`/api/market-data?asset=${asset}`);
           if (!res.ok) continue;
-          const priceFor: Record<string, number> = await res.json();
-          const ids = Object.keys(priceFor).filter((id) => priceFor[id] > 0);
+          const quotes: Record<string, { price: number; prevClose: number }> = await res.json();
+          const ids = Object.keys(quotes).filter((id) => quotes[id]?.price > 0);
           if (ids.length === 0) continue;
           setLive((prev) => {
             const next = { ...prev };
-            ids.forEach((id) => (next[id] = priceFor[id]));
+            ids.forEach((id) => (next[id] = quotes[id].price));
+            return next;
+          });
+          setPrevClose((prev) => {
+            const next = { ...prev };
+            ids.forEach((id) => {
+              if (quotes[id].prevClose > 0) next[id] = quotes[id].prevClose;
+            });
             return next;
           });
           setHistories((prev) => {
@@ -357,7 +371,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
               if (!next[id]) return;
               const arr = next[id];
               const last = arr[arr.length - 1];
-              const p = priceFor[id];
+              const p = quotes[id].price;
               next[id] = [
                 ...arr.slice(0, -1),
                 { ...last, close: p, high: Math.max(last.high, p), low: Math.min(last.low, p) },
@@ -458,10 +472,34 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     [setSelected]
   );
 
+  /**
+   * Reference close for the day-change ("Chg %"). Live symbols use the real previous
+   * close from their feed (Upstox `cp` / crypto 24h-ago); simulated symbols use the
+   * prior candle in their generated history. Falls back so this never divides by 0.
+   */
+  const prevCloseFor = useCallback(
+    (id: string): number => {
+      const feed = prevClose[id];
+      if (typeof feed === "number" && feed > 0) return feed;
+      const h = histories[id];
+      return h?.[h.length - 2]?.close ?? h?.[0]?.open ?? live[id] ?? 0;
+    },
+    [prevClose, histories, live]
+  );
+
+  /** Day-change % for a symbol: (price − previous close) / previous close. */
+  const chgFor = useCallback(
+    (id: string): number => {
+      const pc = prevCloseFor(id);
+      const p = live[id];
+      return pc > 0 && typeof p === "number" ? ((p - pc) / pc) * 100 : 0;
+    },
+    [prevCloseFor, live]
+  );
+
   const sym = SYMBOL_MAP[selected];
   const price = live[selected];
-  const openRef = histories[selected][0].open;
-  const chg = ((price - openRef) / openRef) * 100;
+  const chg = chgFor(selected);
 
   const value: ZestoxxContextValue = {
     watchlist,
@@ -505,6 +543,8 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     sym,
     price,
     chg,
+    chgFor,
+    prevCloseFor,
     setActiveView,
     onTrade,
     onAddAlert,

@@ -9,12 +9,12 @@ import { NEWS } from "./symbols";
 export function computePulse(
   symId: string,
   live: Record<string, number>,
-  histories: Record<string, Candle[]>
+  histories: Record<string, Candle[]>,
+  prevClose: number
 ): PulseResult {
   const candles = histories[symId];
-  const open = candles[0].open;
   const price = live[symId];
-  const momentum = ((price - open) / open) * 100; // day change %
+  const momentum = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0; // day change %
   const rsiArr = rsiSeries(candles, 14);
   const lastRsi = [...rsiArr].reverse().find((v) => v != null) ?? 50;
   const newsHits = NEWS.filter((n) => n.tag === symId);

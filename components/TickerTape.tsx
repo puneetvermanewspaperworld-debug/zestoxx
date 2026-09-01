@@ -4,23 +4,13 @@ import React from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { SYMBOL_MAP } from "@/lib/symbols";
 import { fmt } from "@/lib/helpers";
-import type { Candle } from "@/lib/types";
+import { useZestoxx } from "@/components/ZestoxxProvider";
 
-export default function TickerTape({
-  watchlist,
-  live,
-  histories,
-}: {
-  watchlist: string[];
-  live: Record<string, number>;
-  histories: Record<string, Candle[]>;
-}) {
+export default function TickerTape() {
+  const { watchlist, live, chgFor } = useZestoxx();
   const items = watchlist.map((id) => {
     const sym = SYMBOL_MAP[id];
-    const price = live[id];
-    const open = histories[id]?.[0]?.open ?? price;
-    const chg = ((price - open) / open) * 100;
-    return { id, price, chg, type: sym.type };
+    return { id, price: live[id], chg: chgFor(id), type: sym.type };
   });
   const loop = [...items, ...items];
   return (

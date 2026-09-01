@@ -1,14 +1,13 @@
 "use client";
 
 import React from "react";
-import { ZestoxxProvider, useZestoxx } from "./ZestoxxProvider";
+import { ZestoxxProvider } from "./ZestoxxProvider";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import TickerTape from "./TickerTape";
 import Toasts from "./Toasts";
 
 function ShellChrome({ children }: { children: React.ReactNode }) {
-  const { watchlist, live, histories } = useZestoxx();
   return (
     <div
       className="flex h-full min-h-screen w-full bg-slate-50 text-slate-900"
@@ -17,7 +16,7 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
-        <TickerTape watchlist={watchlist} live={live} histories={histories} />
+        <TickerTape />
         <div className="flex-1 overflow-y-auto p-3 sm:p-4">{children}</div>
       </div>
       <Toasts />

@@ -7,10 +7,11 @@ import { SYMBOLS } from "@/lib/symbols";
 import { computePulse } from "@/lib/pulse";
 
 export default function PulseView() {
-  const { live, histories, setSelected, setActiveView } = useZestoxx();
-  const rows = SYMBOLS.map((s) => ({ ...s, pulse: computePulse(s.id, live, histories) })).sort(
-    (a, b) => b.pulse.score - a.pulse.score
-  );
+  const { live, histories, prevCloseFor, setSelected, setActiveView } = useZestoxx();
+  const rows = SYMBOLS.map((s) => ({
+    ...s,
+    pulse: computePulse(s.id, live, histories, prevCloseFor(s.id)),
+  })).sort((a, b) => b.pulse.score - a.pulse.score);
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-white p-4">

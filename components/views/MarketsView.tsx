@@ -35,16 +35,15 @@ function SortHead({
 }
 
 export default function MarketsView() {
-  const { live, histories, setSelected, setActiveView } = useZestoxx();
+  const { live, histories, chgFor, setSelected, setActiveView } = useZestoxx();
   const [sortKey, setSortKey] = useState<SortKey>("chg");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [view, setView] = useState<"table" | "heatmap">("table");
 
   const rows = SYMBOLS.map((s) => {
     const candles = histories[s.id];
-    const open = candles[0].open;
     const price = live[s.id];
-    const chg = ((price - open) / open) * 100;
+    const chg = chgFor(s.id);
     const dayHigh = Math.max(...candles.slice(-24).map((c) => c.high));
     const dayLow = Math.min(...candles.slice(-24).map((c) => c.low));
     const volume = candles.slice(-24).reduce((s2, c) => s2 + c.volume, 0);

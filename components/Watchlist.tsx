@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Search, Plus, X } from "lucide-react";
 import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
 import { fmt } from "@/lib/helpers";
-import type { Candle } from "@/lib/types";
+import { useZestoxx } from "@/components/ZestoxxProvider";
 
 interface WatchlistProps {
   watchlist: string[];
@@ -13,7 +13,6 @@ interface WatchlistProps {
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
   live: Record<string, number>;
-  histories: Record<string, Candle[]>;
   compact?: boolean;
 }
 
@@ -24,9 +23,9 @@ export default function Watchlist({
   onAdd,
   onRemove,
   live,
-  histories,
   compact,
 }: WatchlistProps) {
+  const { chgFor } = useZestoxx();
   const [q, setQ] = useState("");
   const options = SYMBOLS.filter(
     (s) =>
@@ -73,8 +72,7 @@ export default function Watchlist({
         {watchlist.map((id) => {
           const sym = SYMBOL_MAP[id];
           const price = live[id];
-          const open = histories[id]?.[0]?.open ?? price;
-          const chg = ((price - open) / open) * 100;
+          const chg = chgFor(id);
           const isSel = id === selected;
           return (
             <div

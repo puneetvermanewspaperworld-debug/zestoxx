@@ -136,10 +136,20 @@ Setup: put the token in `.env.local` (gitignored) as `UPSTOX_ANALYTICS_TOKEN=…
 Vercel project env for production. With no token the equity endpoints return `{}` and
 those symbols stay simulated — nothing breaks.
 
-Note: "Chg %" for a symbol is the return over its *loaded history window* (same as the
-crypto symbols already behaved), not an intraday day-change. Making it a true
-prev-close day-change would use Upstox's `cp` field and touch the change math in
-`ZestoxxProvider` + the views — left as a follow-up.
+### "Chg %" — day-change
+
+`chgFor(id)` / `prevCloseFor(id)` on the context are the single source of truth for
+day-change, used by the ticker, watchlist, Trade header, movers, Markets table/heatmap
+and the Pulse "Momentum". It is `(price − previousClose) / previousClose`, where
+`previousClose` is:
+
+- **equities/indices** — Upstox's `cp` (previous session close) from the LTP feed
+- **crypto** — the price 24 h ago, derived from CoinGecko `usd_24h_change` (a 24/7
+  market has no session close; this is the crypto-standard reference)
+- **simulated symbols** — the prior candle's close in the generated history
+
+Before the Indian market opens (09:15 IST) equities correctly read 0.00% — they
+haven't traded yet that day; indices already move in the pre-open session.
 
 ## What changed from the artifact
 

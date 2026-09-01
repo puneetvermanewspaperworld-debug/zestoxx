@@ -46,10 +46,18 @@ function authHeaders(token: string) {
 interface LtpEntry {
   last_price?: number;
   instrument_token?: string;
+  /** `cp` = previous session's close, used for the day-change calculation. */
+  cp?: number;
 }
 
-/** Last traded price per symbol. Missing symbols simply aren't in the result. */
-export async function fetchUpstoxLtp(token: string): Promise<Record<string, number>> {
+export interface Quote {
+  price: number;
+  /** Previous close — the reference for "Chg %". 0 when Upstox didn't provide one. */
+  prevClose: number;
+}
+
+/** Last price + previous close per symbol. Missing symbols simply aren't in the result. */
+export async function fetchUpstoxQuotes(token: string): Promise<Record<string, Quote>> {
   const keys = Object.values(UPSTOX_KEYS).join(",");
   const res = await fetch(
     `${UPSTOX_BASE}/v3/market-quote/ltp?instrument_key=${encodeURIComponent(keys)}`,
@@ -58,13 +66,16 @@ export async function fetchUpstoxLtp(token: string): Promise<Record<string, numb
   if (!res.ok) throw new Error(`upstox ltp ${res.status}`);
   const json = (await res.json()) as { data?: Record<string, LtpEntry> };
 
-  const out: Record<string, number> = {};
+  const out: Record<string, Quote> = {};
   // The `data` object is keyed by "EXCHANGE:TRADINGSYMBOL", which doesn't match our
   // ids — map back through each entry's `instrument_token` instead.
   for (const entry of Object.values(json.data ?? {})) {
     const sym = entry.instrument_token ? KEY_TO_SYMBOL[entry.instrument_token] : undefined;
     if (sym && typeof entry.last_price === "number" && entry.last_price > 0) {
-      out[sym] = entry.last_price;
+      out[sym] = {
+        price: entry.last_price,
+        prevClose: typeof entry.cp === "number" && entry.cp > 0 ? entry.cp : 0,
+      };
     }
   }
   return out;

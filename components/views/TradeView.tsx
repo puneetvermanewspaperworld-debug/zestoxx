@@ -33,6 +33,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     sym,
     price,
     chg,
+    prevCloseFor,
     histories,
     live,
     liveSource,
@@ -80,7 +81,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
   };
   const visible = applyTimeframe(histories[selected], timeframe);
   const symOrders = orderLog.filter((o) => o.symbol === selected).slice(0, 6);
-  const pulse = computePulse(selected, live, histories);
+  const pulse = computePulse(selected, live, histories, prevCloseFor(selected));
   const compareCandles = compareWith ? applyTimeframe(histories[compareWith], timeframe) : null;
   const { series: customSeries, error: formulaError } = useMemo(
     () => computeCustomSeries(visible, formula),
@@ -100,7 +101,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           onAdd={addToWatchlist}
           onRemove={removeFromWatchlist}
           live={live}
-          histories={histories}
         />
       </div>
 
