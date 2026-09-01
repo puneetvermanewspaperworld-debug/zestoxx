@@ -1,8 +1,9 @@
 // Zestoxx data layer — handoff brief §3/§5.
 //
-// Local dev uses SQLite (zero-setup). For production, switch the datasource
-// `provider` to "postgresql" and point DATABASE_URL at your Postgres/Supabase
-// instance — see README "Switching to Postgres".
+// Postgres everywhere (local dev points at a dev database on the same host as prod).
+// `DATABASE_URL` is the pooled connection used at runtime; `DIRECT_URL` is a direct
+// (non-pooled) connection used only for `prisma migrate` / introspection. If you don't
+// have a pooler, set both to the same direct URL — see README "Deploying to Vercel".
 //
 // Docs: https://pris.ly/d/prisma-schema
 
@@ -11,8 +12,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

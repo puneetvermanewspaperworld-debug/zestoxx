@@ -9,7 +9,7 @@ App Router app.
 - **Next.js 16** (App Router) + **React 19**
 - **Tailwind CSS v4** (CSS-first config in `app/globals.css`)
 - **lucide-react** icons
-- **Prisma 6** ORM — SQLite locally, Postgres in production
+- **Prisma 6** ORM + **Postgres** (local dev points at a dev database on the same host)
 - Persistence: the terminal reads/writes one portfolio blob through `lib/storage.ts`
   (`get`/`set`, unchanged signatures), now backed by `/api/portfolio` + Prisma instead
   of `localStorage`.
@@ -17,14 +17,16 @@ App Router app.
 ## Run
 
 ```bash
-npm install            # runs `prisma generate` via postinstall
-cp .env.example .env    # DATABASE_URL="file:./dev.db" is the only required var
-npm run db:migrate      # creates prisma/dev.db and applies migrations
+npm install                 # runs `prisma generate` via postinstall
+cp .env.example .env         # fill in DATABASE_URL + DIRECT_URL (a dev Postgres db)
+cp .env.example .env.local   # fill in UPSTOX_ANALYTICS_TOKEN (optional)
+npm run db:deploy            # applies migrations to that database
 npm run dev
 ```
 
 Open http://localhost:3000 — the landing page. "Start paper trading" enters the terminal
-at `/app/dashboard`.
+at `/app/dashboard`. Without a Postgres URL the app builds and runs but the portfolio
+won't persist; without an Upstox token, NSE/BSE symbols stay on the simulation.
 
 ## Routes
 
@@ -73,8 +75,9 @@ lib/
   portfolio.ts                 blob <-> relational tables (loadPortfolio / savePortfolio)
   storage.ts                   get/set shim -> fetch('/api/portfolio')
 prisma/
-  schema.prisma                User, Watchlist, Holding, Order, Alert
-  migrations/                  committed; run `npm run db:migrate` to apply
+  schema.prisma                User, Watchlist, Holding, Order, Alert (postgresql)
+  migrations/                  committed; `npm run db:deploy` applies them
+vercel.json                    build command incl. `prisma migrate deploy`
 ```
 
 ## Data layer
@@ -89,32 +92,36 @@ There is no auth yet, so every request resolves to one shared demo user
 (`lib/auth.ts` → `getCurrentUser()`). Wiring real auth (NextAuth / Clerk / Supabase
 Auth) touches only that function.
 
-Useful scripts: `npm run db:migrate` (dev migration), `npm run db:studio` (Prisma
-Studio), `npm run db:reset` (drop + re-seed), `npm run db:deploy` (apply migrations in
-CI/prod).
+Useful scripts: `npm run db:deploy` (apply committed migrations — used locally and by
+the Vercel build), `npm run db:migrate` (create a new dev migration after a schema
+change), `npm run db:studio` (Prisma Studio), `npm run db:reset` (drop + reapply).
 
-### Switching to Postgres for production
+## Deploying to Vercel
 
-1. In `prisma/schema.prisma`, change the datasource:
-   ```prisma
-   datasource db {
-     provider = "postgresql"   // was "sqlite"
-     url      = env("DATABASE_URL")
-   }
-   ```
-2. Set `DATABASE_URL` to your Postgres/Supabase connection string (in Vercel project
-   env vars, not committed) — e.g.
-   `postgresql://user:pass@host:5432/zestoxx?schema=public&sslmode=require`.
-3. Regenerate the migration history against Postgres (SQLite and Postgres migration
-   SQL differ), then deploy:
-   ```bash
-   rm -rf prisma/migrations          # local only, before first Postgres migrate
-   npm run db:migrate -- --name init # creates the Postgres migration
-   ```
-   In CI/production the build runs `prisma generate`; add `npm run db:deploy` to your
-   deploy step (or a Vercel build command) to apply migrations.
-4. No application code changes — `lib/db.ts`, `lib/portfolio.ts` and the route are
-   provider-agnostic.
+The repo is Vercel-ready: `vercel.json` sets the build command to
+`prisma generate && prisma migrate deploy && next build`, so each deploy regenerates
+the client and applies any pending migrations to your database.
+
+1. **Create a Postgres database.** In the Vercel project, **Storage → Create Database →
+   Postgres** (Neon-backed). Connecting it to the project auto-adds `DATABASE_URL` and a
+   non-pooled URL (`DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING`) to the env.
+2. **Environment variables** (Project Settings → Environment Variables), for
+   *Production* and *Preview*:
+
+   | Variable | Value | Notes |
+   |---|---|---|
+   | `DATABASE_URL` | pooled Postgres URL | auto-added when you connect the DB in step 1 |
+   | `DIRECT_URL` | direct / non-pooled Postgres URL | **add manually** — paste the value of the non-pooled URL the DB gave you (`DATABASE_URL_UNPOOLED` etc.). If you have no pooler, set it equal to `DATABASE_URL`. |
+   | `UPSTOX_ANALYTICS_TOKEN` | your Upstox Analytics Token | **add manually**. Omit to ship with equities on the simulation. |
+
+   `NODE_ENV` is set by Vercel; nothing else is needed. CoinGecko needs no key.
+3. **Push to GitHub and import the repo** into Vercel (or `vercel --prod`). The first
+   build runs `prisma migrate deploy` against `DIRECT_URL`, creating the tables.
+4. For **local dev**, put a *separate* dev database's URLs in `.env` (the Prisma CLI
+   reads `.env`, not `.env.local`) and the token in `.env.local`, then `npm run db:deploy`.
+
+No application code is Postgres-specific — `lib/db.ts`, `lib/portfolio.ts` and the
+routes are provider-agnostic.
 
 ## Live market data
 
