@@ -168,7 +168,8 @@ export default function CandleChart({
           <line x1={padL} x2={width - padR + 8} y1={volY} y2={volY} stroke="#1A2740" strokeWidth="1" />
           {candles.map((c, i) => {
             const isUp = c.close >= c.open;
-            const h = (c.volume / maxVol) * (volH - 8);
+            // Indices report zero volume, so maxVol can be 0 — avoid 0/0 = NaN in the SVG.
+            const h = maxVol > 0 ? (c.volume / maxVol) * (volH - 8) : 0;
             const x = xFor(i);
             return (
               <rect

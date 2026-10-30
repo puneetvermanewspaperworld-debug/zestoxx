@@ -12,18 +12,26 @@ const ACCENT_BAR: Record<Accent, string> = {
   support: "bg-emerald-400",
 };
 
+const TAG_STYLE: Record<Exclude<Accent, "none">, string> = {
+  resistance: "bg-rose-50 text-rose-600",
+  support: "bg-emerald-50 text-emerald-600",
+};
+
 function Stat({
   label,
   value,
   sub,
   hint,
   accent = "none",
+  tag,
 }: {
   label: string;
   value: string;
   sub?: string;
   hint?: string;
   accent?: Accent;
+  /** plain-words role of the level, shown as a pill */
+  tag?: string;
 }) {
   return (
     <div
@@ -31,7 +39,14 @@ function Stat({
       className="relative overflow-hidden rounded-lg border border-slate-200 bg-white py-2.5 pl-3.5 pr-3"
     >
       <span className={"absolute inset-y-0 left-0 w-0.5 " + ACCENT_BAR[accent]} aria-hidden />
-      <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{label}</span>
+        {tag && accent !== "none" && (
+          <span className={"rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide " + TAG_STYLE[accent]}>
+            {tag}
+          </span>
+        )}
+      </div>
       <div className="mt-1 font-mono text-[17px] font-semibold leading-none text-slate-900">{value}</div>
       <div className="mt-1.5 min-h-[14px] font-mono text-[10.5px] leading-tight text-slate-400">{sub}</div>
     </div>
@@ -79,6 +94,7 @@ export default function OptionsStatsStrip({ chain }: { chain: OptionChain }) {
         value={level(call2)}
         sub={levelSub(call1, call2)}
         accent="resistance"
+        tag="Resistance"
         hint="Strike with the second-largest call open interest — a secondary resistance level"
       />
       <Stat
@@ -86,6 +102,7 @@ export default function OptionsStatsStrip({ chain }: { chain: OptionChain }) {
         value={level(put2)}
         sub={levelSub(put1, put2)}
         accent="support"
+        tag="Support"
         hint="Strike with the second-largest put open interest — a secondary support level"
       />
     </div>

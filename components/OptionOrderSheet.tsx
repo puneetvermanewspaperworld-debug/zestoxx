@@ -12,7 +12,7 @@ import {
 } from "@/lib/contract";
 import { contractLabel } from "@/lib/movers";
 import { fmtINR, fmtIsoDate, fmtOi, fmtOiChange } from "@/lib/helpers";
-import { chainStats, type OptionChain, type OptionLeg } from "@/lib/options";
+import { GREEKS, chainStats, type OptionChain, type OptionLeg } from "@/lib/options";
 import { useContractCandles, useContractQuote } from "@/lib/useContractQuote";
 
 type Tab = "charts" | "chain" | "details";
@@ -187,6 +187,7 @@ function DetailsTab({
     ["Open interest", fmtOi(quote.oi || leg.oi)],
     ["OI change", fmtOiChange(leg.oi - leg.prevOi)],
     ["Implied vol.", leg.iv > 0 ? `${leg.iv.toFixed(2)}%` : "--"],
+    ...GREEKS.filter((g) => leg[g.id] != null).map((g): [string, string] => [g.label, leg[g.id]!.toFixed(g.digits)]),
     ["Volume", fmtOi(quote.volume || leg.volume)],
     ["Avg. price", price(quote.avgPrice)],
   ];

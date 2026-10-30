@@ -13,6 +13,55 @@ export interface OptionLeg {
   iv: number;
   /** Upstox instrument key (live chains only) */
   key?: string;
+  /** option Greeks — per-unit, as the exchange feed reports them; absent when unavailable */
+  delta?: number;
+  gamma?: number;
+  /** ₹ lost per day to time decay (negative for a long option) */
+  theta?: number;
+  /** ₹ change per 1 percentage-point move in IV */
+  vega?: number;
+}
+
+export type GreekName = "delta" | "theta" | "vega" | "gamma";
+
+/** Order and precision the UI shows the Greeks in. */
+export const GREEKS: { id: GreekName; label: string; digits: number; hint: string }[] = [
+  { id: "delta", label: "Delta", digits: 2, hint: "Change in premium for a ₹1 move in the underlying" },
+  { id: "theta", label: "Theta", digits: 2, hint: "Premium lost per day to time decay" },
+  { id: "vega", label: "Vega", digits: 2, hint: "Change in premium for a 1-point move in implied volatility" },
+  { id: "gamma", label: "Gamma", digits: 4, hint: "How fast delta changes per ₹1 move in the underlying" },
+];
+
+const SQRT_2PI = Math.sqrt(2 * Math.PI);
+const pdf = (x: number) => Math.exp(-0.5 * x * x) / SQRT_2PI;
+/** Standard normal CDF (Abramowitz–Stegun 7.1.26 via erf; error < 1.5e-7). */
+function cdf(x: number): number {
+  const z = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * z);
+  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z);
+  return x >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
+}
+
+/** Black–Scholes Greeks, in the same units the Upstox feed uses. `years` and `iv` (a fraction) must be > 0. */
+export function blackScholesGreeks(
+  spot: number,
+  strike: number,
+  years: number,
+  iv: number,
+  isCall: boolean,
+  rate = 0.065
+): Pick<OptionLeg, "delta" | "gamma" | "theta" | "vega"> {
+  const sd = iv * Math.sqrt(years);
+  const d1 = (Math.log(spot / strike) + (rate + (iv * iv) / 2) * years) / sd;
+  const d2 = d1 - sd;
+  const decay = (-spot * pdf(d1) * iv) / (2 * Math.sqrt(years));
+  const carry = rate * strike * Math.exp(-rate * years);
+  return {
+    delta: isCall ? cdf(d1) : cdf(d1) - 1,
+    gamma: pdf(d1) / (spot * sd),
+    theta: (isCall ? decay - carry * cdf(d2) : decay + carry * cdf(-d2)) / 365,
+    vega: (spot * pdf(d1) * Math.sqrt(years)) / 100,
+  };
 }
 
 export interface ChainRow {
@@ -320,13 +369,15 @@ export function simulateChain(
     const decay = (x: number) => Math.exp(-sq(x / 0.02));
     const side = isCall ? decay(Math.max(0, -m)) : decay(Math.max(0, m));
     const oi = Math.round((2e4 + rand() * 6e5) * Math.exp(-sq(m / 0.04)) * (0.35 + side));
+    const iv = Math.round((baseIv * 100 + Math.abs(m) * 120 + rand() * 2) * 100) / 100;
     return {
       ltp: Math.round(ltp * 100) / 100,
       prevClose: Math.round(ltp * (1 + (rand() - 0.5) * 0.3) * 100) / 100,
       oi,
       prevOi: Math.round(oi * (1 + (rand() - 0.5) * 0.5)),
       volume: Math.round(oi * (0.2 + rand() * 1.4)),
-      iv: Math.round((baseIv * 100 + Math.abs(m) * 120 + rand() * 2) * 100) / 100,
+      iv,
+      ...blackScholesGreeks(spot, strike, dte / 365, iv / 100, isCall),
     };
   };
 

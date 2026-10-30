@@ -187,7 +187,7 @@ interface ApiLeg {
     prev_oi?: number;
     volume?: number;
   };
-  option_greeks?: { iv?: number };
+  option_greeks?: { iv?: number; delta?: number; gamma?: number; theta?: number; vega?: number };
 }
 
 interface ApiChainRow {
@@ -205,6 +205,12 @@ const toLeg = (l?: ApiLeg): OptionLeg => ({
   volume: num(l?.market_data?.volume),
   iv: num(l?.option_greeks?.iv),
   key: l?.instrument_key,
+  // Only when the feed sent a real number — "0" for a missing Greek would read as a value.
+  ...Object.fromEntries(
+    (["delta", "gamma", "theta", "vega"] as const)
+      .filter((g) => typeof l?.option_greeks?.[g] === "number" && isFinite(l.option_greeks[g] as number))
+      .map((g) => [g, l?.option_greeks?.[g]])
+  ),
 });
 
 /** Full chain for one underlying + expiry, strikes ascending. */

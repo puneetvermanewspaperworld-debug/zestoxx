@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
   TrendingUp,
   TrendingDown,
@@ -12,6 +13,7 @@ import {
   Minus,
   Eraser,
   FunctionSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 import CandleChart from "@/components/CandleChart";
 import RSIPanel from "@/components/RSIPanel";
@@ -232,6 +234,14 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                   </option>
                 ))}
               </select>
+              {sym.type !== "crypto" && (
+                <Link
+                  href="/app/options"
+                  className="flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/60 px-2 py-1.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-50"
+                >
+                  <SlidersHorizontal size={12} /> Option Chain
+                </Link>
+              )}
               <button
                 onClick={() => onAddAlert(selected)}
                 className="flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-[11px] font-medium text-slate-500 hover:text-blue-600"

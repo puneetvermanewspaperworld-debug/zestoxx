@@ -198,6 +198,16 @@ payload in `lib/options.ts`:
 With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
 shows a deterministic simulated chain, badged **Simulated**.
 
+### Greeks
+
+The Options chain has an **OI & IV | Greeks** switch. Greeks view shows OI, delta, theta, vega and gamma
+for calls and puts (mirrored around the strike), and the order sheet's Scrip Details lists them for the
+selected contract. Live values are Upstox's own (`option_greeks`), passed through untouched — a Greek the
+feed doesn't send shows "--", never 0. A simulated chain computes Black–Scholes Greeks instead
+(`blackScholesGreeks` in `lib/options.ts`; 6.5% rate), badged Simulated with the rest of the chain.
+Units: theta is ₹ per day, vega is ₹ per 1-point IV move. Stock and index Trade pages have an
+**Option Chain** link that opens the chain for that symbol.
+
 ### Option order sheet and paper-trading options
 
 Clicking a CE/PE LTP in the Options chain opens a sheet (bottom sheet on phones) for that
