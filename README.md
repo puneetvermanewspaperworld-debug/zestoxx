@@ -241,6 +241,28 @@ Watchlist** (the sidebar list) and your own custom lists (**+ Create Watchlist**
 - Persistence: `Watchlist.listName` (migration `20261030000000_watchlist_lists`; existing rows
   default to "My Watchlist"). An empty custom list is kept as a marker row with symbol `""`.
 
+### Order book, GTD orders and Stock SIPs
+
+`/app/orders` has **Orderbook | Positions | Mutual Fund** tabs; Orderbook has **Open | Closed | GTD | Stock
+SIP**. Order metadata is `orderType: MARKET | LIMIT | GTD | SIP` (plus `expiryDate` for GTD) —
+`lib/orders.ts` holds the rules and is unit-testable on its own.
+
+- **LIMIT is a day order**: it rests until the price crosses, and is moved to Closed as *Expired* once
+  the IST date turns. **GTD** is the same limit order but stays valid through its expiry date (up to
+  365 days out). Place either from the Trade view's order panel. Open lists every resting order; GTD
+  filters to GTD ones; Closed holds filled, cancelled and expired orders.
+- **Stock SIP**: a fixed ₹ amount (min ₹500) bought on a weekly or monthly schedule, in whole shares.
+  Plans can be paused, resumed and cancelled. SIPs are executed **by the open terminal**, not a server
+  job: on weekdays from 09:15 IST, once the first market-data answer is in (never at seed prices). An
+  installment missed while the terminal was closed is skipped, not bought later in one lump; one that
+  costs more than the virtual cash, or buys less than a whole share, is skipped with a notice.
+  Exchange holidays aren't modelled.
+- **Positions** lists holdings (stocks and option contracts) with P&L and a two-step **Exit** (sells the
+  whole position at the last price). The **Mutual Fund** tab is informational only — Zestoxx doesn't
+  buy, sell or track fund units.
+- Resting orders, SIPs and cancelled/expired history now persist (migration
+  `20261031000000_order_types_and_sips`: `Order.orderType/expiryDate/placedDate` and a `Sip` table).
+
 ### "Chg %" — day-change
 
 `chgFor(id)` / `prevCloseFor(id)` on the context are the single source of truth for

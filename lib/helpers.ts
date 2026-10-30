@@ -56,3 +56,9 @@ export function fmtIsoDate(iso: string, withYear = true): string {
 export function istDateString(now: Date = new Date()): string {
   return new Date(now.getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10);
 }
+
+/** Wall-clock in IST: the date, day of week (0 = Sunday) and minutes since midnight. */
+export function istClock(now: Date = new Date()): { date: string; weekday: number; minutes: number } {
+  const d = new Date(now.getTime() + 5.5 * 3_600_000);
+  return { date: d.toISOString().slice(0, 10), weekday: d.getUTCDay(), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
+}

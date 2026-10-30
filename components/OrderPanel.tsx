@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { fmt } from "@/lib/helpers";
+import { fmt, fmtIsoDate, istClock } from "@/lib/helpers";
+import { addDaysIso, gtdBounds } from "@/lib/orders";
+import { useIsClient } from "@/lib/useIsClient";
 import type { AssetType, Holdings } from "@/lib/types";
 
 interface OrderPanelProps {
@@ -11,20 +13,24 @@ interface OrderPanelProps {
   cash: number;
   holdings: Holdings;
   onTrade: (t: {
-    mode: "market" | "limit";
+    mode: "market" | "limit" | "gtd";
     side: "buy" | "sell";
     qty: number;
     limitPrice?: number;
+    expiryDate?: string;
   }) => void;
 }
 
 export default function OrderPanel({ symId, price, type, cash, holdings, onTrade }: OrderPanelProps) {
   const [qty, setQty] = useState(1);
-  const [orderType, setOrderType] = useState<"market" | "limit">("market");
+  const [orderType, setOrderType] = useState<"market" | "limit" | "gtd">("market");
+  const [expiry, setExpiry] = useState("");
+  const isClient = useIsClient();
   const [limitPrice, setLimitPrice] = useState(price?.toFixed(2) || "");
   const [msg, setMsg] = useState<{ t: "ok" | "err"; text: string } | null>(null);
   const held = holdings[symId]?.qty || 0;
-  const effPrice = orderType === "limit" ? parseFloat(limitPrice) || price : price;
+  const resting = orderType !== "market";
+  const effPrice = resting ? parseFloat(limitPrice) || price : price;
   const cost = (effPrice || 0) * qty;
 
   const submit = (side: "buy" | "sell") => {
@@ -44,11 +50,24 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
         setMsg({ t: "err", text: "Enter a valid limit price." });
         return;
       }
-      onTrade({ mode: "limit", side, qty, limitPrice: parseFloat(limitPrice) });
-      setMsg({
-        t: "ok",
-        text: `Limit ${side} order placed: ${qty} ${symId} @ ${fmt(parseFloat(limitPrice), type)}`,
-      });
+      if (orderType === "gtd") {
+        const { min, max } = gtdBounds(istClock().date);
+        if (!expiry || expiry < min || expiry > max) {
+          setMsg({ t: "err", text: `Pick an expiry date between ${fmtIsoDate(min)} and ${fmtIsoDate(max)}.` });
+          return;
+        }
+        onTrade({ mode: "gtd", side, qty, limitPrice: parseFloat(limitPrice), expiryDate: expiry });
+        setMsg({
+          t: "ok",
+          text: `GTD ${side} order placed: ${qty} ${symId} @ ${fmt(parseFloat(limitPrice), type)}, valid till ${fmtIsoDate(expiry)}`,
+        });
+      } else {
+        onTrade({ mode: "limit", side, qty, limitPrice: parseFloat(limitPrice) });
+        setMsg({
+          t: "ok",
+          text: `Limit ${side} order placed (valid today): ${qty} ${symId} @ ${fmt(parseFloat(limitPrice), type)}`,
+        });
+      }
     }
     setTimeout(() => setMsg(null), 2800);
   };
@@ -64,16 +83,19 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
         </span>
       </div>
       <div className="mb-3 flex gap-1 rounded-md border border-slate-200 p-0.5">
-        {(["market", "limit"] as const).map((ot) => (
+        {(["market", "limit", "gtd"] as const).map((ot) => (
           <button
             key={ot}
-            onClick={() => setOrderType(ot)}
+            onClick={() => {
+              setOrderType(ot);
+              if (ot === "gtd" && !expiry) setExpiry(addDaysIso(istClock().date, 7));
+            }}
             className={
-              "flex-1 rounded px-2 py-1 text-[11.5px] font-medium capitalize " +
+              "flex-1 rounded px-2 py-1 text-[11.5px] font-medium " +
               (orderType === ot ? "bg-blue-600 text-slate-50" : "text-slate-500")
             }
           >
-            {ot}
+            {ot === "gtd" ? "GTD" : ot === "limit" ? "Limit" : "Market"}
           </button>
         ))}
       </div>
@@ -90,9 +112,9 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
         </div>
         <div>
           <label className="text-[11px] text-slate-500">
-            {orderType === "limit" ? "Limit Price" : "Est. Cost"}
+            {resting ? "Limit Price" : "Est. Cost"}
           </label>
-          {orderType === "limit" ? (
+          {resting ? (
             <input
               type="number"
               value={limitPrice}
@@ -106,6 +128,25 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
           )}
         </div>
       </div>
+      {orderType === "gtd" && (
+        <div className="mb-3">
+          <label htmlFor="gtd-expiry" className="text-[11px] text-slate-500">
+            Valid till (good-till-date)
+          </label>
+          <input
+            id="gtd-expiry"
+            type="date"
+            value={expiry}
+            min={isClient ? gtdBounds(istClock().date).min : undefined}
+            max={isClient ? gtdBounds(istClock().date).max : undefined}
+            onChange={(e) => setExpiry(e.target.value)}
+            className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] text-slate-900 outline-none focus:border-blue-400"
+          />
+        </div>
+      )}
+      {orderType === "limit" && (
+        <p className="mb-3 text-[11px] text-slate-400">Day order — cancelled automatically if not filled today.</p>
+      )}
       <div className="flex gap-2">
         <button
           onClick={() => submit("buy")}

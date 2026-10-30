@@ -12,10 +12,22 @@ import React, {
 import { useRouter } from "next/navigation";
 import { SYMBOLS, SYMBOL_MAP, VOL } from "@/lib/symbols";
 import { buildHistory } from "@/lib/history";
-import { fmt } from "@/lib/helpers";
+import { fmt, istClock } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
 import { parseContractId } from "@/lib/contract";
 import { simulateChain } from "@/lib/options";
+import {
+  isRestingOrderExpired,
+  isSipExecutable,
+  nextSipDate,
+  sipError,
+  sipFill,
+  type OrderStatus,
+  type OrderType,
+  type SipFrequency,
+  type SipPlan,
+  type SipStatus,
+} from "@/lib/orders";
 import { MAX_SYMBOLS_PER_LIST, listNameError, type CustomList } from "@/lib/watchlists";
 import type {
   Candle,
@@ -46,10 +58,19 @@ type ViewId =
   | "portfolio";
 
 interface TradeInput {
-  mode: "market" | "limit";
+  mode: "market" | "limit" | "gtd";
   side: "buy" | "sell";
   qty: number;
   limitPrice?: number;
+  /** YYYY-MM-DD — required for "gtd" */
+  expiryDate?: string;
+}
+
+interface NewSip {
+  symbol: string;
+  amount: number;
+  frequency: SipFrequency;
+  startDate: string;
 }
 
 interface ZestoxxContextValue {
@@ -102,6 +123,13 @@ interface ZestoxxContextValue {
   tradeContract: (t: { id: string; side: "buy" | "sell"; qty: number; price: number }) => void;
   onAddAlert: (symId: string) => void;
   cancelOrder: (id: number) => void;
+  sips: SipPlan[];
+  /** Returns an error message, or null when the plan was created. */
+  createSip: (s: NewSip) => string | null;
+  setSipStatus: (id: number, status: SipStatus) => void;
+  cancelSip: (id: number) => void;
+  /** Sells the whole position at the last price. */
+  exitPosition: (id: string) => void;
   addToWatchlist: (id: string) => void;
   removeFromWatchlist: (id: string) => void;
   /** Custom watchlists beside the primary one; their symbols are any NSE trading symbols. */
@@ -120,6 +148,13 @@ export function useZestoxx(): ZestoxxContextValue {
   const ctx = useContext(ZestoxxContext);
   if (!ctx) throw new Error("useZestoxx must be used within <ZestoxxProvider>");
   return ctx;
+}
+
+/** Client-only ids aren't stored; the database mints its own. */
+function withoutId<T extends { id: unknown }>(o: T): Omit<T, "id"> {
+  const copy = { ...o };
+  delete (copy as { id?: unknown }).id;
+  return copy;
 }
 
 export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
@@ -158,6 +193,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [cash, setCash] = useState(1000000);
   const [holdings, setHoldings] = useState<Holdings>({});
   const [lists, setLists] = useState<CustomList[]>([]);
+  const [sips, setSips] = useState<SipPlan[]>([]);
   const [orderLog, setOrderLog] = useState<OrderLogEntry[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [timeframe, setTimeframe] = useState<Timeframe>("D");
@@ -175,6 +211,9 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [formula, setFormula] = useState("");
   const [liveSource, setLiveSource] = useState<LiveSource>({});
   const hydrated = useRef(false);
+  const firedOrders = useRef(new Set<number>());
+  /** true once the first market-data pull has answered (or failed): until then `live` is just seed prices */
+  const feedSettled = useRef(false);
   // Symbols that already have a live quote (price + previous close arrive as one unit).
   const quotedRef = useRef<Set<string>>(new Set());
 
@@ -218,7 +257,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   );
 
   const fillOrder = useCallback(
-    (symbol: string, side: "buy" | "sell", qty: number, price: number) => {
+    (symbol: string, side: "buy" | "sell", qty: number, price: number, orderType: OrderType = "MARKET") => {
       const cost = price * qty;
       if (side === "buy") {
         setCash((c) => c - cost);
@@ -248,11 +287,13 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
             side,
             qty,
             price,
-            mode: "market" as const,
+            mode: orderType === "LIMIT" || orderType === "GTD" ? ("limit" as const) : ("market" as const),
+            orderType,
+            status: "filled" as const,
             time: new Date().toLocaleTimeString("en-IN"),
           },
           ...log,
-        ].slice(0, 40)
+        ].slice(0, 100)
       );
     },
     []
@@ -271,8 +312,10 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         openOrders.forEach((o) => {
           const p = next[o.symbol];
           const crossed = o.side === "buy" ? p <= o.limitPrice : p >= o.limitPrice;
-          if (crossed) {
-            fillOrder(o.symbol, o.side, o.qty, o.limitPrice);
+          // This runs inside a state updater, which React may invoke twice in dev — fire once.
+          if (crossed && !firedOrders.current.has(o.id)) {
+            firedOrders.current.add(o.id);
+            fillOrder(o.symbol, o.side, o.qty, o.limitPrice, o.orderType);
             setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
           }
         });
@@ -412,6 +455,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           // keep last known values
         }
       }
+      feedSettled.current = true;
     };
     pull();
     const poll = setInterval(pull, 25000);
@@ -427,6 +471,13 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           const saved = JSON.parse(res.value);
           if (saved.watchlist) setWatchlist(saved.watchlist);
           if (Array.isArray(saved.lists)) setLists(saved.lists);
+          // Resting orders and SIPs are stored without client ids — mint fresh ones.
+          if (Array.isArray(saved.openOrders)) {
+            setOpenOrders(saved.openOrders.map((o: Omit<OpenOrder, "id">) => ({ ...o, id: Date.now() + Math.random() })));
+          }
+          if (Array.isArray(saved.sips)) {
+            setSips(saved.sips.map((p: Omit<SipPlan, "id">) => ({ ...p, id: Date.now() + Math.random() })));
+          }
           if (saved.cash != null) setCash(saved.cash);
           if (saved.holdings) setHoldings(saved.holdings);
           if (saved.orderLog) setOrderLog(saved.orderLog);
@@ -444,11 +495,20 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     const t = setTimeout(() => {
       storage
-        .set("zestoxx:portfolio", JSON.stringify({ watchlist, lists, cash, holdings, orderLog, alerts }))
+        .set("zestoxx:portfolio", JSON.stringify({
+            watchlist,
+            lists,
+            cash,
+            holdings,
+            orderLog,
+            openOrders: openOrders.map(withoutId),
+            sips: sips.map(withoutId),
+            alerts,
+          }))
         .catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [watchlist, lists, cash, holdings, orderLog, alerts]);
+  }, [watchlist, lists, cash, holdings, orderLog, openOrders, sips, alerts]);
 
   useEffect(() => {
     if (toasts.length === 0) return;
@@ -518,7 +578,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   }, [contractIds]);
 
   const onTrade = useCallback(
-    ({ mode, side, qty, limitPrice }: TradeInput) => {
+    ({ mode, side, qty, limitPrice, expiryDate }: TradeInput) => {
       if (mode === "market") {
         fillOrder(selectedRef.current, side, qty, live[selectedRef.current]);
       } else {
@@ -530,6 +590,9 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
             qty,
             limitPrice: limitPrice as number,
             time: new Date().toLocaleTimeString("en-IN"),
+            orderType: mode === "gtd" ? "GTD" : "LIMIT",
+            placedDate: istClock().date,
+            expiryDate: mode === "gtd" ? expiryDate : undefined,
           },
           ...cur,
         ]);
@@ -547,10 +610,153 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     [fillOrder]
   );
 
+  /* ---- order lifecycle: cancel, expire, SIPs ---- */
+
+  const openOrdersRef = useRef(openOrders);
+  const sipsRef = useRef(sips);
+  const cashRef = useRef(cash);
+  useEffect(() => {
+    openOrdersRef.current = openOrders;
+    sipsRef.current = sips;
+    cashRef.current = cash;
+  }, [openOrders, sips, cash]);
+
+  /** Move resting orders into the history as cancelled/expired — they never filled. */
+  const closeOrders = useCallback((orders: OpenOrder[], status: Exclude<OrderStatus, "filled">) => {
+    if (orders.length === 0) return;
+    const ids = new Set(orders.map((o) => o.id));
+    setOpenOrders((cur) => cur.filter((o) => !ids.has(o.id)));
+    setOrderLog((log) =>
+      [
+        ...orders.map((o) => ({
+          id: Date.now() + Math.random(),
+          symbol: o.symbol,
+          side: o.side,
+          qty: o.qty,
+          price: o.limitPrice,
+          mode: "limit" as const,
+          orderType: o.orderType,
+          status,
+          expiryDate: o.expiryDate,
+          time: new Date().toLocaleTimeString("en-IN"),
+        })),
+        ...log,
+      ].slice(0, 100)
+    );
+  }, []);
+
   const cancelOrder = useCallback(
-    (id: number) => setOpenOrders((cur) => cur.filter((o) => o.id !== id)),
+    (id: number) => closeOrders(openOrdersRef.current.filter((o) => o.id === id), "cancelled"),
+    [closeOrders]
+  );
+
+  // A day LIMIT dies when the IST date turns; a GTD after its expiry date. Checked once the
+  // saved orders have loaded, then every 30 s (the terminal can stay open across midnight).
+  useEffect(() => {
+    const sweep = () => {
+      if (!hydrated.current) return;
+      const today = istClock().date;
+      closeOrders(openOrdersRef.current.filter((o) => isRestingOrderExpired(o, today)), "expired");
+    };
+    const first = setTimeout(sweep, 1500);
+    const timer = setInterval(sweep, 30_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [closeOrders]);
+
+  const notify = useCallback(
+    (text: string) => setToasts((t) => [...t, { id: Date.now() + Math.random(), text }]),
     []
   );
+
+  const runSips = useCallback(() => {
+    // Never buy at the seed prices `live` starts with — wait for the first real answer.
+    if (!hydrated.current || !feedSettled.current) return;
+    const now = istClock();
+    const due = sipsRef.current.filter((p) => p.status === "active" && isSipExecutable(p.nextDate, now));
+    if (due.length === 0) return;
+
+    let cashLeft = cashRef.current;
+    const patches = new Map<number, Partial<SipPlan>>();
+    for (const p of due) {
+      const price = liveRef.current[p.symbol];
+      if (!(price > 0)) continue; // no price yet — try again on the next pass
+      // Advance first: an installment is run once, and missed ones are skipped, not stacked.
+      const nextDate = nextSipDate(p, now.date);
+      const { qty, cost } = sipFill(p.amount, price);
+      if (qty < 1) {
+        notify(`SIP skipped: ₹${p.amount} doesn't buy a whole ${p.symbol} share at ${fmt(price, "stock")}.`);
+        patches.set(p.id, { nextDate });
+      } else if (cost > cashLeft) {
+        notify(`SIP skipped: not enough virtual cash for ${p.symbol}.`);
+        patches.set(p.id, { nextDate });
+      } else {
+        cashLeft -= cost;
+        fillOrder(p.symbol, "buy", qty, price, "SIP");
+        notify(`SIP bought ${qty} ${p.symbol} @ ${fmt(price, "stock")}`);
+        patches.set(p.id, { nextDate, installments: p.installments + 1 });
+      }
+    }
+    if (patches.size === 0) return;
+    // Update the ref immediately so an overlapping pass can't run the same installment twice.
+    sipsRef.current = sipsRef.current.map((p) => (patches.has(p.id) ? { ...p, ...patches.get(p.id) } : p));
+    setSips(sipsRef.current);
+  }, [fillOrder, notify]);
+
+  useEffect(() => {
+    const first = setTimeout(runSips, 2500);
+    const timer = setInterval(runSips, 15_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [runSips]);
+
+  const createSip = useCallback(({ symbol, amount, frequency, startDate }: NewSip): string | null => {
+    if (SYMBOL_MAP[symbol]?.type !== "stock") return "Stock SIPs are available for stocks only.";
+    const err = sipError({ amount, startDate }, istClock().date, sipsRef.current.length);
+    if (err) return err;
+    setSips((cur) => [
+      ...cur,
+      {
+        id: Date.now() + Math.random(),
+        symbol,
+        amount,
+        frequency,
+        nextDate: startDate,
+        anchorDay: Number(startDate.slice(8)),
+        status: "active",
+        installments: 0,
+        createdAt: new Date().toLocaleDateString("en-IN"),
+      },
+    ]);
+    return null;
+  }, []);
+
+  const setSipStatus = useCallback((id: number, status: SipStatus) => {
+    const today = istClock().date;
+    setSips((cur) =>
+      cur.map((p) => {
+        if (p.id !== id) return p;
+        // Resuming never back-fills: if the due date slipped past, jump to the next one.
+        const nextDate = status === "active" && p.nextDate < today ? nextSipDate(p, today) : p.nextDate;
+        return { ...p, status, nextDate };
+      })
+    );
+  }, []);
+  const cancelSip = useCallback((id: number) => setSips((cur) => cur.filter((p) => p.id !== id)), []);
+
+  const exitPosition = useCallback(
+    (id: string) => {
+      const qty = holdings[id]?.qty ?? 0;
+      const price = live[id];
+      if (qty > 0 && price > 0) fillOrder(id, "sell", qty, price);
+    },
+    [holdings, live, fillOrder]
+  );
+
   const addToWatchlist = useCallback(
     (id: string) => setWatchlist((w) => (w.includes(id) ? w : [...w, id])),
     []
@@ -669,6 +875,11 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     tradeContract,
     onAddAlert,
     cancelOrder,
+    sips,
+    createSip,
+    setSipStatus,
+    cancelSip,
+    exitPosition,
     addToWatchlist,
     removeFromWatchlist,
     lists,

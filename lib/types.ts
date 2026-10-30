@@ -1,3 +1,5 @@
+import type { OrderStatus, OrderType } from "./orders";
+
 export type AssetType = "stock" | "index" | "crypto";
 
 export interface SymbolInfo {
@@ -30,16 +32,23 @@ export interface Holding {
 
 export type Holdings = Record<string, Holding>;
 
+/** A finished order: filled, or cancelled/expired before it ever filled. */
 export interface OrderLogEntry {
   id: number;
   symbol: string;
   side: "buy" | "sell";
   qty: number;
+  /** fill price; for cancelled/expired orders this is the limit price it never reached */
   price: number;
   mode: "market" | "limit";
   time: string;
+  /** absent on entries saved before order types existed — read as MARKET (or LIMIT when mode is limit) */
+  orderType?: OrderType;
+  status?: OrderStatus;
+  expiryDate?: string;
 }
 
+/** A resting limit-style order: a day LIMIT, or a GTD good until `expiryDate`. */
 export interface OpenOrder {
   id: number;
   symbol: string;
@@ -47,6 +56,11 @@ export interface OpenOrder {
   qty: number;
   limitPrice: number;
   time: string;
+  orderType: "LIMIT" | "GTD";
+  /** YYYY-MM-DD (IST) it was placed */
+  placedDate: string;
+  /** YYYY-MM-DD — GTD only */
+  expiryDate?: string;
 }
 
 export interface PriceAlert {

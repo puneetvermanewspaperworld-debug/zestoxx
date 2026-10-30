@@ -30,6 +30,7 @@ model User {
   holdings  Holding[]
   orders    Order[]
   alerts    Alert[]
+  sips      Sip[]
 }
 
 /// One watched symbol in one of a user's watchlists. `listName` is "My Watchlist" for the
@@ -61,17 +62,20 @@ model Holding {
   @@index([userId])
 }
 
-/// Filled orders (history) and resting limit orders, distinguished by `status`.
+/// Every order the paper engine has seen: resting ("open"), filled, cancelled or expired.
 model Order {
   id         String   @id @default(cuid())
   userId     String
   symbol     String
   side       String // "buy" | "sell"
   mode       String // "market" | "limit"
+  orderType  String   @default("MARKET") // "MARKET" | "LIMIT" | "GTD" | "SIP"
+  expiryDate String? // YYYY-MM-DD — GTD orders only
+  placedDate String? // YYYY-MM-DD (IST) — what makes a LIMIT a day order
   qty        Float
   price      Float? // fill price — set once the order is filled
   limitPrice Float? // trigger price — set for resting limit orders
-  status     String   @default("filled") // "filled" | "open" | "cancelled"
+  status     String   @default("filled") // "filled" | "open" | "cancelled" | "expired"
   timeLabel  String? // the "h:mm:ss AM/PM" label the terminal renders
   placedAt   DateTime @default(now())
 
@@ -90,6 +94,25 @@ model Alert {
   target         Float
   createdAtLabel String? // the localized time label shown in the UI
   createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A Stock SIP: a fixed ₹ amount bought on a schedule. Runs inside the open terminal.
+model Sip {
+  id           String  @id @default(cuid())
+  userId       String
+  symbol       String
+  amount       Float
+  frequency    String // "weekly" | "monthly"
+  nextDate     String // YYYY-MM-DD of the next installment
+  anchorDay    Int // day of month monthly installments land on
+  status       String  @default("active") // "active" | "paused"
+  installments Int     @default(0)
+  createdLabel String?
+  position     Int     @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
