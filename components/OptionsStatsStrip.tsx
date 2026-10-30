@@ -4,12 +4,36 @@ import React, { useMemo } from "react";
 import { chainStats, type OptionChain } from "@/lib/options";
 import { fmtOi } from "@/lib/helpers";
 
-function Stat({ label, value, sub, hint }: { label: string; value: string; sub?: string; hint?: string }) {
+type Accent = "none" | "resistance" | "support";
+
+const ACCENT_BAR: Record<Accent, string> = {
+  none: "bg-slate-200",
+  resistance: "bg-rose-400",
+  support: "bg-emerald-400",
+};
+
+function Stat({
+  label,
+  value,
+  sub,
+  hint,
+  accent = "none",
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  hint?: string;
+  accent?: Accent;
+}) {
   return (
-    <div title={hint}>
-      <div className="text-[10.5px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-0.5 font-mono text-[15px] font-semibold text-slate-900">{value}</div>
-      {sub && <div className="font-mono text-[10.5px] text-slate-400">{sub}</div>}
+    <div
+      title={hint}
+      className="relative overflow-hidden rounded-lg border border-slate-200 bg-white py-2.5 pl-3.5 pr-3"
+    >
+      <span className={"absolute inset-y-0 left-0 w-0.5 " + ACCENT_BAR[accent]} aria-hidden />
+      <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="mt-1 font-mono text-[17px] font-semibold leading-none text-slate-900">{value}</div>
+      <div className="mt-1.5 min-h-[14px] font-mono text-[10.5px] leading-tight text-slate-400">{sub}</div>
     </div>
   );
 }
@@ -22,10 +46,10 @@ export default function OptionsStatsStrip({ chain }: { chain: OptionChain }) {
   const [put1, put2] = stats.topPuts;
   const level = (l?: { strike: number; oi: number }) => (l ? `${l.strike}` : "--");
   const levelSub = (top?: { strike: number; oi: number }, second?: { strike: number; oi: number }) =>
-    second && top ? `OI ${fmtOi(second.oi)} · highest ${top.strike}` : undefined;
+    second && top ? `OI ${fmtOi(second.oi)} · top ${top.strike}` : undefined;
 
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       <Stat
         label="ATM IV"
         value={stats.atmIv != null ? `${stats.atmIv.toFixed(2)}%` : "--"}
@@ -47,18 +71,21 @@ export default function OptionsStatsStrip({ chain }: { chain: OptionChain }) {
       <Stat
         label="Max pain"
         value={stats.maxPain != null ? String(stats.maxPain) : "--"}
+        sub="writers' least payout"
         hint="Strike where option writers' total payout at expiry would be smallest"
       />
       <Stat
         label="2nd highest call"
         value={level(call2)}
         sub={levelSub(call1, call2)}
+        accent="resistance"
         hint="Strike with the second-largest call open interest — a secondary resistance level"
       />
       <Stat
         label="2nd highest put"
         value={level(put2)}
         sub={levelSub(put1, put2)}
+        accent="support"
         hint="Strike with the second-largest put open interest — a secondary support level"
       />
     </div>
