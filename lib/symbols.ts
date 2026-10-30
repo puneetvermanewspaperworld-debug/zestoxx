@@ -21,8 +21,6 @@ export const SYMBOL_MAP: Record<string, SymbolInfo> = Object.fromEntries(
 
 export const VOL: Record<AssetType, number> = { stock: 0.006, index: 0.003, crypto: 0.016 };
 
-export const EXPIRIES = ["25 Sep 2026", "30 Oct 2026", "27 Nov 2026"];
-
 export const COINGECKO_IDS: Record<string, string> = {
   BTC: "bitcoin",
   ETH: "ethereum",

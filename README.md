@@ -37,8 +37,9 @@ won't persist; without an Upstox token, NSE/BSE symbols stay on the simulation.
 | `/app/trade/[symbol]` | Candlestick chart (MA/EMA/BB/RSI/volume), drawing tools, custom formula bar, order panel, depth ladder |
 | `/app/pulse` | Composite signal per symbol |
 | `/app/markets` | Sortable table + heatmap |
-| `/app/options` | Options chain (index/stock) |
-| `/app/fiidii` | FII/DII net flows — daily / weekly / monthly |
+| `/app/options` | Real option chain (OI, ΔOI, IV) + ATM IV / PCR / India VIX / max pain / second-highest call & put OI |
+| `/app/buildup` | Long/Short buildup: stacked LB/SC/SB/LU bar + per-strike heatmap for NIFTY, BANK NIFTY, FINNIFTY, MIDCPNIFTY |
+| `/app/fiidii` | FII/DII — FII|DII × Cash|Derivatives × daily/weekly/monthly, Nifty % column, FII index-futures long/short (**simulated**) |
 | `/app/news` | Market news |
 | `/app/alerts` | Price alerts |
 | `/app/orders` | Open limit orders + fill history |
@@ -60,6 +61,7 @@ app/
     market-data/route.ts      CoinGecko (crypto) + Upstox (NSE/BSE) proxy
     fiidii/route.ts           returns the seeded mock; wire a daily cron for real data
     portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
+    options-chain/route.ts    live Upstox option chain + expiries + India VIX (or `{source:"unavailable"}`)
 components/
   ZestoxxProvider.tsx         all terminal state + the sim/CoinGecko/persistence effects
   AppShell.tsx                provider + layout chrome
@@ -69,7 +71,11 @@ components/
 lib/
   symbols.ts    indicators.ts    pulse.ts    formula.ts
   history.ts    helpers.ts       types.ts
-  upstox.ts                    Upstox instrument keys + LTP / historical fetchers
+  upstox.ts                    Upstox instrument keys + LTP / historical / option-chain fetchers
+  options.ts                   buildup classification, chain stats (PCR, max pain…), simulated chain
+  useOptionChain.ts            client hook: live chain, else labelled simulation
+  fiidii.ts                    simulated FII/DII generator + daily/weekly/monthly aggregation
+  useIsClient.ts               defers date-dependent UI past hydration
   db.ts                        Prisma client singleton
   auth.ts                      getCurrentUser() — demo user until real auth
   portfolio.ts                 blob <-> relational tables (loadPortfolio / savePortfolio)
@@ -133,6 +139,8 @@ candles + price and flips that symbol's badge from **Simulated** to **Live data*
 |---|---|---|---|
 | BTC, ETH, SOL | CoinGecko | none | price 25 s, history on load |
 | RELIANCE, TCS, INFY, HDFCBANK, SBIN, TATAMOTORS, NIFTY50, SENSEX, BANKNIFTY | Upstox v3 | `UPSTOX_ANALYTICS_TOKEN` | LTP 25 s (cached 10 s), ~400 d of daily candles on load (cached 1 h) |
+| Option chains (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, the stocks above, SENSEX) + India VIX | Upstox v2 `option/chain`, `option/contract` | same token | chain re-polled every 30 s (cached 15 s), expiry list cached 1 h |
+| FII/DII flows | — | — | **simulated** (NSE blocks scraping; see `app/api/fiidii/route.ts` for the ingest plan) |
 
 Both are proxied server-side through `app/api/market-data/route.ts` so no credential or
 CORS issue reaches the browser. The Upstox token is a **long-lived, read-only Analytics
@@ -142,6 +150,23 @@ callback route. Instrument keys live in `lib/upstox.ts` (`UPSTOX_KEYS`).
 Setup: put the token in `.env.local` (gitignored) as `UPSTOX_ANALYTICS_TOKEN=…`, or in
 Vercel project env for production. With no token the equity endpoints return `{}` and
 those symbols stay simulated — nothing breaks.
+
+### Option chain, buildup and the stats strip
+
+`/api/options-chain` returns per-strike LTP, previous close, OI, previous OI, volume and IV
+for calls and puts. Everything on the Options and Buildup views is computed from that one
+payload in `lib/options.ts`:
+
+- **PCR** = total put OI ÷ total call OI · **ATM IV** = mean of the ATM call/put IV ·
+  **Max pain** = strike minimising option writers' payout · **second-highest call/put** = the
+  strikes with the 2nd-largest OI.
+- **Buildup** — each call and put is classified on its *own* premium and OI vs the previous
+  session: premium↑ OI↑ long buildup, premium↑ OI↓ short covering, premium↓ OI↑ short buildup,
+  premium↓ OI↓ long unwinding. Only contracts that traded today with a prior-session reference
+  count. A put's "long buildup" is bearish for the index; the in-app explainer says so.
+
+With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
+shows a deterministic simulated chain, badged **Simulated**.
 
 ### "Chg %" — day-change
 

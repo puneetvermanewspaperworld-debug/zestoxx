@@ -11,6 +11,8 @@
  *       https://upstox.com/developer/api-documentation/get-historical-candle-data-v3/
  */
 
+import type { ChainRow, OptionLeg } from "./options";
+
 const UPSTOX_BASE = "https://api.upstox.com";
 
 /**
@@ -122,4 +124,100 @@ export async function fetchUpstoxHistory(
   const out: Record<string, number[][]> = {};
   for (const [sym, candles] of results) if (candles) out[sym] = candles;
   return out;
+}
+
+/* ------------------------------------------------------------ option chain ---- */
+
+/**
+ * Underlyings the option-chain endpoints accept, keyed by the ids the UI uses.
+ * NIFTY / BANKNIFTY / FINNIFTY / MIDCPNIFTY are the four index tabs on the buildup
+ * view; the rest alias the symbols in lib/symbols.ts so the Options view can use them.
+ */
+export const OPTION_UNDERLYINGS: Record<string, string> = {
+  ...UPSTOX_KEYS,
+  NIFTY: UPSTOX_KEYS.NIFTY50,
+  FINNIFTY: "NSE_INDEX|Nifty Fin Service",
+  MIDCPNIFTY: "NSE_INDEX|NIFTY MID SELECT",
+};
+
+const INDIA_VIX_KEY = "NSE_INDEX|India VIX";
+
+/** Today's date in IST as YYYY-MM-DD — expiries are Indian exchange dates. */
+function istToday(): string {
+  return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+}
+
+const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
+
+/** Upcoming expiry dates (YYYY-MM-DD, soonest first) that have listed option contracts. */
+export async function fetchOptionExpiries(token: string, key: string): Promise<string[]> {
+  const res = await fetch(`${UPSTOX_BASE}/v2/option/contract?instrument_key=${encodeURIComponent(key)}`, {
+    headers: authHeaders(token),
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) throw new Error(`upstox option contracts ${res.status}`);
+  const json = (await res.json()) as { data?: { expiry?: string }[] };
+  const today = istToday();
+  const set = new Set<string>();
+  for (const c of json.data ?? []) if (c.expiry && c.expiry >= today) set.add(c.expiry);
+  return [...set].sort();
+}
+
+interface ApiLeg {
+  market_data?: {
+    ltp?: number;
+    close_price?: number;
+    oi?: number;
+    prev_oi?: number;
+    volume?: number;
+  };
+  option_greeks?: { iv?: number };
+}
+
+interface ApiChainRow {
+  strike_price?: number;
+  underlying_spot_price?: number;
+  call_options?: ApiLeg;
+  put_options?: ApiLeg;
+}
+
+const toLeg = (l?: ApiLeg): OptionLeg => ({
+  ltp: num(l?.market_data?.ltp),
+  prevClose: num(l?.market_data?.close_price),
+  oi: num(l?.market_data?.oi),
+  prevOi: num(l?.market_data?.prev_oi),
+  volume: num(l?.market_data?.volume),
+  iv: num(l?.option_greeks?.iv),
+});
+
+/** Full chain for one underlying + expiry, strikes ascending. */
+export async function fetchOptionChain(
+  token: string,
+  key: string,
+  expiry: string
+): Promise<{ spot: number; rows: ChainRow[] }> {
+  const res = await fetch(
+    `${UPSTOX_BASE}/v2/option/chain?instrument_key=${encodeURIComponent(key)}&expiry_date=${expiry}`,
+    { headers: authHeaders(token), next: { revalidate: 15 } }
+  );
+  if (!res.ok) throw new Error(`upstox option chain ${res.status}`);
+  const json = (await res.json()) as { data?: ApiChainRow[] };
+  const data = json.data ?? [];
+  const rows: ChainRow[] = data
+    .filter((r) => typeof r.strike_price === "number")
+    .map((r) => ({ strike: r.strike_price as number, call: toLeg(r.call_options), put: toLeg(r.put_options) }))
+    .sort((a, b) => a.strike - b.strike);
+  const spot = data.map((r) => num(r.underlying_spot_price)).find((v) => v > 0) ?? 0;
+  return { spot, rows };
+}
+
+export async function fetchIndiaVix(token: string): Promise<number | null> {
+  const res = await fetch(
+    `${UPSTOX_BASE}/v3/market-quote/ltp?instrument_key=${encodeURIComponent(INDIA_VIX_KEY)}`,
+    { headers: authHeaders(token), next: { revalidate: 30 } }
+  );
+  if (!res.ok) return null;
+  const json = (await res.json()) as { data?: Record<string, LtpEntry> };
+  const v = Object.values(json.data ?? {})[0]?.last_price;
+  return typeof v === "number" && v > 0 ? v : null;
 }

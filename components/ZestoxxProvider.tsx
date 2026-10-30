@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { SYMBOLS, SYMBOL_MAP, VOL, EXPIRIES } from "@/lib/symbols";
+import { SYMBOLS, SYMBOL_MAP, VOL } from "@/lib/symbols";
 import { buildHistory } from "@/lib/history";
 import { fmt } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
@@ -33,6 +33,7 @@ type ViewId =
   | "pulse"
   | "markets"
   | "options"
+  | "buildup"
   | "fiidii"
   | "news"
   | "alerts"
@@ -71,8 +72,6 @@ interface ZestoxxContextValue {
   setShowEMA: React.Dispatch<React.SetStateAction<boolean>>;
   compareWith: string | null;
   setCompareWith: React.Dispatch<React.SetStateAction<string | null>>;
-  expiry: string;
-  setExpiry: React.Dispatch<React.SetStateAction<string>>;
   alerts: PriceAlert[];
   setAlerts: React.Dispatch<React.SetStateAction<PriceAlert[]>>;
   toasts: Toast[];
@@ -152,7 +151,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [showBB, setShowBB] = useState(false);
   const [showEMA, setShowEMA] = useState(false);
   const [compareWith, setCompareWith] = useState<string | null>(null);
-  const [expiry, setExpiry] = useState(EXPIRIES[0]);
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [alertPrefill, setAlertPrefill] = useState<string | null>(null);
@@ -161,6 +159,8 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [formula, setFormula] = useState("");
   const [liveSource, setLiveSource] = useState<LiveSource>({});
   const hydrated = useRef(false);
+  // Symbols that already have a live quote (price + previous close arrive as one unit).
+  const quotedRef = useRef<Set<string>>(new Set());
 
   const onAddDrawing = useCallback(
     (d: Drawing) => {
@@ -316,11 +316,17 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         });
         return next;
       });
-      setLive((prev) => {
-        const next = { ...prev };
-        ids.forEach((id) => (next[id] = data[id][data[id].length - 1][4]));
-        return next;
-      });
+      // Seed the price from the last candle only where no quote has arrived. A quote's
+      // price and previous close are one consistent unit — overwriting just the price
+      // would pair it with a previous close from a different moment (absurd day-change).
+      const unquoted = ids.filter((id) => !quotedRef.current.has(id));
+      if (unquoted.length > 0) {
+        setLive((prev) => {
+          const next = { ...prev };
+          unquoted.forEach((id) => (next[id] = data[id][data[id].length - 1][4]));
+          return next;
+        });
+      }
       setLiveSource((prev) => {
         const next = { ...prev };
         ids.forEach((id) => (next[id] = "live"));
@@ -353,6 +359,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           const quotes: Record<string, { price: number; prevClose: number }> = await res.json();
           const ids = Object.keys(quotes).filter((id) => quotes[id]?.price > 0);
           if (ids.length === 0) continue;
+          ids.forEach((id) => quotedRef.current.add(id));
           setLive((prev) => {
             const next = { ...prev };
             ids.forEach((id) => (next[id] = quotes[id].price));
@@ -526,8 +533,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     setShowEMA,
     compareWith,
     setCompareWith,
-    expiry,
-    setExpiry,
     alerts,
     setAlerts,
     toasts,

@@ -9,6 +9,7 @@ import {
   Bell,
   ListOrdered,
   Wallet,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export const NAV: NavItem[] = [
   { id: "pulse", label: "Pulse", icon: Zap, href: "/app/pulse" },
   { id: "markets", label: "Markets", icon: Store, href: "/app/markets" },
   { id: "options", label: "Options", icon: SlidersHorizontal, href: "/app/options" },
+  { id: "buildup", label: "Buildup", icon: Activity, href: "/app/buildup" },
   { id: "fiidii", label: "FII/DII", icon: Landmark, href: "/app/fiidii" },
   { id: "news", label: "News", icon: Newspaper, href: "/app/news" },
   { id: "alerts", label: "Alerts", icon: Bell, href: "/app/alerts" },
