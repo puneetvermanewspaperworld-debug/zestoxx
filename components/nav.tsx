@@ -11,6 +11,7 @@ import {
   Wallet,
   Activity,
   Flame,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/app/dashboard" },
+  { id: "watchlist", label: "Watchlist", icon: Star, href: "/app/watchlist" },
   { id: "trade", label: "Trade", icon: LineChart, href: "/app/trade/RELIANCE" },
   { id: "pulse", label: "Pulse", icon: Zap, href: "/app/pulse" },
   { id: "markets", label: "Markets", icon: Store, href: "/app/markets" },

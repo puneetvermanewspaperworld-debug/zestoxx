@@ -67,6 +67,9 @@ app/
     option-quote/route.ts     full quote for one option contract: OHLC, 5-level depth, buy/sell totals
     option-candles/route.ts   today's 5-minute candles for one option contract (order-sheet chart)
     option-marks/route.ts     last prices for held option contracts (portfolio mark-to-market)
+    option-expiries/route.ts  upcoming expiry dates for an underlying (the "EXPIRY TODAY" badge)
+    watchlist/route.ts        priced rows for a popular list (`?list=`) or any NSE symbols (`?symbols=`)
+    watchlist-search/route.ts symbol/name search across all NSE equities and ETFs (no token needed)
 components/
   ZestoxxProvider.tsx         all terminal state + the sim/CoinGecko/persistence effects
   AppShell.tsx                provider + layout chrome
@@ -217,6 +220,26 @@ Open/High/Low/Prev Close, a 5-level depth ladder, and a buy/sell quantity bar.
   there is no expiry/settlement logic yet.
 - Instrument keys proxied by these routes must match `NSE_FO|<digits>` (or BSE_FO/MCX_FO) —
   the routes are not a general Upstox passthrough.
+
+### Watchlists
+
+`/app/watchlist` has live NIFTY 50 / NIFTY BANK cards (an **Expiry today** badge appears when the
+nearest option expiry — from `/api/option-expiries`, or the generated calendar if Upstox is
+down — is today in IST), and three kinds of tab: **Explore** (Popular Watchlists), **My
+Watchlist** (the sidebar list) and your own custom lists (**+ Create Watchlist**, up to 10 lists
+× 50 symbols).
+
+- **Popular lists** (`lib/watchlists.ts`): sector/ETF lists are fixed NSE symbols that are
+  validated against the instrument master each time (a delisted one just drops out);
+  *Top Gainers/Losers* reuse the movers ranking; *All/Gold/Silver ETF* are the fund-unit
+  (`INF…` ISIN) instruments, most traded first; *52 Week High/Low* rank the F&O stocks by
+  distance from their extreme, from a year of daily candles (≈220 calls, cached an hour);
+  *Festive Season* is Zestoxx's own editorial theme. Curated for browsing — not recommendations.
+- **Custom lists hold any NSE symbol**, found through `/api/watchlist-search` and priced by
+  bulk LTP. They are quote-only: charts and paper trading still cover only the symbols in
+  `lib/symbols.ts` (the page says so). **My Watchlist** stays limited to those.
+- Persistence: `Watchlist.listName` (migration `20261030000000_watchlist_lists`; existing rows
+  default to "My Watchlist"). An empty custom list is kept as a marker row with symbol `""`.
 
 ### "Chg %" — day-change
 

@@ -33,11 +33,15 @@ const INDEX_FUTURES = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT
 
 /* ------------------------------------------------------------- universe ----- */
 
-interface StockInfo {
+export interface StockInfo {
   symbol: string;
   name: string;
   key: string;
   lot?: number;
+  /** the exchange's friendlier fund name, when it has one (ETFs) */
+  shortName?: string;
+  /** "INF…" ISINs are fund units (ETFs); equities are "INE…" */
+  isin?: string;
 }
 
 interface FutInfo {
@@ -61,8 +65,9 @@ interface OptionSeries {
   byExpiry: Map<string, OptRef[]>;
 }
 
-interface Universe {
+export interface Universe {
   allEq: StockInfo[];
+  bySymbol: Map<string, StockInfo>;
   fnoStocks: StockInfo[];
   futures: FutInfo[];
   options: Map<string, OptionSeries>;
@@ -74,6 +79,8 @@ interface MasterItem {
   instrument_key: string;
   trading_symbol?: string;
   name?: string;
+  short_name?: string;
+  isin?: string;
   lot_size?: number;
   expiry?: number;
   underlying_symbol?: string;
@@ -97,7 +104,13 @@ async function buildUniverse(): Promise<Universe> {
 
   for (const i of raw) {
     if (i.segment === "NSE_EQ" && i.instrument_type === "EQ" && i.trading_symbol) {
-      allEq.push({ symbol: i.trading_symbol, name: i.name ?? i.trading_symbol, key: i.instrument_key });
+      allEq.push({
+        symbol: i.trading_symbol,
+        name: i.name ?? i.trading_symbol,
+        key: i.instrument_key,
+        shortName: i.short_name?.trim() || undefined,
+        isin: i.isin,
+      });
       continue;
     }
     if (i.segment !== "NSE_FO" || !i.expiry || !i.underlying_symbol) continue;
@@ -122,7 +135,13 @@ async function buildUniverse(): Promise<Universe> {
     }
   }
 
-  return { allEq, fnoStocks: [...fno.values()], futures, options };
+  return {
+    allEq,
+    bySymbol: new Map(allEq.map((s) => [s.symbol, s])),
+    fnoStocks: [...fno.values()],
+    futures,
+    options,
+  };
 }
 
 let universe: { at: number; promise: Promise<Universe> } | null = null;

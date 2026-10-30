@@ -51,3 +51,8 @@ export function fmtIsoDate(iso: string, withYear = true): string {
   const mon = MONTHS[Number(m) - 1] ?? m;
   return withYear ? `${d} ${mon} ${y}` : `${d} ${mon}`;
 }
+
+/** Today's date on Indian exchanges (IST) as YYYY-MM-DD, whatever the viewer's timezone. */
+export function istDateString(now: Date = new Date()): string {
+  return new Date(now.getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+}

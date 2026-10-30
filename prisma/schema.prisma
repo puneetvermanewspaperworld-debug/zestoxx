@@ -32,16 +32,18 @@ model User {
   alerts    Alert[]
 }
 
-/// One watched symbol for a user. `position` preserves the on-screen ordering.
+/// One watched symbol in one of a user's watchlists. `listName` is "My Watchlist" for the
+/// primary (sidebar) list, or the name of a custom list. `position` preserves ordering.
 model Watchlist {
   id       String @id @default(cuid())
   userId   String
+  listName String @default("My Watchlist")
   symbol   String
   position Int    @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, symbol])
+  @@unique([userId, listName, symbol])
   @@index([userId])
 }
 

@@ -16,6 +16,7 @@ import { fmt } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
 import { parseContractId } from "@/lib/contract";
 import { simulateChain } from "@/lib/options";
+import { MAX_SYMBOLS_PER_LIST, listNameError, type CustomList } from "@/lib/watchlists";
 import type {
   Candle,
   Holdings,
@@ -35,6 +36,7 @@ type ViewId =
   | "pulse"
   | "markets"
   | "movers"
+  | "watchlist"
   | "options"
   | "buildup"
   | "fiidii"
@@ -102,6 +104,14 @@ interface ZestoxxContextValue {
   cancelOrder: (id: number) => void;
   addToWatchlist: (id: string) => void;
   removeFromWatchlist: (id: string) => void;
+  /** Custom watchlists beside the primary one; their symbols are any NSE trading symbols. */
+  lists: CustomList[];
+  /** Returns an error message, or null when the list was created. */
+  createList: (name: string, symbols?: string[]) => string | null;
+  deleteList: (name: string) => void;
+  /** Returns an error message, or null when added. */
+  addToList: (name: string, symbol: string) => string | null;
+  removeFromList: (name: string, symbol: string) => void;
 }
 
 const ZestoxxContext = createContext<ZestoxxContextValue | null>(null);
@@ -147,6 +157,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [prevClose, setPrevClose] = useState<Record<string, number>>({});
   const [cash, setCash] = useState(1000000);
   const [holdings, setHoldings] = useState<Holdings>({});
+  const [lists, setLists] = useState<CustomList[]>([]);
   const [orderLog, setOrderLog] = useState<OrderLogEntry[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [timeframe, setTimeframe] = useState<Timeframe>("D");
@@ -415,6 +426,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         if (res?.value) {
           const saved = JSON.parse(res.value);
           if (saved.watchlist) setWatchlist(saved.watchlist);
+          if (Array.isArray(saved.lists)) setLists(saved.lists);
           if (saved.cash != null) setCash(saved.cash);
           if (saved.holdings) setHoldings(saved.holdings);
           if (saved.orderLog) setOrderLog(saved.orderLog);
@@ -432,11 +444,11 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     const t = setTimeout(() => {
       storage
-        .set("zestoxx:portfolio", JSON.stringify({ watchlist, cash, holdings, orderLog, alerts }))
+        .set("zestoxx:portfolio", JSON.stringify({ watchlist, lists, cash, holdings, orderLog, alerts }))
         .catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [watchlist, cash, holdings, orderLog, alerts]);
+  }, [watchlist, lists, cash, holdings, orderLog, alerts]);
 
   useEffect(() => {
     if (toasts.length === 0) return;
@@ -554,6 +566,33 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     [setSelected]
   );
 
+  const createList = useCallback(
+    (name: string, symbols: string[] = []): string | null => {
+      const err = listNameError(name, lists.map((l) => l.name));
+      if (err) return err;
+      setLists((cur) => [...cur, { name: name.trim(), symbols: [...new Set(symbols)].slice(0, MAX_SYMBOLS_PER_LIST) }]);
+      return null;
+    },
+    [lists]
+  );
+  const deleteList = useCallback((name: string) => setLists((cur) => cur.filter((l) => l.name !== name)), []);
+  const addToList = useCallback(
+    (name: string, symbol: string): string | null => {
+      const list = lists.find((l) => l.name === name);
+      if (!list) return "That watchlist no longer exists.";
+      if (list.symbols.includes(symbol)) return `${symbol} is already in ${name}.`;
+      if (list.symbols.length >= MAX_SYMBOLS_PER_LIST) return `A watchlist holds up to ${MAX_SYMBOLS_PER_LIST} symbols.`;
+      setLists((cur) => cur.map((l) => (l.name === name ? { ...l, symbols: [...l.symbols, symbol] } : l)));
+      return null;
+    },
+    [lists]
+  );
+  const removeFromList = useCallback(
+    (name: string, symbol: string) =>
+      setLists((cur) => cur.map((l) => (l.name === name ? { ...l, symbols: l.symbols.filter((x) => x !== symbol) } : l))),
+    []
+  );
+
   /**
    * Reference close for the day-change ("Chg %"). Live symbols use the real previous
    * close from their feed (Upstox `cp` / crypto 24h-ago); simulated symbols use the
@@ -632,6 +671,11 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     cancelOrder,
     addToWatchlist,
     removeFromWatchlist,
+    lists,
+    createList,
+    deleteList,
+    addToList,
+    removeFromList,
   };
 
   return <ZestoxxContext.Provider value={value}>{children}</ZestoxxContext.Provider>;

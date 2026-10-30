@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { MAX_LISTS, MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, isNseSymbol, type CustomList } from "@/lib/watchlists";
 
 /**
  * The single blob the terminal reads/writes through `storage` (was one localStorage
@@ -8,6 +9,8 @@ import { prisma } from "@/lib/db";
  */
 export interface PortfolioBlob {
   watchlist: string[];
+  /** custom watchlists beside the primary one; absent in blobs saved before they existed */
+  lists?: CustomList[];
   cash: number;
   holdings: Record<string, { qty: number; avgPrice: number }>;
   orderLog: {
@@ -50,8 +53,17 @@ export async function loadPortfolio(userId: string): Promise<PortfolioBlob | nul
     alerts.length === 0;
   if (isEmpty) return null;
 
+  const primary = watchlist.filter((w) => w.listName === PRIMARY_LIST);
+  const custom = new Map<string, string[]>();
+  for (const w of watchlist) {
+    if (w.listName === PRIMARY_LIST) continue;
+    // The "" row only records that an (empty) list exists.
+    custom.set(w.listName, w.symbol ? [...(custom.get(w.listName) ?? []), w.symbol] : custom.get(w.listName) ?? []);
+  }
+
   return {
-    watchlist: watchlist.map((w) => w.symbol),
+    watchlist: primary.map((w) => w.symbol),
+    lists: [...custom].map(([name, symbols]) => ({ name, symbols })),
     cash: user.cash,
     holdings: Object.fromEntries(
       holdings.map((h) => [h.symbol, { qty: h.qty, avgPrice: h.avgPrice }])
@@ -82,6 +94,18 @@ export async function loadPortfolio(userId: string): Promise<PortfolioBlob | nul
  */
 export async function savePortfolio(userId: string, blob: PortfolioBlob): Promise<void> {
   const watchlist = Array.isArray(blob.watchlist) ? blob.watchlist : [];
+  // Custom lists are user input from the client: keep only well-formed, de-duplicated ones.
+  const seenNames = new Set<string>([PRIMARY_LIST.toLowerCase()]);
+  const lists: CustomList[] = [];
+  for (const l of Array.isArray(blob.lists) ? blob.lists : []) {
+    const name = typeof l?.name === "string" ? l.name.trim() : "";
+    if (!name || seenNames.has(name.toLowerCase()) || lists.length >= MAX_LISTS) continue;
+    seenNames.add(name.toLowerCase());
+    const symbols = [...new Set(Array.isArray(l.symbols) ? l.symbols : [])]
+      .filter((x): x is string => typeof x === "string" && isNseSymbol(x))
+      .slice(0, MAX_SYMBOLS_PER_LIST);
+    lists.push({ name, symbols });
+  }
   const holdings = blob.holdings ?? {};
   const orderLog = Array.isArray(blob.orderLog) ? blob.orderLog : [];
   const alerts = Array.isArray(blob.alerts) ? blob.alerts : [];
@@ -94,7 +118,15 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
 
     prisma.watchlist.deleteMany({ where: { userId } }),
     prisma.watchlist.createMany({
-      data: watchlist.map((symbol, position) => ({ userId, symbol, position })),
+      data: [
+        ...watchlist.map((symbol, position) => ({ userId, listName: PRIMARY_LIST, symbol, position })),
+        // A "" marker row per list, so a list with no symbols yet survives a reload.
+        ...lists.flatMap((l, i) => [
+          // negative positions sort first, so reading back keeps the lists in tab order
+          { userId, listName: l.name, symbol: "", position: i - MAX_LISTS },
+          ...l.symbols.map((symbol, position) => ({ userId, listName: l.name, symbol, position })),
+        ]),
+      ],
     }),
 
     prisma.holding.deleteMany({ where: { userId } }),
