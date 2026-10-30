@@ -143,7 +143,7 @@ export const OPTION_UNDERLYINGS: Record<string, string> = {
 const INDIA_VIX_KEY = "NSE_INDEX|India VIX";
 
 /** Today's date in IST as YYYY-MM-DD — expiries are Indian exchange dates. */
-function istToday(): string {
+export function istToday(): string {
   return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
 }
 
@@ -220,4 +220,47 @@ export async function fetchIndiaVix(token: string): Promise<number | null> {
   const json = (await res.json()) as { data?: Record<string, LtpEntry> };
   const v = Object.values(json.data ?? {})[0]?.last_price;
   return typeof v === "number" && v > 0 ? v : null;
+}
+
+/* ------------------------------------------------------------ bulk quotes ---- */
+
+export interface RawQuote {
+  ltp: number;
+  /** previous close */
+  cp: number;
+  /** total traded quantity today */
+  volume: number;
+}
+
+const BATCH = 500; // Upstox's per-call ceiling for market-quote endpoints
+
+/**
+ * Last price, previous close and volume for any number of instrument keys (chunked into
+ * parallel calls of 500). Keyed by the instrument_token each entry echoes back, because
+ * the response object itself is keyed "EXCHANGE:SYMBOL". Never cached: callers dedupe
+ * and rate-limit themselves, and these numbers must be fresh.
+ */
+export async function fetchQuotesBatch(token: string, keys: string[]): Promise<Map<string, RawQuote>> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < keys.length; i += BATCH) chunks.push(keys.slice(i, i + BATCH));
+
+  const responses = await Promise.all(
+    chunks.map(async (chunk) => {
+      const res = await fetch(
+        `${UPSTOX_BASE}/v3/market-quote/ltp?instrument_key=${encodeURIComponent(chunk.join(","))}`,
+        { headers: authHeaders(token), cache: "no-store" }
+      );
+      if (!res.ok) throw new Error(`upstox bulk ltp ${res.status}`);
+      return (await res.json()) as { data?: Record<string, LtpEntry & { volume?: number }> };
+    })
+  );
+
+  const out = new Map<string, RawQuote>();
+  for (const json of responses) {
+    for (const e of Object.values(json.data ?? {})) {
+      if (!e.instrument_token) continue;
+      out.set(e.instrument_token, { ltp: num(e.last_price), cp: num(e.cp), volume: num(e.volume) });
+    }
+  }
+  return out;
 }

@@ -37,6 +37,7 @@ won't persist; without an Upstox token, NSE/BSE symbols stay on the simulation.
 | `/app/trade/[symbol]` | Candlestick chart (MA/EMA/BB/RSI/volume), drawing tools, custom formula bar, order panel, depth ladder |
 | `/app/pulse` | Composite signal per symbol |
 | `/app/markets` | Sortable table + heatmap |
+| `/app/movers` | Market movers: Equity (all NSE) · F&O → Equity / Futures / Options (OPTIDX, OPTSTK; volume- or price-based) |
 | `/app/options` | Real option chain (OI, ΔOI, IV) + ATM IV / PCR / India VIX / max pain / second-highest call & put OI |
 | `/app/buildup` | Long/Short buildup: stacked LB/SC/SB/LU bar + per-strike heatmap for NIFTY, BANK NIFTY, FINNIFTY, MIDCPNIFTY |
 | `/app/fiidii` | FII/DII — FII|DII × Cash|Derivatives × daily/weekly/monthly, Nifty % column, FII index-futures long/short (**simulated**) |
@@ -62,6 +63,7 @@ app/
     fiidii/route.ts           returns the seeded mock; wire a daily cron for real data
     portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
     options-chain/route.ts    live Upstox option chain + expiries + India VIX (or `{source:"unavailable"}`)
+    fno-movers/route.ts       market-wide movers from Upstox bulk quotes (or `{source:"unavailable"}`)
 components/
   ZestoxxProvider.tsx         all terminal state + the sim/CoinGecko/persistence effects
   AppShell.tsx                provider + layout chrome
@@ -72,6 +74,8 @@ lib/
   symbols.ts    indicators.ts    pulse.ts    formula.ts
   history.ts    helpers.ts       types.ts
   upstox.ts                    Upstox instrument keys + LTP / historical / option-chain fetchers
+  upstox-movers.ts             instrument-master universe loader + equity/futures/options rankers (server)
+  movers.ts / useMovers.ts     shared types + the polling hook for the Movers view
   options.ts                   buildup classification, chain stats (PCR, max pain…), simulated chain
   useOptionChain.ts            client hook: live chain, else labelled simulation
   fiidii.ts                    simulated FII/DII generator + daily/weekly/monthly aggregation
@@ -150,6 +154,26 @@ callback route. Instrument keys live in `lib/upstox.ts` (`UPSTOX_KEYS`).
 Setup: put the token in `.env.local` (gitignored) as `UPSTOX_ANALYTICS_TOKEN=…`, or in
 Vercel project env for production. With no token the equity endpoints return `{}` and
 those symbols stay simulated — nothing breaks.
+
+### Market movers
+
+`/api/fno-movers` ranks the whole market from Upstox bulk quotes (up to 500 instruments per call,
+price + previous close + volume). The F&O universe and each month's *current* futures/option
+keys are read from Upstox's public NSE instrument master (~1.9 MB gzipped, re-read every 6 h),
+so new expiries and new F&O stocks appear without code changes.
+
+- **Equity** — all ~2,700 NSE stocks, skipping anything priced under ₹10 or that has traded
+  under ₹5 Cr today (`EQUITY_FILTER` in `lib/movers.ts`; the UI states it). **F&O → Equity** is
+  the ~218 F&O-eligible stocks.
+- **Futures** — near-month stock futures plus NIFTY/BANKNIFTY/FINNIFTY/MIDCPNIFTY/NIFTYNXT50.
+- **Options** — nearest expiry only. OPTIDX = the four index options; OPTSTK = the 25 stocks whose
+  futures trade the most value today. The 100 most-traded contracts by value are returned and
+  the UI re-sorts them (volume, value, or price gainers/losers).
+- Results are computed at most once per 15 s per instance and CDN-cacheable for 15 s, so many
+  viewers don't multiply calls against Upstox's shared limit (500/min per token).
+- **No simulation fallback** — unlike the option chain, a market-wide ranking can't be simulated
+  honestly, so without the feed the page says "unavailable".
+- Mutual Funds is a disabled "Soon" tab until a fund-data source is chosen.
 
 ### Option chain, buildup and the stats strip
 

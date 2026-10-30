@@ -32,6 +32,7 @@ type ViewId =
   | "trade"
   | "pulse"
   | "markets"
+  | "movers"
   | "options"
   | "buildup"
   | "fiidii"

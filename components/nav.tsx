@@ -10,6 +10,7 @@ import {
   ListOrdered,
   Wallet,
   Activity,
+  Flame,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export const NAV: NavItem[] = [
   { id: "trade", label: "Trade", icon: LineChart, href: "/app/trade/RELIANCE" },
   { id: "pulse", label: "Pulse", icon: Zap, href: "/app/pulse" },
   { id: "markets", label: "Markets", icon: Store, href: "/app/markets" },
+  { id: "movers", label: "Movers", icon: Flame, href: "/app/movers" },
   { id: "options", label: "Options", icon: SlidersHorizontal, href: "/app/options" },
   { id: "buildup", label: "Buildup", icon: Activity, href: "/app/buildup" },
   { id: "fiidii", label: "FII/DII", icon: Landmark, href: "/app/fiidii" },
