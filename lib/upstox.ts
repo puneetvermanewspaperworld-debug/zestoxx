@@ -14,7 +14,7 @@
 import type { ChainRow, OptionLeg } from "./options";
 import type { Candle5, ContractQuote, DepthLevel } from "./contract";
 
-const UPSTOX_BASE = "https://api.upstox.com";
+export const UPSTOX_BASE = "https://api.upstox.com";
 
 /**
  * Upstox instrument keys. Equities are keyed by ISIN, indices by name. Verified live
@@ -42,7 +42,7 @@ export function upstoxToken(): string | null {
   return process.env.UPSTOX_ANALYTICS_TOKEN?.trim() || null;
 }
 
-function authHeaders(token: string) {
+export function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, Accept: "application/json" };
 }
 

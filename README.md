@@ -68,6 +68,7 @@ app/
     option-candles/route.ts   today's 5-minute candles for one option contract (order-sheet chart)
     option-marks/route.ts     last prices for held option contracts (portfolio mark-to-market)
     option-expiries/route.ts  upcoming expiry dates for an underlying (the "EXPIRY TODAY" badge)
+    buildup-window/route.ts   buildup over a chosen intraday window (`?back=10` or `?from=09:45&to=10:30`)
     watchlist/route.ts        priced rows for a popular list (`?list=`) or any NSE symbols (`?symbols=`)
     watchlist-search/route.ts symbol/name search across all NSE equities and ETFs (no token needed)
 components/
@@ -197,6 +198,26 @@ payload in `lib/options.ts`:
 
 With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
 shows a deterministic simulated chain, badged **Simulated**.
+
+### Buildup time window
+
+The Buildup page has a **Time window** bar: *Since prev close* (default), the last 1 / 5 / 10 / 30 / 60 / 100
+minutes, or **Custom** — a two-handle slider plus typed start and end times. Each 1-minute option candle
+carries the contract's close and its open interest, so the premium change and OI change between any two times
+come from two bars (`lib/buildup-window.ts`, unit-tested and cross-checked against raw candles). A window
+starting before the first bar is measured from the first bar's open price and OI.
+
+- Windows cover the strikes within **12 of the money** (not the whole chain) and need live data; with a
+  simulated chain only *Since prev close* is offered.
+- **Which day:** today's bars while the session is on (and until midnight); otherwise the latest earlier day
+  that has minute data — Upstox's history lags about a day, so on a weekend or pre-open you see the last full
+  session, and the page says which date.
+- **Rate limits matter here.** A burst of ~200 parallel minute-candle calls got the dev machine rate-limited by
+  Upstox's edge (Cloudflare 1015, ~5 min Retry-After). `lib/upstox-buildup.ts` fetches nearest strikes first,
+  paced (~6 requests/s, 3 in flight), caches every contract's bars (a finished day for 6 h, a live one for
+  1 min), and on a 429 stops, remembers the Retry-After and doesn't call Upstox again until it passes. A cold
+  window takes ~8 s; after that, moving the window is instant. The 52-week watchlist job was slowed for the same
+  reason.
 
 ### Greeks
 

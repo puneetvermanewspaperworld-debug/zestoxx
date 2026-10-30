@@ -11,9 +11,12 @@ import type { PopularList, WatchRow } from "./watchlists";
 
 const ROWS = 30;
 const NEAR_N = 25;
-const WEEK_RANGE_TTL = 3_600_000;
+const WEEK_RANGE_TTL = 6 * 3_600_000; // daily candles only change once a day
 const HISTORY_DAYS = 365;
-const HISTORY_CONCURRENCY = 20;
+// Kept low on purpose: a burst of ~200 parallel candle calls got an IP rate-limited by Upstox's
+// edge (Cloudflare 1015, ~5 min Retry-After). A few in flight is plenty for a cached hourly job.
+const HISTORY_CONCURRENCY = 4;
+let candlesBlockedUntil = 0;
 
 const displayName = (s: StockInfo): string => s.shortName ?? titleCase(s.name);
 
@@ -79,6 +82,7 @@ async function weekRanges(token: string, u: Universe): Promise<Map<string, Range
     const to = new Date();
     const from = new Date(to.getTime() - HISTORY_DAYS * 86_400_000);
     const day = (d: Date) => d.toISOString().slice(0, 10);
+    if (Date.now() < candlesBlockedUntil) throw new Error("candle endpoint is rate-limited, backing off");
     const out = new Map<string, Range>();
     const queue = [...u.fnoStocks];
 
@@ -89,6 +93,12 @@ async function weekRanges(token: string, u: Universe): Promise<Map<string, Range
             `https://api.upstox.com/v3/historical-candle/${encodeURIComponent(s.key)}/days/1/${day(to)}/${day(from)}`,
             { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store" }
           );
+          if (res.status === 429) {
+            // Stop at once and remember the Retry-After rather than hammering a limited endpoint.
+            candlesBlockedUntil = Date.now() + Math.min(600, Math.max(30, Number(res.headers.get("retry-after")) || 120)) * 1000;
+            queue.length = 0;
+            return;
+          }
           if (!res.ok) continue;
           const candles = ((await res.json()) as { data?: { candles?: (string | number)[][] } }).data?.candles ?? [];
           if (candles.length < 50) continue; // too short to call it a 52-week range

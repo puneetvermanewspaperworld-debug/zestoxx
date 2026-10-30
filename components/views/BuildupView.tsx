@@ -3,8 +3,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CircleHelp, X } from "lucide-react";
 import OptionsStatsStrip from "@/components/OptionsStatsStrip";
+import TimeRangeBar from "@/components/TimeRangeBar";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { fmtIsoDate, fmtOiChange } from "@/lib/helpers";
+import { toHHMM } from "@/lib/buildup-window";
+import { useBuildupWindow, type RangeSel } from "@/lib/useBuildupWindow";
 import { useOptionChain } from "@/lib/useOptionChain";
 import {
   BUILDUP_META,
@@ -104,6 +107,11 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             <b>By contracts</b> counts each contract equally; <b>By OI change</b> weights each by how many
             contracts of OI it added or shed, so heavy positioning matters more.
           </li>
+          <li>
+            <b>Time window</b> lets you measure the same thing over the last 1, 5, 10, 30, 60 or 100 minutes, or
+            between any two times you choose, instead of since the previous close. It uses per-minute data for the
+            strikes within 12 of the money, so a short window shows what changed <i>just now</i>.
+          </li>
           <li>This is a read on positioning, not a prediction or advice.</li>
         </ul>
       </div>
@@ -172,7 +180,7 @@ function HeatSide({ b, maxOi, side }: { b: LegBuildup; maxOi: number; side: "cal
   );
 }
 
-function Heatmap({ grid, maxOi }: { grid: GridRow[]; maxOi: number }) {
+function Heatmap({ grid, maxOi, since }: { grid: GridRow[]; maxOi: number; since: string }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
@@ -230,8 +238,8 @@ function Heatmap({ grid, maxOi }: { grid: GridRow[]; maxOi: number }) {
         </div>
       </div>
       <p className="mt-2 text-[11px] leading-snug text-slate-400">
-        Bar length shows how much open interest was added or shed; the lower figure is the premium change since the
-        previous close. Hover a cell for the full read.
+        Bar length shows how much open interest was added or shed; the lower figure is the premium change since{" "}
+        {since}. Hover a cell for the full read.
       </p>
     </div>
   );
@@ -310,18 +318,42 @@ export default function BuildupView() {
   const [expiryFor, setExpiryFor] = useState<Record<string, string>>({});
   const [basis, setBasis] = useState<Basis>("contracts");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [range, setRange] = useState<RangeSel>({ kind: "prev" });
 
   const { chain } = useOptionChain(index, expiryFor[index] ?? null, fallbackSpot(index, live));
 
-  const breakdown = useMemo(() => (chain ? buildupBreakdown(chain.rows) : null), [chain]);
+  // Minute-level windows need real exchange data; a simulated chain only has "since prev close".
+  const windowsAvailable = chain?.source === "live";
+  const activeRange: RangeSel = windowsAvailable ? range : { kind: "prev" };
+  const { res: win, loading: winLoading } = useBuildupWindow(
+    index,
+    chain?.expiry ?? null,
+    activeRange,
+    windowsAvailable
+  );
+
+  // The rows the buildup is computed from: the whole chain "since prev close", or the strikes
+  // around the money over the chosen window.
+  const windowed = activeRange.kind !== "prev";
+  const liveWin = win?.source === "live" ? win : null;
+  const rows = windowed ? (liveWin?.rows ?? null) : (chain?.rows ?? null);
+
+  const breakdown = useMemo(() => (rows ? buildupBreakdown(rows) : null), [rows]);
   const grid = useMemo(() => {
-    if (!chain) return [];
+    if (!chain || !rows) return [];
     const atm = chainStats(chain.rows, chain.spot)?.atmStrike;
-    return atm == null ? [] : buildupGrid(chain.rows, atm, HEAT_WINDOW);
-  }, [chain]);
+    return atm == null ? [] : buildupGrid(rows, atm, HEAT_WINDOW);
+  }, [chain, rows]);
   const maxOi = Math.max(1, ...grid.flatMap((g) => [Math.abs(g.call.oiChange), Math.abs(g.put.oiChange)]));
 
   const shares = breakdown ? (basis === "contracts" ? breakdown.byContracts : breakdown.byOiChange) : null;
+  const sinceLabel = windowed && liveWin ? toHHMM(liveWin.from) : "the previous close";
+  const scope =
+    windowed && liveWin
+      ? `${breakdown?.totalContracts ?? 0} liquid contracts within 12 strikes of the money · ${toHHMM(liveWin.from)} → ${toHHMM(liveWin.to)} IST`
+      : breakdown && breakdown.totalContracts > 0
+        ? `${breakdown.totalContracts} liquid contracts (calls + puts) · expiry ${chain ? fmtIsoDate(chain.expiry) : ""}`
+        : "No liquid contracts to classify yet";
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
@@ -388,56 +420,87 @@ export default function BuildupView() {
           )}
         </div>
 
-        {!chain || !breakdown || !shares ? (
+        {!chain ? (
           <div className="m-4 h-[320px] animate-pulse rounded-lg bg-slate-50" aria-busy="true" />
         ) : (
           <div className="space-y-6 p-4">
             <OptionsStatsStrip chain={chain} />
 
-            <section aria-label="Buildup summary">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="font-display text-[13px] font-semibold text-slate-900">Positioning summary</h3>
-                  <p className="text-[11.5px] text-slate-400">
-                    {breakdown.totalContracts > 0
-                      ? `${breakdown.totalContracts} liquid contracts (calls + puts) · expiry ${fmtIsoDate(chain.expiry)}`
-                      : "No liquid contracts to classify yet"}
-                  </p>
-                </div>
-                <div role="group" aria-label="Weighting" className="flex gap-1 rounded-lg border border-slate-200 p-0.5">
-                  {(
-                    [
-                      ["contracts", "By contracts"],
-                      ["oi", "By OI change"],
-                    ] as const
-                  ).map(([id, text]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      aria-pressed={basis === id}
-                      onClick={() => setBasis(id)}
-                      className={
-                        "rounded-md px-2.5 py-1 text-[11.5px] font-medium " +
-                        (basis === id ? "bg-blue-600 text-slate-50" : "text-slate-500 hover:text-slate-900")
-                      }
-                    >
-                      {text}
-                    </button>
-                  ))}
-                </div>
+            <TimeRangeBar
+              value={activeRange}
+              onChange={setRange}
+              span={liveWin ? { firstMin: liveWin.firstMin, lastMin: liveWin.lastMin, date: liveWin.date, liveSession: liveWin.liveSession } : null}
+              resolved={liveWin ? { from: liveWin.from, to: liveWin.to } : null}
+              loading={winLoading}
+              disabledReason={windowsAvailable ? undefined : "Time windows need live exchange data, which isn't available right now."}
+            />
+
+            {windowed && win?.source === "unavailable" ? (
+              <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-[12.5px] text-slate-500">
+                <p className="font-medium text-slate-700">Minute-level data isn&apos;t available for this window.</p>
+                <p className="mt-1 text-slate-400">{win.reason}.</p>
+                <button
+                  type="button"
+                  onClick={() => setRange({ kind: "prev" })}
+                  className="mt-3 rounded-md border border-blue-200 px-3 py-1.5 text-[12px] font-medium text-blue-600 hover:bg-blue-50"
+                >
+                  Back to since previous close
+                </button>
               </div>
+            ) : !breakdown || !shares ? (
+              <div className="h-[260px] animate-pulse rounded-lg bg-slate-50" aria-busy="true" />
+            ) : (
+              <div className={"space-y-6 transition-opacity " + (windowed && winLoading ? "opacity-50" : "")}>
+                {liveWin?.partial && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11.5px] text-amber-700">
+                    Upstox limited how much minute data could be read just now, so only the strikes nearest the money
+                    are included. Try again in a few minutes.
+                  </p>
+                )}
 
-              {breakdown.totalContracts > 0 ? (
-                <Summary breakdown={breakdown} shares={shares} basis={basis} />
-              ) : (
-                <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-[12.5px] text-slate-400">
-                  Buildups compare today&apos;s premium and OI with the previous session, so they appear once
-                  contracts start trading.
-                </div>
-              )}
-            </section>
+                <section aria-label="Buildup summary">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="font-display text-[13px] font-semibold text-slate-900">Positioning summary</h3>
+                      <p className="text-[11.5px] text-slate-400">{scope}</p>
+                    </div>
+                    <div role="group" aria-label="Weighting" className="flex gap-1 rounded-lg border border-slate-200 p-0.5">
+                      {(
+                        [
+                          ["contracts", "By contracts"],
+                          ["oi", "By OI change"],
+                        ] as const
+                      ).map(([id, text]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={basis === id}
+                          onClick={() => setBasis(id)}
+                          className={
+                            "rounded-md px-2.5 py-1 text-[11.5px] font-medium " +
+                            (basis === id ? "bg-blue-600 text-slate-50" : "text-slate-500 hover:text-slate-900")
+                          }
+                        >
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-            {grid.length > 0 && <Heatmap grid={grid} maxOi={maxOi} />}
+                  {breakdown.totalContracts > 0 ? (
+                    <Summary breakdown={breakdown} shares={shares} basis={basis} />
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-[12.5px] text-slate-400">
+                      {windowed
+                        ? "No contract near the money traded with a change in this window — try a longer one."
+                        : "Buildups compare today's premium and OI with the previous session, so they appear once contracts start trading."}
+                    </div>
+                  )}
+                </section>
+
+                {grid.length > 0 && <Heatmap grid={grid} maxOi={maxOi} since={sinceLabel} />}
+              </div>
+            )}
           </div>
         )}
       </div>
