@@ -6,9 +6,39 @@ import { fmtOi, fmtOiChange } from "@/lib/helpers";
 
 const WINDOW = 10; // strikes shown either side of ATM
 
+/** LTP cell that opens the order sheet (plain text when the chain isn't tradeable). */
+function LtpButton({
+  label,
+  onPick,
+  children,
+}: {
+  label: string;
+  onPick?: () => void;
+  children: React.ReactNode;
+}) {
+  if (!onPick) return <>{children}</>;
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-label={label}
+      className="rounded px-1.5 py-0.5 underline decoration-dotted underline-offset-2 hover:bg-blue-50"
+    >
+      {children}
+    </button>
+  );
+}
+
 const oiTone = (n: number) => (n > 0 ? "text-emerald-500" : n < 0 ? "text-rose-500" : "text-slate-400");
 
-export default function OptionsChain({ chain }: { chain: OptionChain }) {
+export default function OptionsChain({
+  chain,
+  onPick,
+}: {
+  chain: OptionChain;
+  /** open the order sheet for this contract */
+  onPick?: (strike: number, type: "CE" | "PE") => void;
+}) {
   const atm = useMemo(() => chainStats(chain.rows, chain.spot)?.atmStrike, [chain.rows, chain.spot]);
 
   const rows = useMemo(() => {
@@ -55,11 +85,15 @@ export default function OptionsChain({ chain }: { chain: OptionChain }) {
                 {r.call.iv > 0 ? `${r.call.iv.toFixed(1)}%` : "--"}
               </td>
               <td className={"px-2 py-1.5 text-right font-mono text-emerald-500 " + (ceItm && !isAtm ? "bg-slate-50" : "")}>
-                {r.call.ltp.toFixed(1)}
+                <LtpButton label={`Trade ${r.strike} CE`} onPick={onPick && (() => onPick(r.strike, "CE"))}>
+                  {r.call.ltp.toFixed(1)}
+                </LtpButton>
               </td>
               <td className="px-2 py-1.5 text-center font-mono font-semibold text-slate-900">{r.strike}</td>
               <td className={"px-2 py-1.5 text-left font-mono text-rose-500 " + (peItm && !isAtm ? "bg-slate-50" : "")}>
-                {r.put.ltp.toFixed(1)}
+                <LtpButton label={`Trade ${r.strike} PE`} onPick={onPick && (() => onPick(r.strike, "PE"))}>
+                  {r.put.ltp.toFixed(1)}
+                </LtpButton>
               </td>
               <td className={"px-2 py-1.5 text-left font-mono text-slate-500 " + (peItm && !isAtm ? "bg-slate-50" : "")}>
                 {r.put.iv > 0 ? `${r.put.iv.toFixed(1)}%` : "--"}

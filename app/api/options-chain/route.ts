@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const expiries = await fetchOptionExpiries(token, key);
+    const { expiries, lotSizes } = await fetchOptionExpiries(token, key);
     if (expiries.length === 0) return NextResponse.json({ source: "unavailable" });
 
     const requested = searchParams.get("expiry");
@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       spot: chain.spot,
       expiry,
       expiries,
+      lotSize: lotSizes[expiry] ?? 1,
       rows: chain.rows,
       vix,
       source: "live",

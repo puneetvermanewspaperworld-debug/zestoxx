@@ -14,6 +14,8 @@ import { SYMBOLS, SYMBOL_MAP, VOL } from "@/lib/symbols";
 import { buildHistory } from "@/lib/history";
 import { fmt } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
+import { parseContractId } from "@/lib/contract";
+import { simulateChain } from "@/lib/options";
 import type {
   Candle,
   Holdings,
@@ -94,6 +96,8 @@ interface ZestoxxContextValue {
   prevCloseFor: (id: string) => number;
   setActiveView: (v: ViewId) => void;
   onTrade: (t: TradeInput) => void;
+  /** Market paper trade in an option contract (id from makeContractId); qty is in units, not lots. */
+  tradeContract: (t: { id: string; side: "buy" | "sell"; qty: number; price: number }) => void;
   onAddAlert: (symId: string) => void;
   cancelOrder: (id: number) => void;
   addToWatchlist: (id: string) => void;
@@ -440,6 +444,67 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [toasts]);
 
+  // Mark-to-market for held option contracts. Their ids aren't in SYMBOLS, so nothing else
+  // prices them: poll Upstox for live contracts, re-price simulated ones from the
+  // simulated chain at the current underlying spot.
+  const liveRef = useRef(live);
+  useEffect(() => {
+    liveRef.current = live;
+  }, [live]);
+
+  const contractIds = useMemo(
+    () => Object.keys(holdings).filter((id) => id.includes("#")).sort().join("\n"),
+    [holdings]
+  );
+
+  useEffect(() => {
+    if (!contractIds) return;
+    let cancelled = false;
+
+    const refresh = async () => {
+      const marks: Record<string, number> = {};
+      const idByKey: Record<string, string> = {};
+      for (const id of contractIds.split("\n")) {
+        const p = parseContractId(id);
+        if (!p) continue;
+        if (!p.sim) {
+          idByKey[p.key] = id;
+          continue;
+        }
+        const spot = liveRef.current[p.sim.underlying];
+        if (!(spot > 0)) continue;
+        const row = simulateChain(p.sim.underlying, spot, p.sim.expiry).rows.find(
+          (r) => r.strike === p.sim!.strike
+        );
+        const leg = row && (p.sim.type === "CE" ? row.call : row.put);
+        if (leg) marks[id] = leg.ltp;
+      }
+
+      const keys = Object.keys(idByKey).slice(0, 50);
+      if (keys.length) {
+        try {
+          const res = await fetch(`/api/option-marks?keys=${encodeURIComponent(keys.join(","))}`);
+          const data = res.ok ? await res.json() : null;
+          if (data?.source === "live") {
+            for (const [k, ltp] of Object.entries(data.marks as Record<string, number>)) {
+              if (idByKey[k]) marks[idByKey[k]] = ltp;
+            }
+          }
+        } catch {
+          // keep the previous marks
+        }
+      }
+      if (!cancelled && Object.keys(marks).length) setLive((l) => ({ ...l, ...marks }));
+    };
+
+    refresh();
+    const timer = setInterval(refresh, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [contractIds]);
+
   const onTrade = useCallback(
     ({ mode, side, qty, limitPrice }: TradeInput) => {
       if (mode === "market") {
@@ -459,6 +524,15 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [live, fillOrder]
+  );
+
+  const tradeContract = useCallback(
+    ({ id, side, qty, price }: { id: string; side: "buy" | "sell"; qty: number; price: number }) => {
+      fillOrder(id, side, qty, price);
+      // Seed the mark with the fill so the portfolio is right until the next poll.
+      setLive((l) => ({ ...l, [id]: price }));
+    },
+    [fillOrder]
   );
 
   const cancelOrder = useCallback(
@@ -553,6 +627,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     prevCloseFor,
     setActiveView,
     onTrade,
+    tradeContract,
     onAddAlert,
     cancelOrder,
     addToWatchlist,

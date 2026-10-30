@@ -11,6 +11,8 @@ export interface OptionLeg {
   volume: number;
   /** implied volatility in %, 0 when unavailable */
   iv: number;
+  /** Upstox instrument key (live chains only) */
+  key?: string;
 }
 
 export interface ChainRow {
@@ -25,6 +27,8 @@ export interface OptionChain {
   /** YYYY-MM-DD */
   expiry: string;
   expiries: string[];
+  /** contracts per lot */
+  lotSize: number;
   rows: ChainRow[];
   vix: number | null;
   source: "live" | "simulated";
@@ -284,6 +288,12 @@ export function simulatedExpiries(underlying: string, now: Date = new Date()): s
   return out.sort((a, b) => a - b).map(isoOf);
 }
 
+/** Approximate lot sizes for the simulated chain only — live chains carry the exchange value. */
+const SIM_LOT: Record<string, number> = {
+  NIFTY50: 65, NIFTY: 65, BANKNIFTY: 30, FINNIFTY: 60, MIDCPNIFTY: 120, SENSEX: 20,
+  RELIANCE: 500, TCS: 175, INFY: 400, HDFCBANK: 550, SBIN: 750, TATAMOTORS: 800,
+};
+
 export function simulateChain(
   underlying: string,
   spot: number,
@@ -331,6 +341,7 @@ export function simulateChain(
     spot,
     expiry: exp,
     expiries,
+    lotSize: SIM_LOT[underlying] ?? 1,
     rows,
     vix: Math.round((13 + rand() * 4) * 100) / 100,
     source: "simulated",

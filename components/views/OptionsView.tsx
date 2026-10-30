@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import OptionsChain from "@/components/OptionsChain";
+import OptionOrderSheet from "@/components/OptionOrderSheet";
 import OptionsStatsStrip from "@/components/OptionsStatsStrip";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { SYMBOLS } from "@/lib/symbols";
@@ -17,6 +18,19 @@ export default function OptionsView() {
   // would be invalid the moment you switch symbols. null = nearest.
   const [expiryFor, setExpiryFor] = useState<Record<string, string>>({});
   const { chain } = useOptionChain(selected, expiryFor[selected] ?? null, price, { enabled: !isCrypto });
+
+  // Contract open in the order sheet. Tied to its underlying + expiry so it can't outlive the
+  // chain it was picked from.
+  const [contract, setContract] = useState<{
+    underlying: string;
+    expiry: string;
+    strike: number;
+    type: "CE" | "PE";
+  } | null>(null);
+  const sheet =
+    chain && contract && contract.underlying === chain.underlying && contract.expiry === chain.expiry
+      ? contract
+      : null;
 
   return (
     <div className="space-y-3">
@@ -87,13 +101,25 @@ export default function OptionsView() {
               <OptionsStatsStrip chain={chain} />
             </div>
             <div className="max-h-[560px] overflow-auto">
-              <OptionsChain chain={chain} />
+              <OptionsChain
+                chain={chain}
+                onPick={(strike, type) => setContract({ underlying: chain.underlying, expiry: chain.expiry, strike, type })}
+              />
             </div>
           </>
         ) : (
           <div className="h-[420px] animate-pulse bg-slate-50" aria-busy="true" />
         )}
       </div>
+      {chain && sheet && (
+        <OptionOrderSheet
+          chain={chain}
+          strike={sheet.strike}
+          type={sheet.type}
+          onPick={(strike, type) => setContract({ ...sheet, strike, type })}
+          onClose={() => setContract(null)}
+        />
+      )}
     </div>
   );
 }

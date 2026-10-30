@@ -2,7 +2,8 @@
 
 import React from "react";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { SYMBOL_MAP } from "@/lib/symbols";
+import { typeOf } from "@/lib/symbols";
+import { displayName } from "@/lib/contract";
 import { fmt } from "@/lib/helpers";
 
 export default function OrdersView() {
@@ -30,7 +31,7 @@ export default function OrdersView() {
             <tbody>
               {openOrders.map((o) => (
                 <tr key={o.id} className="border-t border-blue-50">
-                  <td className="px-2 py-2 font-medium text-slate-900">{o.symbol}</td>
+                  <td className="px-2 py-2 font-medium text-slate-900">{displayName(o.symbol)}</td>
                   <td
                     className={
                       "px-2 py-2 font-medium " +
@@ -41,7 +42,7 @@ export default function OrdersView() {
                   </td>
                   <td className="px-2 py-2 text-right font-mono text-slate-500">{o.qty}</td>
                   <td className="px-2 py-2 text-right font-mono text-slate-900">
-                    {fmt(o.limitPrice, SYMBOL_MAP[o.symbol].type)}
+                    {fmt(o.limitPrice, typeOf(o.symbol))}
                   </td>
                   <td className="px-2 py-2 text-right text-slate-400">{o.time}</td>
                   <td className="px-2 py-2 text-right">
@@ -77,7 +78,7 @@ export default function OrdersView() {
             <tbody>
               {orderLog.map((o) => (
                 <tr key={o.id} className="border-t border-blue-50">
-                  <td className="px-2 py-2 font-medium text-slate-900">{o.symbol}</td>
+                  <td className="px-2 py-2 font-medium text-slate-900">{displayName(o.symbol)}</td>
                   <td
                     className={
                       "px-2 py-2 font-medium " +
@@ -89,7 +90,7 @@ export default function OrdersView() {
                   <td className="px-2 py-2 capitalize text-slate-500">{o.mode}</td>
                   <td className="px-2 py-2 text-right font-mono text-slate-500">{o.qty}</td>
                   <td className="px-2 py-2 text-right font-mono text-slate-900">
-                    {fmt(o.price, SYMBOL_MAP[o.symbol].type)}
+                    {fmt(o.price, typeOf(o.symbol))}
                   </td>
                   <td className="px-2 py-2 text-right text-slate-400">{o.time}</td>
                 </tr>

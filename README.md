@@ -64,6 +64,9 @@ app/
     portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
     options-chain/route.ts    live Upstox option chain + expiries + India VIX (or `{source:"unavailable"}`)
     fno-movers/route.ts       market-wide movers from Upstox bulk quotes (or `{source:"unavailable"}`)
+    option-quote/route.ts     full quote for one option contract: OHLC, 5-level depth, buy/sell totals
+    option-candles/route.ts   today's 5-minute candles for one option contract (order-sheet chart)
+    option-marks/route.ts     last prices for held option contracts (portfolio mark-to-market)
 components/
   ZestoxxProvider.tsx         all terminal state + the sim/CoinGecko/persistence effects
   AppShell.tsx                provider + layout chrome
@@ -191,6 +194,29 @@ payload in `lib/options.ts`:
 
 With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
 shows a deterministic simulated chain, badged **Simulated**.
+
+### Option order sheet and paper-trading options
+
+Clicking a CE/PE LTP in the Options chain opens a sheet (bottom sheet on phones) for that
+contract: header with LTP and change, tabs **Charts** (today's 5-minute closes) · **Option
+Chain** (neighbouring strikes — click to switch contract) · **Scrip Details**, then
+Open/High/Low/Prev Close, a 5-level depth ladder, and a buy/sell quantity bar.
+
+- Live contracts come from `/api/option-quote` (Upstox full quote, polled every 5 s). The
+  bar uses the exchange's *whole-book* buy/sell totals, not just the five levels shown.
+  Previous close is `last_price − net_change`, because the API's own `ohlc.close` tracks the
+  live price intraday. Without Upstox the sheet falls back to a deterministic simulation
+  (badged **Simulated**; no chart).
+- **Paper Trade**: quantity is in lots (lot size comes from the exchange contract list).
+  Market orders only, filled at the last traded price. `sell` closes a position you hold —
+  short selling/writing isn't modelled, and the sheet says so.
+- Holdings/orders for contracts use ids like `NIFTY 03 NOV 22900 CE#NSE_FO|53750`
+  (`lib/contract.ts`): readable label + the Upstox key used to mark the position to market
+  every 30 s (`/api/option-marks`). Simulated contracts carry a `sim|…` key and are re-priced
+  from the simulated chain. Expired contracts stop being marked and are valued at cost —
+  there is no expiry/settlement logic yet.
+- Instrument keys proxied by these routes must match `NSE_FO|<digits>` (or BSE_FO/MCX_FO) —
+  the routes are not a general Upstox passthrough.
 
 ### "Chg %" — day-change
 

@@ -2,14 +2,17 @@
 
 import React from "react";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { SYMBOL_MAP } from "@/lib/symbols";
+import { typeOf } from "@/lib/symbols";
+import { displayName } from "@/lib/contract";
 import { fmt, fmtINR } from "@/lib/helpers";
 
 export default function PortfolioView() {
   const { cash, holdings, live } = useZestoxx();
   const rows = Object.entries(holdings);
-  const holdingsValue = rows.reduce((sum, [id, h]) => sum + h.qty * (live[id] || 0), 0);
-  const totalPnl = rows.reduce((sum, [id, h]) => sum + (live[id] - h.avgPrice) * h.qty, 0);
+  // An option contract with no mark yet (feed still loading) counts at cost, not NaN.
+  const markOf = (id: string, avg: number) => live[id] ?? avg;
+  const holdingsValue = rows.reduce((sum, [id, h]) => sum + h.qty * markOf(id, h.avgPrice), 0);
+  const totalPnl = rows.reduce((sum, [id, h]) => sum + (markOf(id, h.avgPrice) - h.avgPrice) * h.qty, 0);
   const totalValue = cash + holdingsValue;
   return (
     <div className="space-y-3">
@@ -43,17 +46,17 @@ export default function PortfolioView() {
         ) : (
           <div className="space-y-2.5">
             {rows.map(([id, h]) => {
-              const sym = SYMBOL_MAP[id];
-              const val = h.qty * live[id];
+              const mark = markOf(id, h.avgPrice);
+              const val = h.qty * mark;
               const pct = (val / holdingsValue) * 100;
-              const pnl = (live[id] - h.avgPrice) * h.qty;
+              const pnl = (mark - h.avgPrice) * h.qty;
               return (
                 <div key={id}>
                   <div className="mb-1 flex items-center justify-between text-[12px]">
                     <span className="font-medium text-slate-900">
-                      {id}{" "}
+                      {displayName(id)}{" "}
                       <span className="text-slate-400">
-                        · {h.qty} qty @ avg {fmt(h.avgPrice, sym.type)}
+                        · {h.qty} qty @ avg {fmt(h.avgPrice, typeOf(id))}
                       </span>
                     </span>
                     <span

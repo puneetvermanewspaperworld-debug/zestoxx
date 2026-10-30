@@ -19,6 +19,9 @@ export const SYMBOL_MAP: Record<string, SymbolInfo> = Object.fromEntries(
   SYMBOLS.map((s) => [s.id, s])
 );
 
+/** Asset type for any holding/order id; option contracts (not in SYMBOLS) format like stocks. */
+export const typeOf = (id: string): AssetType => SYMBOL_MAP[id]?.type ?? "stock";
+
 export const VOL: Record<AssetType, number> = { stock: 0.006, index: 0.003, crypto: 0.016 };
 
 export const COINGECKO_IDS: Record<string, string> = {

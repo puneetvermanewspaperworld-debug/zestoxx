@@ -12,11 +12,11 @@ export default function DashboardView() {
     useZestoxx();
 
   const holdingsValue = Object.entries(holdings).reduce(
-    (s, [id, h]) => s + h.qty * (live[id] || 0),
+    (s, [id, h]) => s + h.qty * (live[id] ?? h.avgPrice),
     0
   );
   const totalPnl = Object.entries(holdings).reduce(
-    (s, [id, h]) => s + (live[id] - h.avgPrice) * h.qty,
+    (s, [id, h]) => s + ((live[id] ?? h.avgPrice) - h.avgPrice) * h.qty,
     0
   );
   const movers = SYMBOLS.map((s) => ({ ...s, chg: chgFor(s.id) })).sort((a, b) => b.chg - a.chg);

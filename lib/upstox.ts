@@ -12,6 +12,7 @@
  */
 
 import type { ChainRow, OptionLeg } from "./options";
+import type { Candle5, ContractQuote, DepthLevel } from "./contract";
 
 const UPSTOX_BASE = "https://api.upstox.com";
 
@@ -149,21 +150,36 @@ export function istToday(): string {
 
 const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
 
-/** Upcoming expiry dates (YYYY-MM-DD, soonest first) that have listed option contracts. */
-export async function fetchOptionExpiries(token: string, key: string): Promise<string[]> {
+interface ApiContract {
+  expiry?: string;
+  lot_size?: number;
+}
+
+/** Listed option contracts for an underlying (cached an hour — the list barely moves intraday). */
+async function fetchOptionContracts(token: string, key: string): Promise<ApiContract[]> {
   const res = await fetch(`${UPSTOX_BASE}/v2/option/contract?instrument_key=${encodeURIComponent(key)}`, {
     headers: authHeaders(token),
     next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error(`upstox option contracts ${res.status}`);
-  const json = (await res.json()) as { data?: { expiry?: string }[] };
+  return ((await res.json()) as { data?: ApiContract[] }).data ?? [];
+}
+
+/** Upcoming expiry dates (YYYY-MM-DD, soonest first) that have listed option contracts, and the lot size for each. */
+export async function fetchOptionExpiries(
+  token: string,
+  key: string
+): Promise<{ expiries: string[]; lotSizes: Record<string, number> }> {
   const today = istToday();
-  const set = new Set<string>();
-  for (const c of json.data ?? []) if (c.expiry && c.expiry >= today) set.add(c.expiry);
-  return [...set].sort();
+  const lotSizes: Record<string, number> = {};
+  for (const c of await fetchOptionContracts(token, key)) {
+    if (c.expiry && c.expiry >= today && num(c.lot_size) > 0) lotSizes[c.expiry] = num(c.lot_size);
+  }
+  return { expiries: Object.keys(lotSizes).sort(), lotSizes };
 }
 
 interface ApiLeg {
+  instrument_key?: string;
   market_data?: {
     ltp?: number;
     close_price?: number;
@@ -188,6 +204,7 @@ const toLeg = (l?: ApiLeg): OptionLeg => ({
   prevOi: num(l?.market_data?.prev_oi),
   volume: num(l?.market_data?.volume),
   iv: num(l?.option_greeks?.iv),
+  key: l?.instrument_key,
 });
 
 /** Full chain for one underlying + expiry, strikes ascending. */
@@ -263,4 +280,87 @@ export async function fetchQuotesBatch(token: string, keys: string[]): Promise<M
     }
   }
   return out;
+}
+
+/* ------------------------------------------------------------ one contract ---- */
+
+/** Only derivative instrument keys are proxied — this isn't a general Upstox passthrough. */
+export const isDerivativeKey = (k: string): boolean => /^(NSE_FO|BSE_FO|MCX_FO)\|\d{1,10}$/.test(k);
+
+interface ApiDepthLevel {
+  quantity?: number;
+  price?: number;
+  orders?: number;
+}
+
+interface ApiFullQuote {
+  ohlc?: { open?: number; high?: number; low?: number };
+  depth?: { buy?: ApiDepthLevel[]; sell?: ApiDepthLevel[] };
+  last_price?: number;
+  net_change?: number;
+  volume?: number;
+  average_price?: number;
+  oi?: number;
+  total_buy_quantity?: number;
+  total_sell_quantity?: number;
+  lower_circuit_limit?: number;
+  upper_circuit_limit?: number;
+}
+
+const toLevels = (ls?: ApiDepthLevel[]): DepthLevel[] =>
+  (ls ?? [])
+    .map((l) => ({ qty: num(l.quantity), price: num(l.price), orders: num(l.orders) }))
+    .filter((l) => l.price > 0)
+    .slice(0, 5);
+
+/**
+ * Full quote (OHLC, five-level depth, buy/sell totals) for one derivative contract.
+ * Previous close is derived as `last_price - net_change`: the response's own `ohlc.close`
+ * tracks the live price intraday rather than yesterday's settlement.
+ */
+export async function fetchContractQuote(token: string, key: string): Promise<ContractQuote> {
+  const res = await fetch(`${UPSTOX_BASE}/v2/market-quote/quotes?instrument_key=${encodeURIComponent(key)}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`upstox full quote ${res.status}`);
+  const json = (await res.json()) as { data?: Record<string, ApiFullQuote & { instrument_token?: string }> };
+  const q = Object.values(json.data ?? {})[0];
+  if (!q || !(num(q.last_price) > 0)) throw new Error("upstox full quote: empty");
+
+  const ltp = num(q.last_price);
+  const change = num(q.net_change);
+  const prevClose = ltp - change;
+  return {
+    source: "live",
+    ltp,
+    change,
+    changePct: prevClose > 0 ? (change / prevClose) * 100 : null,
+    open: num(q.ohlc?.open),
+    high: num(q.ohlc?.high),
+    low: num(q.ohlc?.low),
+    prevClose: Math.round(prevClose * 100) / 100,
+    bids: toLevels(q.depth?.buy),
+    asks: toLevels(q.depth?.sell),
+    totalBuyQty: num(q.total_buy_quantity),
+    totalSellQty: num(q.total_sell_quantity),
+    volume: num(q.volume),
+    oi: num(q.oi),
+    avgPrice: num(q.average_price),
+    lowerCircuit: num(q.lower_circuit_limit),
+    upperCircuit: num(q.upper_circuit_limit),
+  };
+}
+
+/** Today's 5-minute candles for one contract, oldest first. Empty before the first trade. */
+export async function fetchContractCandles(token: string, key: string): Promise<Candle5[]> {
+  const res = await fetch(
+    `${UPSTOX_BASE}/v3/historical-candle/intraday/${encodeURIComponent(key)}/minutes/5`,
+    { headers: authHeaders(token), next: { revalidate: 30 } }
+  );
+  if (!res.ok) throw new Error(`upstox intraday candles ${res.status}`);
+  const json = (await res.json()) as { data?: { candles?: (string | number)[][] } };
+  return (json.data?.candles ?? [])
+    .map((c) => ({ t: String(c[0]), o: num(c[1]), h: num(c[2]), l: num(c[3]), c: num(c[4]), v: num(c[5]) }))
+    .reverse();
 }
