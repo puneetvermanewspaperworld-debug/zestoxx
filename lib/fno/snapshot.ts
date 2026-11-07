@@ -4,9 +4,13 @@ import type { QuoteLookup } from "./engine";
  * What /api/fno/snapshot returns, and the small helpers both sides of it share.
  *
  * `source` is the honesty field:
- *   live       Upstox answered while the market is open
- *   delayed    Upstox answered, but the market is shut — these are the last session's closing numbers
+ *   live       Upstox answered AND the exchange's own last-update time is under a minute old
+ *   delayed    Upstox answered, but the feed hasn't ticked recently (market shut, an exchange holiday, or a
+ *              stalled feed) — the numbers are the last ones received
  *   simulated  Upstox didn't answer; every number is generated. Never to be shown as real.
+ *
+ * "Live" is decided from the feed's timestamp, not the clock, so a holiday or a special session is
+ * labelled correctly without keeping a holiday calendar.
  */
 
 export type FnoSource = "live" | "delayed" | "simulated";
@@ -31,7 +35,10 @@ export interface FnoStrike {
 }
 
 export interface FnoSnapshot {
+  /** when this response was built */
   asOf: string;
+  /** the exchange's last update to the underlying (its last trade time); null if the feed didn't say */
+  feedAsOf: string | null;
   source: FnoSource;
   underlying: string;
   /** the expiry this chain is for, YYYY-MM-DD */
@@ -49,6 +56,22 @@ export interface FnoSnapshot {
   /** total put OI ÷ total call OI */
   pcr: number | null;
   chain: FnoStrike[];
+}
+
+/** A feed older than this is no longer "live". */
+export const LIVE_MAX_AGE_MS = 60_000;
+
+/**
+ * live vs delayed from the feed's own timestamp. No timestamp means freshness can't be shown, which
+ * is treated as delayed — never the other way round. A timestamp far in the future is a clock
+ * problem, not freshness, and is also delayed.
+ */
+export function classifySource(feedAsOf: string | null, now: Date = new Date(), maxAgeMs: number = LIVE_MAX_AGE_MS): "live" | "delayed" {
+  if (!feedAsOf) return "delayed";
+  const t = Date.parse(feedAsOf);
+  if (!Number.isFinite(t)) return "delayed";
+  const age = now.getTime() - t;
+  return age >= -5 * 60_000 && age <= maxAgeMs ? "live" : "delayed";
 }
 
 /* ------------------------------------------------------------------ time ---- */

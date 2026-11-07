@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { daysToExpiry, isMarketOpen, lastCloseTime, quoteFromSnapshot, strikeGap, type FnoSnapshot } from "./snapshot";
+import { classifySource, daysToExpiry, isMarketOpen, lastCloseTime, quoteFromSnapshot, strikeGap, type FnoSnapshot } from "./snapshot";
 import { percentileOf } from "../upstox-fno";
 
 const at = (iso: string) => new Date(iso); // ISO with explicit IST offset
@@ -44,7 +44,7 @@ describe("snapshot helpers", () => {
     near(percentileOf(15, closes)!, 51, 1e-9);
     assert.equal(percentileOf(15, closes.slice(0, 10)), null); // too short to mean anything
   });
-  const base: FnoSnapshot = { asOf: "", source: "live", underlying: "NIFTY", expiry: "2026-11-09", expiries: [], spot: 25000, vix: 16, vixPrevClose: 15, vixPercentile: 50, atmIv: 16, lot: 65, step: 50, pcr: 1, chain: [{ strike: 25000, ce: { ltp: 140, bid: 139, ask: 141, oi: 1, iv: 16, delta: 0.5, gamma: 0, theta: 0, vega: 0 }, pe: { ltp: 0, bid: null, ask: null, oi: 0, iv: null, delta: null, gamma: null, theta: null, vega: null } }] };
+  const base: FnoSnapshot = { asOf: "", feedAsOf: null, source: "live", underlying: "NIFTY", expiry: "2026-11-09", expiries: [], spot: 25000, vix: 16, vixPrevClose: 15, vixPercentile: 50, atmIv: 16, lot: 65, step: 50, pcr: 1, chain: [{ strike: 25000, ce: { ltp: 140, bid: 139, ask: 141, oi: 1, iv: 16, delta: 0.5, gamma: 0, theta: 0, vega: 0 }, pe: { ltp: 0, bid: null, ask: null, oi: 0, iv: null, delta: null, gamma: null, theta: null, vega: null } }] };
   it("offers chain prices for traded strikes only", () => {
     const q = quoteFromSnapshot(base)!;
     assert.deepEqual(q("CE", 25000), { ltp: 140, iv: 16 });
@@ -52,4 +52,29 @@ describe("snapshot helpers", () => {
     assert.equal(q("CE", 99999), null); // not in the chain
   });
   it("never treats simulated prices as chain prices", () => assert.equal(quoteFromSnapshot({ ...base, source: "simulated" }), undefined));
+});
+
+describe("live vs delayed comes from the feed's own timestamp", () => {
+  const now = at("2026-11-10T11:00:00+05:30"); // a Tuesday mid-session
+  const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
+  it("a tick from 20 seconds ago is live", () => assert.equal(classifySource(ago(20_000), now), "live"));
+  it("exactly a minute old is still live; just over is delayed", () => {
+    assert.equal(classifySource(ago(60_000), now), "live");
+    assert.equal(classifySource(ago(61_000), now), "delayed");
+  });
+  it("during market hours, a stalled feed is delayed (covers exchange holidays)", () => {
+    assert.equal(isMarketOpen(now), true); // the clock says open...
+    assert.equal(classifySource(ago(20 * 3600_000), now), "delayed"); // ...but the last tick was yesterday's close
+  });
+  it("no timestamp is never live", () => assert.equal(classifySource(null, now), "delayed"));
+  it("a garbage timestamp is never live", () => assert.equal(classifySource("not a date", now), "delayed"));
+  it("a few seconds of clock skew into the future is tolerated, minutes are not", () => {
+    assert.equal(classifySource(new Date(now.getTime() + 3_000).toISOString(), now), "live");
+    assert.equal(classifySource(new Date(now.getTime() + 10 * 60_000).toISOString(), now), "delayed");
+  });
+  it("a special session outside normal hours is live while it is ticking", () => {
+    const sunday = at("2026-11-08T18:15:00+05:30"); // e.g. Muhurat trading
+    assert.equal(isMarketOpen(sunday), false);
+    assert.equal(classifySource(new Date(sunday.getTime() - 5_000).toISOString(), sunday), "live");
+  });
 });

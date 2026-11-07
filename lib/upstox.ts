@@ -238,6 +238,22 @@ export async function fetchOptionChain(
   return { spot, rows };
 }
 
+/**
+ * When the exchange last updated an instrument (its last trade time, as an ISO string), or null.
+ * Note the quote's own `timestamp` field is just the moment Upstox answered, so it can't show
+ * staleness — `last_trade_time` can.
+ */
+export async function fetchLastTradeTime(token: string, key: string): Promise<string | null> {
+  const res = await fetch(`${UPSTOX_BASE}/v2/market-quote/quotes?instrument_key=${encodeURIComponent(key)}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const q = Object.values(((await res.json()) as { data?: Record<string, { last_trade_time?: string | number }> }).data ?? {})[0];
+  const ms = Number(q?.last_trade_time);
+  return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
+}
+
 /** India VIX last price and previous close. */
 export async function fetchIndiaVixQuote(token: string): Promise<{ ltp: number; prevClose: number | null } | null> {
   const res = await fetch(`${UPSTOX_BASE}/v3/market-quote/ltp?instrument_key=${encodeURIComponent(INDIA_VIX_KEY)}`, {

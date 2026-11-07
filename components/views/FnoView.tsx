@@ -84,7 +84,7 @@ function Seg<T extends string>({ label, value, options, onChange }: { label: str
 
 const BADGE: Record<FnoSource | "manual", { text: string; cls: string; dot: string }> = {
   live: { text: "Live", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  delayed: { text: "Delayed — last close", cls: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
+  delayed: { text: "Delayed", cls: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
   simulated: { text: "Simulated", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
   manual: { text: "Manual", cls: "bg-violet-50 text-violet-700", dot: "bg-violet-500" },
 };
@@ -128,8 +128,9 @@ export default function FnoView() {
       live
         ? {
             spot: ov.spot ?? live.spot,
-            // Delayed prices belong to the last close, so count time to expiry from there.
-        dte: ov.dte ?? daysToExpiry(live.expiry, live.source === "delayed" ? lastCloseTime(new Date(now ?? Date.parse(live.asOf))) : new Date(now ?? Date.parse(live.asOf))),
+            // Delayed prices belong to the moment the feed last updated, so count time to expiry from there
+        // (else from the last close). Live prices are counted from now.
+        dte: ov.dte ?? daysToExpiry(live.expiry, live.source === "delayed" ? new Date(live.feedAsOf ?? lastCloseTime(new Date(now ?? Date.parse(live.asOf)))) : new Date(now ?? Date.parse(live.asOf))),
             iv: ov.iv ?? feedIv ?? 16,
             r: costs.r,
             q: costs.q,
@@ -216,9 +217,11 @@ export default function FnoView() {
             {live.source === "simulated"
               ? "Upstox isn’t answering, so every number here is generated — treat it as a demonstration, not a market."
               : live.source === "delayed"
-                ? "The market is shut, so spot, VIX and option prices are the last session’s closing figures."
+                ? "The exchange feed hasn’t updated in the last minute (market shut, a holiday, or a stalled feed), so spot, VIX and option prices are the last values received."
                 : "Spot, VIX and option prices refresh every 5 seconds while the market is open."}{" "}
-            {live.source !== "simulated" && <>As of {new Date(live.asOf).toLocaleTimeString("en-IN")}.</>}
+            {live.source !== "simulated" && live.feedAsOf && (
+              <>Exchange’s last update: {new Date(live.feedAsOf).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}.</>
+            )}
             {feedLost && <b className="ml-1 text-rose-500">The feed stopped answering — these are the last values received.</b>}
           </p>
         )}
@@ -251,7 +254,7 @@ export default function FnoView() {
                 </select>
               </div>
               <Num id="fno-spot" label={`${name} price`} value={market.spot} onChange={(v) => setOv((o) => ({ ...o, spot: v }))} min={0} hint={ov.spot != null ? "typed by you" : "from the feed"} />
-              <Num id="fno-dte" label="Days to expiry" value={market.dte} onChange={(v) => setOv((o) => ({ ...o, dte: v }))} min={0} hint={ov.dte != null ? "typed by you" : live.source === "delayed" ? "from the last close to 15:30 IST on expiry day" : "to 15:30 IST on expiry day"} />
+              <Num id="fno-dte" label="Days to expiry" value={market.dte} onChange={(v) => setOv((o) => ({ ...o, dte: v }))} min={0} hint={ov.dte != null ? "typed by you" : live.source === "delayed" ? "from the feed’s last update to 15:30 IST on expiry day" : "to 15:30 IST on expiry day"} />
               <Num id="fno-iv" label={info.kind === "index" ? "VIX" : "Volatility (ATM IV)"} value={market.iv} onChange={(v) => setOv((o) => ({ ...o, iv: v }))} min={0} hint={ov.iv != null ? "typed by you" : info.kind === "index" ? "India VIX" : "at-the-money implied volatility"} />
               <Num id="fno-lot" label="Lot size" value={market.lot} onChange={(v) => setOv((o) => ({ ...o, lot: v }))} min={1} hint={ov.lot != null ? "typed by you" : "from the exchange contract list"} />
               <Num id="fno-step" label="Strike gap" value={market.step} onChange={(v) => setOv((o) => ({ ...o, step: v }))} min={0} />

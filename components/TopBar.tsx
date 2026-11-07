@@ -7,10 +7,12 @@ import { Wallet } from "lucide-react";
 import { NAV } from "./nav";
 import { useZestoxx } from "./ZestoxxProvider";
 import { fmtINR } from "@/lib/helpers";
+import { useMarketOpen } from "@/lib/useMarketOpen";
 
 export default function TopBar() {
   const pathname = usePathname();
   const { cash, selected } = useZestoxx();
+  const marketOpen = useMarketOpen();
   const segment = pathname.split("/")[2] || "dashboard";
 
   return (
@@ -36,7 +38,12 @@ export default function TopBar() {
         ))}
       </div>
       <div className="hidden items-center gap-2 text-[11.5px] text-slate-500 sm:flex">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Market Open
+        {marketOpen !== null && (
+          <>
+            <span className={"h-1.5 w-1.5 rounded-full " + (marketOpen ? "bg-emerald-500" : "bg-slate-400")} />
+            {marketOpen ? "Market Open" : "Market Closed"}
+          </>
+        )}
       </div>
       <div className="hidden items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px] sm:flex">
         <Wallet size={13} className="text-blue-600" />

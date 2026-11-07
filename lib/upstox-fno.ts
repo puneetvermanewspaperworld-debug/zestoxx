@@ -1,6 +1,7 @@
 import {
   OPTION_UNDERLYINGS,
   fetchIndiaVixQuote,
+  fetchLastTradeTime,
   fetchOptionChain,
   fetchOptionExpiries,
   fetchVixCloses,
@@ -8,7 +9,7 @@ import {
 import { memoized } from "./upstox-movers";
 import { chainStats, simulateChain, type ChainRow, type OptionLeg } from "./options";
 import { UNDERLYINGS, lotFallback } from "./fno/lots";
-import { isMarketOpen, strikeGap, type FnoLeg, type FnoSnapshot } from "./fno/snapshot";
+import { classifySource, strikeGap, type FnoLeg, type FnoSnapshot } from "./fno/snapshot";
 
 /**
  * One call's worth of everything the F&O analyzer needs for an underlying + expiry. Server-only.
@@ -46,17 +47,19 @@ export async function liveSnapshot(token: string, underlying: string, expiry: st
   const exp = expiry && expiries.includes(expiry) ? expiry : expiries[0];
   if (!exp) return null;
 
-  const [chain, vixQuote, closes] = await Promise.all([
+  const [chain, vixQuote, closes, feedAsOf] = await Promise.all([
     fetchOptionChain(token, key, exp),
     fetchIndiaVixQuote(token).catch(() => null),
     memoized("fno:vix-closes", VIX_HISTORY_TTL, () => fetchVixCloses(token)).catch(() => [] as number[]),
+    fetchLastTradeTime(token, key).catch(() => null),
   ]);
   if (chain.rows.length === 0 || chain.spot <= 0) return null;
 
   const stats = chainStats(chain.rows, chain.spot);
   return {
     asOf: new Date().toISOString(),
-    source: isMarketOpen() ? "live" : "delayed",
+    feedAsOf,
+    source: classifySource(feedAsOf),
     underlying,
     expiry: exp,
     expiries,
@@ -80,6 +83,7 @@ export function simulatedSnapshot(underlying: string, expiry: string | null): Fn
   const stats = chainStats(c.rows, c.spot);
   return {
     asOf: new Date().toISOString(),
+    feedAsOf: null,
     source: "simulated",
     underlying,
     expiry: c.expiry,
