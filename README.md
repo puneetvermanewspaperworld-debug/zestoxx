@@ -68,6 +68,7 @@ app/
     option-candles/route.ts   today's 5-minute candles for one option contract (order-sheet chart)
     option-marks/route.ts     last prices for held option contracts (portfolio mark-to-market)
     option-expiries/route.ts  upcoming expiry dates for an underlying (the "EXPIRY TODAY" badge)
+    fno/snapshot/route.ts     one call for the F&O analyzer: spot, VIX, expiries, lot, per-strike prices/IV/Greeks
     buildup-window/route.ts   buildup over a chosen intraday window (`?back=10` or `?from=09:45&to=10:30`)
     watchlist/route.ts        priced rows for a popular list (`?list=`) or any NSE symbols (`?symbols=`)
     watchlist-search/route.ts symbol/name search across all NSE equities and ETFs (no token needed)
@@ -198,6 +199,29 @@ payload in `lib/options.ts`:
 
 With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
 shows a deterministic simulated chain, badged **Simulated**.
+
+### F&O analyzer (`/app/fno`)
+
+Ported from the single-file prototype. The maths lives in `lib/fno/` as plain functions of an explicit
+`Market` (no DOM): `pricing.ts` (Black-Scholes-Merton, implied volatility by bisection), `charges.ts` (one
+`RATES` object with a `verifiedOn` date — the footer shows it), `strikes.ts` (the ITM/ATM/OTM comparison),
+`lots.ts` (fallback lot sizes), `engine.ts` (legs, P&L, breakevens, probability, Greeks, presets).
+**`npm test`** runs the checks from the handoff (Black-Scholes reference, implied-vol round trip, a hand-worked
+charge stack, long-ATM-call breakeven and worst case, strike-table monotonicity) plus the snapshot helpers.
+
+- **Live data:** `/api/fno/snapshot?u=NIFTY&expiry=…` returns spot, India VIX (+ previous close and a 1-year
+  percentile), expiries, lot size (from Upstox's contract list), strike gap, PCR and every strike's price, bid/ask,
+  OI, IV and Greeks — from one option-chain call, cached 4 s. `source` is **live** (market open), **delayed**
+  (market shut: last close) or **simulated** (Upstox didn't answer; generated numbers, labelled as such and never
+  used as chain prices). The page polls every 5 s during 09:15–15:30 IST on weekdays; the badge turns **Manual** the
+  moment you type over spot, days or volatility, and chain prices are then dropped.
+- **Chain prices drive the trade:** a leg with no typed price enters at the chain price and uses that strike's own
+  implied volatility (so there's no flat-vol assumption); the strike table does the same. Typed price > chain > model.
+- **Delayed data** counts days to expiry from the *last close*, not the wall clock — otherwise implied volatility
+  creeps up over a weekend.
+- **Not from Upstox:** index PE (typed in on the page), and brokerage/tax slab/rates (user settings). The handoff's
+  idea of storing PE daily in Postgres from a cron job isn't built.
+- Not built: persistence of the analyzer's state (the prototype used localStorage), the prototype's "copy summary".
 
 ### Buildup time window
 

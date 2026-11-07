@@ -49,6 +49,7 @@ type ViewId =
   | "markets"
   | "movers"
   | "watchlist"
+  | "fno"
   | "options"
   | "buildup"
   | "fiidii"

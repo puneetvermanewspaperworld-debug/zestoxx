@@ -13,6 +13,9 @@ export interface OptionLeg {
   iv: number;
   /** Upstox instrument key (live chains only) */
   key?: string;
+  /** best bid / ask, when the feed sends them */
+  bid?: number;
+  ask?: number;
   /** option Greeks — per-unit, as the exchange feed reports them; absent when unavailable */
   delta?: number;
   gamma?: number;

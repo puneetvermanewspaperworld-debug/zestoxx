@@ -186,6 +186,8 @@ interface ApiLeg {
     oi?: number;
     prev_oi?: number;
     volume?: number;
+    bid_price?: number;
+    ask_price?: number;
   };
   option_greeks?: { iv?: number; delta?: number; gamma?: number; theta?: number; vega?: number };
 }
@@ -205,6 +207,8 @@ const toLeg = (l?: ApiLeg): OptionLeg => ({
   volume: num(l?.market_data?.volume),
   iv: num(l?.option_greeks?.iv),
   key: l?.instrument_key,
+  ...(num(l?.market_data?.bid_price) > 0 ? { bid: num(l?.market_data?.bid_price) } : {}),
+  ...(num(l?.market_data?.ask_price) > 0 ? { ask: num(l?.market_data?.ask_price) } : {}),
   // Only when the feed sent a real number — "0" for a missing Greek would read as a value.
   ...Object.fromEntries(
     (["delta", "gamma", "theta", "vega"] as const)
@@ -232,6 +236,32 @@ export async function fetchOptionChain(
     .sort((a, b) => a.strike - b.strike);
   const spot = data.map((r) => num(r.underlying_spot_price)).find((v) => v > 0) ?? 0;
   return { spot, rows };
+}
+
+/** India VIX last price and previous close. */
+export async function fetchIndiaVixQuote(token: string): Promise<{ ltp: number; prevClose: number | null } | null> {
+  const res = await fetch(`${UPSTOX_BASE}/v3/market-quote/ltp?instrument_key=${encodeURIComponent(INDIA_VIX_KEY)}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const e = Object.values(((await res.json()) as { data?: Record<string, LtpEntry> }).data ?? {})[0];
+  if (!e || !(num(e.last_price) > 0)) return null;
+  return { ltp: num(e.last_price), prevClose: num(e.cp) > 0 ? num(e.cp) : null };
+}
+
+/** Daily India VIX closes for roughly the last year, oldest first. */
+export async function fetchVixCloses(token: string): Promise<number[]> {
+  const to = new Date();
+  const from = new Date(to.getTime() - 380 * 86_400_000);
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const res = await fetch(
+    `${UPSTOX_BASE}/v3/historical-candle/${encodeURIComponent(INDIA_VIX_KEY)}/days/1/${day(to)}/${day(from)}`,
+    { headers: authHeaders(token), cache: "no-store" }
+  );
+  if (!res.ok) throw new Error(`upstox vix history ${res.status}`);
+  const candles = ((await res.json()) as { data?: { candles?: (string | number)[][] } }).data?.candles ?? [];
+  return candles.map((c) => num(c[4])).filter((v) => v > 0).reverse();
 }
 
 export async function fetchIndiaVix(token: string): Promise<number | null> {
