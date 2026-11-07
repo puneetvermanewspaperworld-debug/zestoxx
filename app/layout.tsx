@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({
+// Self-hosted (latin subset, variable weight), so a build never has to reach Google Fonts — a clean
+// Vercel build with no cache failed on the Google loader. Both fonts are under the SIL Open Font
+// License; the licences sit beside the files in app/fonts/. Only the latin subset, as before.
+const inter = localFont({
+  src: "./fonts/Inter-latin-wght.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "100 900",
+  display: "swap",
 });
 
-const spaceGrotesk = Space_Grotesk({
+const spaceGrotesk = localFont({
+  src: "./fonts/SpaceGrotesk-latin-wght.woff2",
   variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: "300 700",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
