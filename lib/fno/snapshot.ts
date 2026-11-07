@@ -76,31 +76,9 @@ export function classifySource(feedAsOf: string | null, now: Date = new Date(), 
 
 /* ------------------------------------------------------------------ time ---- */
 
-const IST_MS = 5.5 * 3_600_000;
-
-/** Indian equity-derivatives hours: weekdays 09:15–15:30 IST. Exchange holidays aren't modelled. */
-export function isMarketOpen(now: Date = new Date()): boolean {
-  const d = new Date(now.getTime() + IST_MS);
-  const day = d.getUTCDay();
-  const minutes = d.getUTCHours() * 60 + d.getUTCMinutes();
-  return day >= 1 && day <= 5 && minutes >= 9 * 60 + 15 && minutes <= 15 * 60 + 30;
-}
-
-/**
- * The most recent weekday 15:30 IST at or before `now` — when the last session's closing prices were
- * set. Prices read while the market is shut belong to this moment, so time to expiry must be
- * counted from here, not from the wall clock (or implied volatility drifts up over a weekend).
- */
-export function lastCloseTime(now: Date = new Date()): Date {
-  const ist = new Date(now.getTime() + IST_MS);
-  let day = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate());
-  const minutes = ist.getUTCHours() * 60 + ist.getUTCMinutes();
-  const dow = ist.getUTCDay();
-  const closedToday = dow >= 1 && dow <= 5 && minutes >= 15 * 60 + 30;
-  if (!closedToday) day -= 86_400_000; // today's session hasn't closed yet (or there wasn't one)
-  while ([0, 6].includes(new Date(day).getUTCDay())) day -= 86_400_000;
-  return new Date(day + (15 * 60 + 30) * 60_000 - IST_MS);
-}
+// Market hours, holidays and "the last close" live in lib/market-calendar.ts (NSE's holiday list and
+// the Muhurat session). Re-exported so existing imports keep working.
+export { isMarketOpen, lastCloseTime } from "../market-calendar";
 
 /** Days from `now` to 15:30 IST on `expiry` (YYYY-MM-DD), as a decimal, never below 0. */
 export function daysToExpiry(expiry: string, now: Date = new Date()): number {

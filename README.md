@@ -200,6 +200,26 @@ payload in `lib/options.ts`:
 With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
 shows a deterministic simulated chain, badged **Simulated**.
 
+### Market hours, exchange holidays and the Muhurat session
+
+Everything that asks "is the market open?" goes through `lib/market-calendar.ts`: the top bar (Market Open /
+Closed — <holiday> / the Muhurat session), the analyzer's polling and its Live/Delayed explanation, and "the last
+close" that delayed prices belong to. It holds regular hours (09:15–15:30 IST), the **20 NSE equity-derivatives
+holidays for 2026** (taken from NSE's published list, segment FO) and special sessions. The table carries a
+`verifiedOn` date, shown in the top bar's tooltip and the analyzer footer.
+
+- **Diwali Muhurat, Sun 8 Nov 2026:** 14:20–15:40 IST per NSE circular **NSE/FAOP/76940** (pre-open 14:05–14:20).
+  NSE's holiday list only marks that date with an asterisk; the timings come from the circular. They end at
+  15:40, not 15:30.
+- **Weekly expiries move off holidays by themselves** (Upstox's contract list already reflects it): Nifty's
+  Tue 10 Nov expiry is Mon 9 Nov, and Tue 24 Nov's is Mon 23 Nov. A test checks every index expiry Upstox lists is a
+  trading day by this calendar.
+- **Live vs Delayed is still decided from the feed's own timestamp** (a tick under a minute old); the calendar
+  explains *why* it isn't live (holiday, outside hours, or a stalled feed while NSE is scheduled open).
+- **Coverage is 2026.** Other years fall back to weekday hours and the tooltip says so. **`npm run check:holidays`**
+  diffs the table against NSE's live list (exit 1 on any difference) — run it when NSE announces a change and at the
+  start of each year, then bump `verifiedOn`. If NSE blocks the request, run it from your own machine.
+
 ### F&O analyzer (`/app/fno`)
 
 Ported from the single-file prototype. The maths lives in `lib/fno/` as plain functions of an explicit

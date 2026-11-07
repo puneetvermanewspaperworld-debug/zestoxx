@@ -20,7 +20,9 @@ import {
 import { explain } from "@/lib/fno/explain";
 import { TONE_CLASS, compact, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
-import { daysToExpiry, lastCloseTime, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
+import { daysToExpiry, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
+import { CALENDAR, lastCloseTime } from "@/lib/market-calendar";
+import { useMarketStatus } from "@/lib/useMarketStatus";
 import { compareStrikes } from "@/lib/fno/strikes";
 import { fmtIsoDate } from "@/lib/helpers";
 import { useFnoSnapshot } from "@/lib/useFnoSnapshot";
@@ -190,6 +192,17 @@ export default function FnoView() {
   const badgeKey: FnoSource | "manual" = manual ? "manual" : (live?.source ?? "simulated");
   const badge = BADGE[badgeKey];
   const name = info.name;
+  const mk = useMarketStatus();
+  // Why the prices aren't live, in plain words, using the exchange calendar when it has an answer.
+  const delayedWhy = !mk
+    ? "The exchange feed hasn’t updated in the last minute, so spot, VIX and option prices are the last values received."
+    : mk.open
+      ? "NSE is scheduled to be open, but its feed hasn’t updated in the last minute — it may have stalled. Spot, VIX and option prices are the last values received."
+      : mk.kind === "holiday"
+        ? `NSE is closed today (${mk.reason}), so spot, VIX and option prices are the last values from the previous session.`
+        : mk.kind === "special"
+          ? `${mk.label}. The exchange feed hasn’t updated in the last minute, so prices are the last values received.`
+          : "The market is shut, so spot, VIX and option prices are the last values from the previous session.";
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
@@ -217,7 +230,7 @@ export default function FnoView() {
             {live.source === "simulated"
               ? "Upstox isn’t answering, so every number here is generated — treat it as a demonstration, not a market."
               : live.source === "delayed"
-                ? "The exchange feed hasn’t updated in the last minute (market shut, a holiday, or a stalled feed), so spot, VIX and option prices are the last values received."
+                ? delayedWhy
                 : "Spot, VIX and option prices refresh every 5 seconds while the market is open."}{" "}
             {live.source !== "simulated" && live.feedAsOf && (
               <>Exchange’s last update: {new Date(live.feedAsOf).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}.</>
@@ -398,7 +411,8 @@ export default function FnoView() {
             <p>
               These are model estimates for learning, not advice. Margin isn’t included, and Zestoxx does not place orders — check everything in
               your broker before you trade. Charges use rates verified on <b>{fmtIsoDate(RATES.verifiedOn)}</b> (STT, exchange fees, SEBI fee,
-              stamp duty and GST change from time to time).
+              stamp duty and GST change from time to time). The exchange holiday calendar ({CALENDAR.year}, NSE equity derivatives, including the
+              Diwali Muhurat session) was verified on <b>{fmtIsoDate(CALENDAR.verifiedOn)}</b>; for dates outside {CALENDAR.year} only weekday hours are known.
             </p>
           </footer>
         </>

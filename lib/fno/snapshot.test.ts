@@ -17,9 +17,9 @@ describe("market hours (IST, weekdays 09:15–15:30)", () => {
 describe("last close", () => {
   const iso = (d: Date) => new Date(d.getTime() + 5.5 * 3600e3).toISOString().slice(0, 16);
   it("a Saturday looks back to Friday 15:30", () => assert.equal(iso(lastCloseTime(at("2026-11-07T14:39:00+05:30"))), "2026-11-06T15:30"));
-  it("a Monday before the open looks back to Friday 15:30", () => assert.equal(iso(lastCloseTime(at("2026-11-09T09:00:00+05:30"))), "2026-11-06T15:30"));
-  it("a weekday after 15:30 is that day's close", () => assert.equal(iso(lastCloseTime(at("2026-11-10T16:00:00+05:30"))), "2026-11-10T15:30"));
-  it("mid-session it is the previous day's close", () => assert.equal(iso(lastCloseTime(at("2026-11-10T11:00:00+05:30"))), "2026-11-09T15:30"));
+  it("a Monday before the open looks back to Friday 15:30", () => assert.equal(iso(lastCloseTime(at("2026-11-16T09:00:00+05:30"))), "2026-11-13T15:30"));
+  it("a weekday after 15:30 is that day's close", () => assert.equal(iso(lastCloseTime(at("2026-11-12T16:00:00+05:30"))), "2026-11-12T15:30"));
+  it("mid-session it is the previous day's close", () => assert.equal(iso(lastCloseTime(at("2026-11-12T11:00:00+05:30"))), "2026-11-11T15:30"));
 });
 
 describe("days to expiry", () => {
@@ -55,7 +55,7 @@ describe("snapshot helpers", () => {
 });
 
 describe("live vs delayed comes from the feed's own timestamp", () => {
-  const now = at("2026-11-10T11:00:00+05:30"); // a Tuesday mid-session
+  const now = at("2026-11-12T11:00:00+05:30"); // an ordinary Thursday, mid-session
   const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
   it("a tick from 20 seconds ago is live", () => assert.equal(classifySource(ago(20_000), now), "live"));
   it("exactly a minute old is still live; just over is delayed", () => {
@@ -73,7 +73,7 @@ describe("live vs delayed comes from the feed's own timestamp", () => {
     assert.equal(classifySource(new Date(now.getTime() + 10 * 60_000).toISOString(), now), "delayed");
   });
   it("a special session outside normal hours is live while it is ticking", () => {
-    const sunday = at("2026-11-08T18:15:00+05:30"); // e.g. Muhurat trading
+    const sunday = at("2026-11-15T18:15:00+05:30"); // an ordinary Sunday evening, standing in for any unscheduled session
     assert.equal(isMarketOpen(sunday), false);
     assert.equal(classifySource(new Date(sunday.getTime() - 5_000).toISOString(), sunday), "live");
   });

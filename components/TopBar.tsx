@@ -7,12 +7,14 @@ import { Wallet } from "lucide-react";
 import { NAV } from "./nav";
 import { useZestoxx } from "./ZestoxxProvider";
 import { fmtINR } from "@/lib/helpers";
-import { useMarketOpen } from "@/lib/useMarketOpen";
+import { CALENDAR } from "@/lib/market-calendar";
+import { fmtIsoDate } from "@/lib/helpers";
+import { useMarketStatus } from "@/lib/useMarketStatus";
 
 export default function TopBar() {
   const pathname = usePathname();
   const { cash, selected } = useZestoxx();
-  const marketOpen = useMarketOpen();
+  const market = useMarketStatus();
   const segment = pathname.split("/")[2] || "dashboard";
 
   return (
@@ -38,11 +40,14 @@ export default function TopBar() {
         ))}
       </div>
       <div className="hidden items-center gap-2 text-[11.5px] text-slate-500 sm:flex">
-        {marketOpen !== null && (
-          <>
-            <span className={"h-1.5 w-1.5 rounded-full " + (marketOpen ? "bg-emerald-500" : "bg-slate-400")} />
-            {marketOpen ? "Market Open" : "Market Closed"}
-          </>
+        {market !== null && (
+          <span
+            className="flex items-center gap-2"
+            title={`NSE holiday calendar for ${CALENDAR.year}, verified ${fmtIsoDate(CALENDAR.verifiedOn)} (equity derivatives segment${market.calendarCovered ? "" : "; this date is outside the calendar, so only weekday hours are applied"}).`}
+          >
+            <span className={"h-1.5 w-1.5 rounded-full " + (market.open ? (market.kind === "special" ? "bg-amber-500" : "bg-emerald-500") : "bg-slate-400")} />
+            {market.label}
+          </span>
         )}
       </div>
       <div className="hidden items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px] sm:flex">
