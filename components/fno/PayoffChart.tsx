@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useMemo, useRef } from "react";
+import { useElementWidth } from "@/lib/useElementWidth";
 import { evaluate, type Market, type Outcome, type PreparedLeg, type StaticResult } from "@/lib/fno/engine";
 import { compact, nf } from "@/lib/fno/format";
 
-const W = 640;
-const H = 290;
-const PL = 50;
+const PL = 54;
 const PR = 12;
 const PT = 12;
 const PB = 28;
@@ -40,6 +39,8 @@ export function chartRange(P: PreparedLeg[], m: Market): { lo: number; hi: numbe
 /** Profit and loss against the index at expiry, with an adjustable exit marker. Drag to move it. */
 export default function PayoffChart({ P, m, st, sc, exitSpot, days, dIV, onPick }: PayoffChartProps) {
   const ref = useRef<SVGSVGElement>(null);
+  const [boxRef, W] = useElementWidth<HTMLDivElement>(640);
+  const H = W < 640 ? 260 : 290;
   const dragging = useRef(false);
   const { lo, hi } = useMemo(() => chartRange(P, m), [P, m]);
   const showExit = m.exitStyle === "square" && days < m.dte - 1e-9;
@@ -96,13 +97,15 @@ export default function PayoffChart({ P, m, st, sc, exitSpot, days, dIV, onPick 
   const exY = evaluate(P, m, exitSpot, m.dte, 0, m.exitStyle).pre;
 
   return (
-    <div>
+    <div ref={boxRef}>
       <svg
         ref={ref}
+        width={W}
+        height={H}
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label="Profit and loss at expiry for the trade. Drag to move the exit level."
-        className="w-full touch-none select-none"
+        className="block touch-pan-y select-none"
         onPointerDown={(e) => { dragging.current = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} pick(e.clientX); }}
         onPointerMove={(e) => { if (dragging.current) pick(e.clientX); }}
         onPointerUp={() => { dragging.current = false; }}
@@ -115,11 +118,11 @@ export default function PayoffChart({ P, m, st, sc, exitSpot, days, dIV, onPick 
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PL} x2={W - PR} y1={sy(t)} y2={sy(t)} stroke="#e2e8f0" />
-            <text x={PL - 6} y={sy(t) + 3.5} textAnchor="end" fontSize="10" fill="#64748b">{compact(t)}</text>
+            <text x={PL - 6} y={sy(t) + 3.5} textAnchor="end" fontSize="12" fill="#64748b">{compact(t)}</text>
           </g>
         ))}
         <line x1={PL} x2={W - PR} y1={zy} y2={zy} stroke="#94a3b8" strokeWidth="1.2" />
-        <text x={PL - 6} y={zy + 3.5} textAnchor="end" fontSize="10" fill="#64748b">0</text>
+        <text x={PL - 6} y={zy + 3.5} textAnchor="end" fontSize="12" fill="#64748b">0</text>
         <rect x={bx1} y={PT} width={Math.max(0, bx2 - bx1)} height={H - PT - PB} fill="#2563eb" opacity=".08" />
         <path d={area} fill="#10b981" opacity=".16" clipPath="url(#fno-cu)" />
         <path d={area} fill="#f43f5e" opacity=".16" clipPath="url(#fno-cd)" />
@@ -140,13 +143,13 @@ export default function PayoffChart({ P, m, st, sc, exitSpot, days, dIV, onPick 
         {[0, 1, 2, 3, 4].map((i) => {
           const v = lo + ((hi - lo) * i) / 4;
           return (
-            <text key={i} x={sx(v)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} fontSize="10" fill="#64748b">
+            <text key={i} x={sx(v)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} fontSize="12" fill="#64748b">
               {nf(v)}
             </text>
           );
         })}
       </svg>
-      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-slate-600">
         <li className="flex items-center gap-1.5"><i className="inline-block h-0.5 w-4 bg-blue-600" />At expiry, after charges</li>
         {showExit && <li className="flex items-center gap-1.5"><i className="inline-block h-0 w-4 border-t-2 border-dashed border-amber-500" />On your exit day</li>}
         <li className="flex items-center gap-1.5"><i className="inline-block h-0 w-4 border-t-2 border-dotted border-slate-400" />Before charges</li>

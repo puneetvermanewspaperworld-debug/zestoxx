@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Landmark } from "lucide-react";
 import { useIsClient } from "@/lib/useIsClient";
+import FlowChart from "@/components/fiidii/FlowChart";
+import { fmtCr } from "@/lib/format-cr";
 import { fmtIsoDate } from "@/lib/helpers";
 import {
   aggregateFlows,
@@ -12,14 +14,12 @@ import {
   type Segment,
 } from "@/lib/fiidii";
 
-const cr = (v: number) =>
-  `₹${v >= 0 ? "+" : "−"}${Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 0 })} Cr`;
+// +₹3,401 Cr / −₹475 Cr — the sign goes before the rupee sign.
+const cr = (v: number) => fmtCr(v);
 
 const pct = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}%`;
 
 const tone = (v: number) => (v >= 0 ? "text-emerald-500" : "text-rose-500");
-
-const CHART_BARS: Record<Interval, number> = { daily: 20, weekly: 16, monthly: 12 };
 
 function Toggle<T extends string>({
   label,
@@ -94,8 +94,11 @@ export default function FiiDiiView() {
   const latest = days[days.length - 1];
   const segLabel = segment === "cash" ? "Cash market" : "Derivatives";
   const longPct = latest.fiiIdxFutLongPct;
-  const chartRows = rows.slice(-CHART_BARS[period]);
-  const maxAbs = Math.max(1, ...chartRows.map((r) => Math.abs(r.net)));
+  // The chart and the table draw the very same rows, so their date ranges can't disagree.
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  const dateOf = (r: { key: string; label: string }) => (/^\d{4}-\d{2}-\d{2}$/.test(r.key) ? fmtIsoDate(r.key) : r.label);
+  const rangeText = first && last ? `${dateOf(first)} – ${dateOf(last)} · ${rows.length} ${period === "daily" ? "days" : period === "weekly" ? "weeks" : "months"}` : "";
 
   return (
     <div className="space-y-3">
@@ -180,54 +183,34 @@ export default function FiiDiiView() {
           </label>
         </div>
 
-        <div className="mb-1.5 flex items-center gap-3 text-[11px] text-slate-500">
-          <span className="font-medium text-slate-700">
+        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-[12px] text-slate-600">
+          <span className="font-medium text-slate-800">
             {entity} net · {segLabel}
           </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm bg-blue-600" /> buying
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm bg-rose-500" /> selling
-          </span>
+          <span className="tabular-nums">{rangeText}</span>
         </div>
-        <div className="flex h-[150px] items-end gap-2 overflow-x-auto pb-1">
-          {chartRows.map((r) => (
-            <div key={r.key} className="flex shrink-0 flex-col items-center gap-1.5" style={{ width: 30 }}>
-              <div className="flex h-[118px] items-end">
-                <div
-                  className="w-4 rounded-t"
-                  style={{
-                    height: `${(Math.abs(r.net) / maxAbs) * 100}%`,
-                    background: r.net >= 0 ? "#2563EB" : "#F43F5E",
-                  }}
-                  title={`${r.label}: ${cr(r.net)}`}
-                />
-              </div>
-              <div className="whitespace-nowrap text-[9px] text-slate-400">{r.label}</div>
-            </div>
-          ))}
-        </div>
+        <FlowChart rows={rows} title={`${entity} net ${segLabel}`} />
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="max-h-[420px] overflow-auto">
-          <table className="w-full min-w-[420px] border-collapse text-[12px]">
+        <div className="max-h-[60vh] overflow-y-auto md:max-h-[420px] md:overflow-auto">
+          <p className="border-b border-slate-100 px-3 py-2 text-[12px] text-slate-600 tabular-nums">{rangeText}</p>
+          <table className="no-sticky-col w-full border-collapse text-[12px] md:min-w-[420px]">
             <thead className="sticky top-0 bg-white">
               <tr className="border-b border-slate-200 text-slate-500">
-                <th className="px-3 py-2 text-left font-medium">Date</th>
-                <th className="px-3 py-2 text-right font-medium">Nifty</th>
-                <th className="px-3 py-2 text-right font-medium">Net Amount (Cr)</th>
+                <th className="px-2.5 py-2 text-left font-medium md:px-3">Date</th>
+                <th className="px-2.5 py-2 text-right font-medium md:px-3">Nifty</th>
+                <th className="whitespace-nowrap px-2.5 py-2 text-right font-medium md:px-3">Net amount</th>
               </tr>
             </thead>
             <tbody>
               {[...rows].reverse().map((r) => (
                 <tr key={r.key} className="border-b border-blue-50 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-medium text-slate-900">{r.label}</td>
-                  <td className={"px-3 py-2 text-right font-mono " + tone(r.niftyChgPct)}>
+                  <td className="whitespace-nowrap px-2.5 py-2 font-medium text-slate-900 md:px-3">{r.label}</td>
+                  <td className={"whitespace-nowrap px-2.5 py-2 text-right font-mono md:px-3 " + tone(r.niftyChgPct)}>
                     {pct(r.niftyChgPct)}
                   </td>
-                  <td className={"px-3 py-2 text-right font-mono " + tone(r.net)}>{cr(r.net)}</td>
+                  <td className={"whitespace-nowrap px-2.5 py-2 text-right font-mono font-medium md:px-3 " + tone(r.net)}>{cr(r.net)}</td>
                 </tr>
               ))}
             </tbody>

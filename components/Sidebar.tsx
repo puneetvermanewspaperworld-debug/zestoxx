@@ -13,7 +13,7 @@ export default function Sidebar() {
   const segment = pathname.split("/")[2] || "dashboard";
 
   return (
-    <div className="hidden w-[168px] shrink-0 flex-col border-r border-slate-200 bg-white sm:flex">
+    <div className="hidden w-[168px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
       <Link href="/" className="flex items-center gap-2 px-4 py-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 font-display text-[13px] font-bold text-slate-50">
           Z

@@ -122,7 +122,7 @@ function StockTable({ rows, showLot }: { rows: StockMover[]; showLot?: boolean }
         <tbody>
           {rows.map((r) => (
             <tr key={r.symbol} className="border-b border-blue-50 hover:bg-slate-50">
-              <td className="px-3 py-2.5">
+              <td className="px-2 py-2.5 sm:px-3">
                 {SYMBOL_MAP[r.symbol] ? (
                   <Link href={`/app/trade/${r.symbol}`} className="font-medium text-blue-600 hover:underline">
                     {r.symbol}
@@ -130,15 +130,15 @@ function StockTable({ rows, showLot }: { rows: StockMover[]; showLot?: boolean }
                 ) : (
                   <span className="font-medium text-slate-900">{r.symbol}</span>
                 )}
-                <div className="max-w-[220px] truncate text-[10.5px] text-slate-400">{titleCase(r.name)}</div>
+                <div className="max-w-[150px] break-words sm:max-w-[220px] sm:truncate text-[10.5px] text-slate-400">{titleCase(r.name)}</div>
               </td>
-              <td className="px-3 py-2.5 text-right font-mono text-slate-900">{fmtINR(r.ltp)}</td>
-              <td className={"hidden px-3 py-2.5 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
-              <td className={"px-3 py-2.5 text-right font-mono " + tone(r.changePct)}>{signed(r.changePct)}%</td>
-              <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
-              <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{rupees(r.value)}</td>
+              <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{fmtINR(r.ltp)}</td>
+              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
+              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + tone(r.changePct)}>{signed(r.changePct)}%</td>
+              <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
+              <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{rupees(r.value)}</td>
               {showLot && (
-                <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{r.lot ?? "--"}</td>
+                <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{r.lot ?? "--"}</td>
               )}
             </tr>
           ))}
@@ -166,18 +166,18 @@ function FutureTable({ rows }: { rows: FutureMover[] }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.symbol + r.expiry} className="border-b border-blue-50 hover:bg-slate-50">
-              <td className="px-3 py-2.5">
+              <td className="px-2 py-2.5 sm:px-3">
                 <span className="font-medium text-slate-900">{r.symbol}</span>
                 {r.isIndex && (
                   <span className="ml-1.5 rounded bg-blue-50 px-1 text-[9px] font-semibold uppercase text-blue-600">Index</span>
                 )}
                 <div className="text-[10.5px] text-slate-400">FUT · {fmtIsoDate(r.expiry)}</div>
               </td>
-              <td className="px-3 py-2.5 text-right font-mono text-slate-900">{fmtINR(r.ltp)}</td>
-              <td className={"hidden px-3 py-2.5 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
-              <td className={"px-3 py-2.5 text-right font-mono " + tone(r.changePct)}>{signed(r.changePct)}%</td>
-              <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
-              <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{r.lot}</td>
+              <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{fmtINR(r.ltp)}</td>
+              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
+              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + tone(r.changePct)}>{signed(r.changePct)}%</td>
+              <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
+              <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{r.lot}</td>
             </tr>
           ))}
         </tbody>
@@ -204,14 +204,14 @@ function OptionTable({ rows }: { rows: OptionContract[] }) {
         <tbody>
           {rows.map((r) => (
             <tr key={`${r.symbol}${r.expiry}${r.strike}${r.type}`} className="border-b border-blue-50 hover:bg-slate-50">
-              <td className="px-3 py-2.5 font-mono text-[12px] font-medium text-slate-900">{contractLabel(r)}</td>
-              <td className="px-3 py-2.5 text-right font-mono text-slate-900">{r.ltp.toFixed(2)}</td>
-              <td className={"hidden px-3 py-2.5 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
-              <td className={"px-3 py-2.5 text-right font-mono " + (r.changePct == null ? "text-slate-300" : tone(r.changePct))}>
+              <td className="px-2 py-2.5 sm:px-3 font-mono text-[12px] font-medium text-slate-900">{contractLabel(r)}</td>
+              <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{r.ltp.toFixed(2)}</td>
+              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
+              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + (r.changePct == null ? "text-slate-300" : tone(r.changePct))}>
                 {r.changePct == null ? "--" : `${signed(r.changePct)}%`}
               </td>
-              <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
-              <td className="hidden px-3 py-2.5 text-right font-mono text-slate-500 sm:table-cell">{rupees(r.value)}</td>
+              <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
+              <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{rupees(r.value)}</td>
             </tr>
           ))}
         </tbody>

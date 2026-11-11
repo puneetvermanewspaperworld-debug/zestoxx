@@ -28,10 +28,10 @@ export default function PulseView() {
         {rows.map((r) => {
           const tone =
             r.pulse.label === "Bullish"
-              ? "#34D399"
+              ? "#047857"
               : r.pulse.label === "Bearish"
-                ? "#F87171"
-                : "#8A93A6";
+                ? "#be123c"
+                : "#556274";
           return (
             <div
               key={r.id}

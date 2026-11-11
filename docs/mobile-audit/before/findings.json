@@ -1,0 +1,2035 @@
+{
+ "landing@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 19,
+  "under12": 0,
+  "smallText": {},
+  "smallSamples": [],
+  "smallTargets": 0,
+  "smallTargetSamples": [],
+  "totalTargets": 2,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 14,
+  "lowSamples": [
+   "3.47:1 span.rounded-full.bg-emerald-50.px-2 \"Market Open\"",
+   "2.63:1 div.text-xs.text-slate-400 \"Total Value\"",
+   "2.63:1 div.text-xs.text-slate-400 \"Cash\"",
+   "2.63:1 div.text-xs.text-slate-400 \"P&L\"",
+   "2.47:1 div.font-mono.text-lg.font-semibold \"+₹12,450\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": null,
+  "height": 3503
+ },
+ "landing@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 19,
+  "under12": 0,
+  "smallText": {},
+  "smallSamples": [],
+  "smallTargets": 0,
+  "smallTargetSamples": [],
+  "totalTargets": 2,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 14,
+  "lowSamples": [
+   "3.47:1 span.rounded-full.bg-emerald-50.px-2 \"Market Open\"",
+   "2.63:1 div.text-xs.text-slate-400 \"Total Value\"",
+   "2.63:1 div.text-xs.text-slate-400 \"Cash\"",
+   "2.63:1 div.text-xs.text-slate-400 \"P&L\"",
+   "2.47:1 div.font-mono.text-lg.font-semibold \"+₹12,450\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": null,
+  "height": 3410
+ },
+ "landing@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 19,
+  "under12": 0,
+  "smallText": {},
+  "smallSamples": [],
+  "smallTargets": 0,
+  "smallTargetSamples": [],
+  "totalTargets": 2,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 14,
+  "lowSamples": [
+   "3.47:1 span.rounded-full.bg-emerald-50.px-2 \"Market Open\"",
+   "2.63:1 div.text-xs.text-slate-400 \"Total Value\"",
+   "2.63:1 div.text-xs.text-slate-400 \"Cash\"",
+   "2.63:1 div.text-xs.text-slate-400 \"P&L\"",
+   "2.47:1 div.font-mono.text-lg.font-semibold \"+₹12,450\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": null,
+  "height": 3344
+ },
+ "dashboard@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 101,
+  "under12": 51,
+  "smallText": {
+   "11px": 17,
+   "10.5px": 26,
+   "11.5px": 3,
+   "10px": 5
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 18,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 18,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 28,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.46%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "dashboard@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 101,
+  "under12": 51,
+  "smallText": {
+   "11px": 17,
+   "10.5px": 26,
+   "11.5px": 3,
+   "10px": 5
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 18,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 18,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 28,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "dashboard@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 101,
+  "under12": 51,
+  "smallText": {
+   "11px": 17,
+   "10.5px": 26,
+   "11.5px": 3,
+   "10px": 5
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 18,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 18,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 28,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "watchlist@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 98,
+  "under12": 57,
+  "smallText": {
+   "11px": 13,
+   "10.5px": 21,
+   "11.5px": 15,
+   "9.5px": 8
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 18,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 34,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 27,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "watchlist@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 98,
+  "under12": 57,
+  "smallText": {
+   "11px": 13,
+   "10.5px": 21,
+   "11.5px": 15,
+   "9.5px": 8
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 18,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 34,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 27,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "watchlist@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 98,
+  "under12": 57,
+  "smallText": {
+   "11px": 13,
+   "10.5px": 21,
+   "11.5px": 15,
+   "9.5px": 8
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 18,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 34,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 27,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "trade@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 130,
+  "under12": 89,
+  "smallText": {
+   "11px": 31,
+   "10.5px": 23,
+   "11.5px": 30,
+   "10px": 5
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 37,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 37,
+  "smallInputs": 4,
+  "smallInputSamples": [
+   "input.w-full.bg-transparent.text-[13px] 13px",
+   "select.rounded-md.border.border-slate-200 \"Compare vs...TCSINFYHDFCBANKSBINTATAMOTO\" 11px",
+   "input.w-full.rounded-md.border 11px",
+   "input.mt-0.5.w-full.rounded-md 13px"
+  ],
+  "lowContrast": 45,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "trade@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 130,
+  "under12": 89,
+  "smallText": {
+   "11px": 31,
+   "10.5px": 23,
+   "11.5px": 30,
+   "10px": 5
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 37,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 37,
+  "smallInputs": 4,
+  "smallInputSamples": [
+   "input.w-full.bg-transparent.text-[13px] 13px",
+   "select.rounded-md.border.border-slate-200 \"Compare vs...TCSINFYHDFCBANKSBINTATAMOTO\" 11px",
+   "input.w-full.rounded-md.border 11px",
+   "input.mt-0.5.w-full.rounded-md 13px"
+  ],
+  "lowContrast": 45,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "trade@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 130,
+  "under12": 89,
+  "smallText": {
+   "11px": 31,
+   "10.5px": 23,
+   "11.5px": 30,
+   "10px": 5
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 37,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 37,
+  "smallInputs": 4,
+  "smallInputSamples": [
+   "input.w-full.bg-transparent.text-[13px] 13px",
+   "select.rounded-md.border.border-slate-200 \"Compare vs...TCSINFYHDFCBANKSBINTATAMOTO\" 11px",
+   "input.w-full.rounded-md.border 11px",
+   "input.mt-0.5.w-full.rounded-md 13px"
+  ],
+  "lowContrast": 45,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "pulse@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 107,
+  "under12": 73,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 62
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 70,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "pulse@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 107,
+  "under12": 73,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 62
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 70,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "pulse@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 107,
+  "under12": 73,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 62
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 70,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "markets@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 139,
+  "under12": 39,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 26,
+   "11.5px": 2
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 17,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 17,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 35,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "markets@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 139,
+  "under12": 39,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 26,
+   "11.5px": 2
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 17,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 17,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 35,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "markets@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 139,
+  "under12": 39,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 26,
+   "11.5px": 2
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 17,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 17,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 35,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "movers@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 139,
+  "under12": 51,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 36,
+   "9px": 1,
+   "11.5px": 3
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 21,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 21,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 55,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.32%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "movers@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 139,
+  "under12": 51,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 36,
+   "9px": 1,
+   "11.5px": 3
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 21,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 21,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 55,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "movers@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 139,
+  "under12": 51,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 36,
+   "9px": 1,
+   "11.5px": 3
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 21,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 21,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 55,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "options@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 270,
+  "under12": 248,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 20,
+   "11.5px": 209,
+   "10px": 6,
+   "9px": 2
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 69,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 69,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-md.border.border-slate-200 \"23 Nov 202629 Dec 202625 Jan 2027\" 11.5px"
+  ],
+  "lowContrast": 113,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "options@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 270,
+  "under12": 248,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 20,
+   "11.5px": 209,
+   "10px": 6,
+   "9px": 2
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 69,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 69,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-md.border.border-slate-200 \"23 Nov 202629 Dec 202625 Jan 2027\" 11.5px"
+  ],
+  "lowContrast": 113,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "options@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 270,
+  "under12": 248,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 20,
+   "11.5px": 209,
+   "10px": 6,
+   "9px": 2
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 69,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 69,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-md.border.border-slate-200 \"23 Nov 202629 Dec 202625 Jan 2027\" 11.5px"
+  ],
+  "lowContrast": 113,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "buildup@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 203,
+  "under12": 124,
+  "smallText": {
+   "11px": 17,
+   "10.5px": 59,
+   "11.5px": 5,
+   "10px": 32,
+   "9px": 2,
+   "9.5px": 8,
+   "8.5px": 1
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 31,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 31,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-lg.border.border-slate-200 \"17 Nov 202623 Nov 202601 Dec 202608 Dec \" 12px"
+  ],
+  "lowContrast": 67,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "buildup@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 203,
+  "under12": 124,
+  "smallText": {
+   "11px": 17,
+   "10.5px": 59,
+   "11.5px": 5,
+   "10px": 32,
+   "9px": 2,
+   "9.5px": 8,
+   "8.5px": 1
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 31,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 31,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-lg.border.border-slate-200 \"17 Nov 202623 Nov 202601 Dec 202608 Dec \" 12px"
+  ],
+  "lowContrast": 67,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "buildup@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 203,
+  "under12": 124,
+  "smallText": {
+   "11px": 17,
+   "10.5px": 59,
+   "11.5px": 5,
+   "10px": 32,
+   "9px": 2,
+   "9.5px": 8,
+   "8.5px": 1
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 31,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 31,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-lg.border.border-slate-200 \"17 Nov 202623 Nov 202601 Dec 202608 Dec \" 12px"
+  ],
+  "lowContrast": 67,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "fiidii@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 267,
+  "under12": 60,
+  "smallText": {
+   "11px": 14,
+   "10.5px": 21,
+   "11.5px": 5,
+   "9px": 20
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 20,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 20,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-md.border.border-slate-200 \"DailyWeeklyMonthly\" 11.5px"
+  ],
+  "lowContrast": 160,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "fiidii@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 267,
+  "under12": 60,
+  "smallText": {
+   "11px": 14,
+   "10.5px": 21,
+   "11.5px": 5,
+   "9px": 20
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 20,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 20,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-md.border.border-slate-200 \"DailyWeeklyMonthly\" 11.5px"
+  ],
+  "lowContrast": 160,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "fiidii@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 267,
+  "under12": 60,
+  "smallText": {
+   "11px": 14,
+   "10.5px": 21,
+   "11.5px": 5,
+   "9px": 20
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 20,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 20,
+  "smallInputs": 1,
+  "smallInputSamples": [
+   "select.rounded-md.border.border-slate-200 \"DailyWeeklyMonthly\" 11.5px"
+  ],
+  "lowContrast": 160,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 1,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "fno@360": {
+  "pageScroll": 66,
+  "wide": [
+   "section.rounded-xl.border.border-slate-200 \"How the position behavesMeasureYour posi\" right=426",
+   "h2.font-display.text-[14px].font-semibold \"How the position behaves\" right=409",
+   "table.mt-2.w-full.text-[12.5px] \"MeasureYour positionIn plain termsDelta3\" right=409",
+   "thead \"MeasureYour positionIn plain terms\" right=409",
+   "tr.text-left.text-[11px].text-slate-500 \"MeasureYour positionIn plain terms\" right=409",
+   "th.py-1.pl-3.font-medium \"In plain terms\" right=409"
+  ],
+  "clipped": [],
+  "under14": 562,
+  "under12": 160,
+  "smallText": {
+   "11px": 71,
+   "10.5px": 22,
+   "10px": 59,
+   "11.5px": 8
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 65,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 67,
+  "smallInputs": 19,
+  "smallInputSamples": [
+   "select.mt-0.5.w-full.rounded-md \"NiftyBank NiftyFin NiftyMidcap SelectSen\" 13px",
+   "select.mt-0.5.w-full.rounded-md \"17 Nov 202623 Nov 202601 Dec 202608 Dec \" 13px",
+   "input.mt-0.5.w-full.rounded-md 13px",
+   "input.mt-0.5.w-full.rounded-md 13px"
+  ],
+  "lowContrast": 115,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [
+   "table.mt-2.w-full.text-[12.5px] \"MeasureYour positionIn plain termsDelta3\" right=409",
+   "table.w-full.min-w-[380px].border-collapse \"Index moveTodayDay 1.5Day 3Day 4.5Expiry\" right=409"
+  ],
+  "wideScrollTables": 2,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "fno@390": {
+  "pageScroll": 36,
+  "wide": [
+   "section.rounded-xl.border.border-slate-200 \"How the position behavesMeasureYour posi\" right=426",
+   "h2.font-display.text-[14px].font-semibold \"How the position behaves\" right=409",
+   "table.mt-2.w-full.text-[12.5px] \"MeasureYour positionIn plain termsDelta3\" right=409",
+   "thead \"MeasureYour positionIn plain terms\" right=409",
+   "tr.text-left.text-[11px].text-slate-500 \"MeasureYour positionIn plain terms\" right=409",
+   "th.py-1.pl-3.font-medium \"In plain terms\" right=409"
+  ],
+  "clipped": [],
+  "under14": 562,
+  "under12": 160,
+  "smallText": {
+   "11px": 71,
+   "10.5px": 22,
+   "10px": 59,
+   "11.5px": 8
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 65,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 67,
+  "smallInputs": 19,
+  "smallInputSamples": [
+   "select.mt-0.5.w-full.rounded-md \"NiftyBank NiftyFin NiftyMidcap SelectSen\" 13px",
+   "select.mt-0.5.w-full.rounded-md \"17 Nov 202623 Nov 202601 Dec 202608 Dec \" 13px",
+   "input.mt-0.5.w-full.rounded-md 13px",
+   "input.mt-0.5.w-full.rounded-md 13px"
+  ],
+  "lowContrast": 115,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [
+   "table.mt-2.w-full.text-[12.5px] \"MeasureYour positionIn plain termsDelta3\" right=409",
+   "table.w-full.min-w-[380px].border-collapse \"Index moveTodayDay 1.5Day 3Day 4.5Expiry\" right=409"
+  ],
+  "wideScrollTables": 2,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "fno@414": {
+  "pageScroll": 12,
+  "wide": [
+   "section.rounded-xl.border.border-slate-200 \"How the position behavesMeasureYour posi\" right=426",
+   "section.rounded-xl.border.border-slate-200 \"Profit or loss by index move and dayAfte\" right=426"
+  ],
+  "clipped": [],
+  "under14": 562,
+  "under12": 160,
+  "smallText": {
+   "11px": 71,
+   "10.5px": 22,
+   "10px": 59,
+   "11.5px": 8
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 65,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 67,
+  "smallInputs": 19,
+  "smallInputSamples": [
+   "select.mt-0.5.w-full.rounded-md \"NiftyBank NiftyFin NiftyMidcap SelectSen\" 13px",
+   "select.mt-0.5.w-full.rounded-md \"17 Nov 202623 Nov 202601 Dec 202608 Dec \" 13px",
+   "input.mt-0.5.w-full.rounded-md 13px",
+   "input.mt-0.5.w-full.rounded-md 13px"
+  ],
+  "lowContrast": 115,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 2,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "news@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 94,
+  "under12": 65,
+  "smallText": {
+   "11px": 35,
+   "10.5px": 30
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 42,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "news@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 94,
+  "under12": 65,
+  "smallText": {
+   "11px": 35,
+   "10.5px": 30
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 42,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "news@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 94,
+  "under12": 65,
+  "smallText": {
+   "11px": 35,
+   "10.5px": 30
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 42,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "alerts@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 53,
+  "under12": 28,
+  "smallText": {
+   "11px": 14,
+   "10.5px": 14
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 19,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 19,
+  "smallInputs": 3,
+  "smallInputSamples": [
+   "select.mt-0.5.block.rounded-md \"RELIANCETCSINFYHDFCBANKSBINTATAMOTORSNIF\" 12.5px",
+   "select.mt-0.5.block.rounded-md \"Price goes abovePrice goes below\" 12.5px",
+   "input.mt-0.5.block.w-32 12.5px"
+  ],
+  "lowContrast": 11,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "alerts@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 53,
+  "under12": 28,
+  "smallText": {
+   "11px": 14,
+   "10.5px": 14
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 19,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 19,
+  "smallInputs": 3,
+  "smallInputSamples": [
+   "select.mt-0.5.block.rounded-md \"RELIANCETCSINFYHDFCBANKSBINTATAMOTORSNIF\" 12.5px",
+   "select.mt-0.5.block.rounded-md \"Price goes abovePrice goes below\" 12.5px",
+   "input.mt-0.5.block.w-32 12.5px"
+  ],
+  "lowContrast": 11,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.16%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "alerts@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 53,
+  "under12": 28,
+  "smallText": {
+   "11px": 14,
+   "10.5px": 14
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 19,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 19,
+  "smallInputs": 3,
+  "smallInputSamples": [
+   "select.mt-0.5.block.rounded-md \"RELIANCETCSINFYHDFCBANKSBINTATAMOTORSNIF\" 12.5px",
+   "select.mt-0.5.block.rounded-md \"Price goes abovePrice goes below\" 12.5px",
+   "input.mt-0.5.block.w-32 12.5px"
+  ],
+  "lowContrast": 11,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "orders@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 56,
+  "under12": 25,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 14
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 23,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 23,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 10,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "orders@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 56,
+  "under12": 25,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 14
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 23,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 23,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 10,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "orders@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 56,
+  "under12": 25,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 14
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 23,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 23,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 10,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ },
+ "portfolio@360": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 52,
+  "under12": 29,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 18
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 16,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 800
+ },
+ "portfolio@390": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 52,
+  "under12": 29,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 18
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 16,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 844
+ },
+ "portfolio@414": {
+  "pageScroll": 0,
+  "wide": [],
+  "clipped": [],
+  "under14": 52,
+  "under12": 29,
+  "smallText": {
+   "11px": 11,
+   "10.5px": 18
+  },
+  "smallSamples": [
+   "11px div.flex.h-6.w-6 \"Z\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Dashboard\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Watchlist\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Trade\"",
+   "10.5px a.shrink-0.rounded.px-2 \"Pulse\""
+  ],
+  "smallTargets": 15,
+  "smallTargetSamples": [
+   "a.flex.items-center.gap-2 \"ZZESTOXX\" 87x24",
+   "a.shrink-0.rounded.px-2 \"Dashboard\" 71x24",
+   "a.shrink-0.rounded.px-2 \"Watchlist\" 62x24",
+   "a.shrink-0.rounded.px-2 \"Trade\" 45x24",
+   "a.shrink-0.rounded.px-2 \"Pulse\" 44x24",
+   "a.shrink-0.rounded.px-2 \"Markets\" 57x24"
+  ],
+  "totalTargets": 15,
+  "smallInputs": 0,
+  "smallInputSamples": [],
+  "lowContrast": 16,
+  "lowSamples": [
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.83%\"",
+   "3.59:1 span.flex.items-center.gap-0.5 \"-0.13%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+0.84%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.76%\"",
+   "2.36:1 span.flex.items-center.gap-0.5 \"+1.11%\""
+  ],
+  "overlaps": [],
+  "tableOverflow": [],
+  "wideScrollTables": 0,
+  "tickerHeight": 37.5,
+  "height": 896
+ }
+}

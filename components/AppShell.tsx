@@ -6,6 +6,7 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import TickerTape from "./TickerTape";
 import Toasts from "./Toasts";
+import BottomNav from "./BottomNav";
 
 function ShellChrome({ children }: { children: React.ReactNode }) {
   return (
@@ -17,8 +18,9 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <TickerTape />
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4">{children}</div>
+        <div className="flex-1 overflow-y-auto p-3 pb-[calc(76px+env(safe-area-inset-bottom))] sm:p-4 md:pb-4">{children}</div>
       </div>
+      <BottomNav />
       <Toasts />
     </div>
   );

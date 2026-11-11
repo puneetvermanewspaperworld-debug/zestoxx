@@ -33,9 +33,22 @@ function Seg<T extends string>({ label, value, options, onChange }: { label: str
   );
 }
 
-const th = "whitespace-nowrap px-2.5 py-1.5 text-right text-[11px] font-medium text-slate-500";
-const td = "whitespace-nowrap px-2.5 py-1.5 text-right font-mono text-[12px] text-slate-800";
-const dim = (t: string) => <span className="block text-[10px] font-normal text-slate-400">{t}</span>;
+const th = "whitespace-nowrap px-1.5 py-1.5 text-right text-[12px] font-medium text-slate-500 md:px-2.5 md:text-[11px]";
+const td = "min-w-[72px] whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-[12px] text-slate-800 md:min-w-0 md:px-2.5";
+// the row label: pinned on the left, short, and allowed two lines on phones
+const labelCell = "w-[84px] min-w-[84px] bg-white px-1.5 py-1.5 text-[12px] leading-tight text-slate-600 md:w-auto md:px-2.5";
+const dim = (t: string, long?: string) => (
+  <span className="block text-[12px] font-normal text-slate-500 md:text-[10px]">
+    {long ? (
+      <>
+        <span className="md:hidden">{t}</span>
+        <span className="hidden md:inline">{long}</span>
+      </>
+    ) : (
+      t
+    )}
+  </span>
+);
 
 export default function StrikeCompare({
   m,
@@ -80,7 +93,7 @@ export default function StrikeCompare({
 
   const head = (
     <tr>
-      <th className="px-2.5 py-1.5" />
+      <th className="w-[84px] min-w-[84px] bg-slate-50 px-1.5 py-1.5 md:w-auto md:px-2.5" />
       {cols.map((c) => (
         <th key={c.K} className={th}>
           <div>{columnLabel(c)}</div>
@@ -89,17 +102,20 @@ export default function StrikeCompare({
       ))}
     </tr>
   );
-  const row = (lbl: string, fn: (c: (typeof cols)[number]) => React.ReactNode) => (
+  const row = (short: string, lbl: string, fn: (c: (typeof cols)[number]) => React.ReactNode) => (
     <tr className="border-t border-slate-100">
-      <td className="px-2.5 py-1.5 text-[12px] text-slate-600">{lbl}</td>
+      <td className={labelCell}>
+        <span className="md:hidden">{short}</span>
+        <span className="hidden md:inline">{lbl}</span>
+      </td>
       {cols.map((c) => <td key={c.K} className={td}>{fn(c)}</td>)}
     </tr>
   );
 
   return (
-    <section aria-label="Strike comparison" className="rounded-xl border border-slate-200 bg-white p-4">
+    <section aria-label="Strike comparison" className="rounded-xl border border-slate-200 bg-white p-3 md:p-4">
       <h2 className="font-display text-[15px] font-semibold text-slate-900">Which strike? In-the-money, at-the-money or out-of-the-money</h2>
-      <p className="mt-1 text-[11.5px] leading-snug text-slate-400">
+      <p className="mt-1 text-[11.5px] leading-snug text-slate-500">
         {name} at {nf(m.spot, 2)}, {nf(m.dte, m.dte % 1 ? 1 : 0)} day{m.dte === 1 ? "" : "s"} to expiry. Exit {holdTxt}.{" "}
         {usingChain ? "Premiums and each strike’s own volatility come from the live option chain." : "Prices are model prices (a single volatility) — not live chain prices."}
       </p>
@@ -120,20 +136,20 @@ export default function StrikeCompare({
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
-        <table className="w-full min-w-[640px] border-collapse">
+        <table className="w-full border-collapse md:min-w-[640px]">
           <thead className="bg-slate-50">{head}</thead>
           <tbody>
-            {row("Premium per unit", (c) => rs(c.entry, 2))}
-            {row("Cost for 1 lot", (c) => <b>{rs(c.cost)}</b>)}
-            {row("Worst case, 1 lot (after charges)", (c) => <span className="text-rose-500">{rs(-c.worst)}</span>)}
-            {row("Lots within your limit", (c) => (c.lots >= 1 ? <b>{c.lots}</b> : <span className="text-amber-600">0{dim(`needs ${rs(c.worst)}`)}</span>))}
-            {row("Breakeven at expiry", (c) => (c.be ? <>{nf(c.be)}{dim(pct((c.be / m.spot - 1) * 100))}</> : "–"))}
-            {row("Chance of profit at expiry", (c) => `${Math.round(c.pop * 100)}%`)}
-            {row("Chance of losing 90% or more", (c) => `${Math.round(c.ruin * 100)}%`)}
-            {row("Delta", (c) => c.delta.toFixed(2))}
-            {row("Gain per 1% the index moves your way (1 lot)", (c) => rs(c.perPct))}
-            {row("Time decay per day (1 lot)", (c) => <><span className="text-rose-500">{rs(c.decay)}</span>{dim(`${c.decayPct.toFixed(1)}% of cost`)}</>)}
-            {row("Charges in and out (1 lot)", (c) => <>{rs(c.chg)}{dim(`${(c.cost > 0 ? (c.chg / c.cost) * 100 : 0).toFixed(1)}% of cost`)}</>)}
+            {row("Premium", "Premium per unit", (c) => rs(c.entry, 2))}
+            {row("Cost / lot", "Cost for 1 lot", (c) => <b>{rs(c.cost)}</b>)}
+            {row("Worst case", "Worst case, 1 lot (after charges)", (c) => <span className="text-rose-500">{rs(-c.worst)}</span>)}
+            {row("Lots in limit", "Lots within your limit", (c) => (c.lots >= 1 ? <b>{c.lots}</b> : <span className="text-amber-600">0{dim(rs(c.worst), `needs ${rs(c.worst)}`)}</span>))}
+            {row("Breakeven", "Breakeven at expiry", (c) => (c.be ? <>{nf(c.be)}{dim(pct((c.be / m.spot - 1) * 100))}</> : "–"))}
+            {row("Profit chance", "Chance of profit at expiry", (c) => `${Math.round(c.pop * 100)}%`)}
+            {row("Lose 90%+", "Chance of losing 90% or more", (c) => `${Math.round(c.ruin * 100)}%`)}
+            {row("Delta", "Delta", (c) => c.delta.toFixed(2))}
+            {row("Gain / 1%", "Gain per 1% the index moves your way (1 lot)", (c) => rs(c.perPct))}
+            {row("Decay / day", "Time decay per day (1 lot)", (c) => <><span className="text-rose-500">{rs(c.decay)}</span>{dim(`${c.decayPct.toFixed(1)}%`, `${c.decayPct.toFixed(1)}% of cost`)}</>)}
+            {row("Charges", "Charges in and out (1 lot)", (c) => <>{rs(c.chg)}{dim(`${(c.cost > 0 ? (c.chg / c.cost) * 100 : 0).toFixed(1)}%`, `${(c.cost > 0 ? (c.chg / c.cost) * 100 : 0).toFixed(1)}% of cost`)}</>)}
           </tbody>
         </table>
       </div>
@@ -143,12 +159,12 @@ export default function StrikeCompare({
         <Seg label="Show as" value={state.mode} onChange={(mode) => onChange({ ...state, mode })} options={[{ id: "lot", text: "₹ per lot" }, { id: "risk", text: "% of risk" }, { id: "budget", text: "Within my limit" }]} />
       </div>
       <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
-        <table className="w-full min-w-[640px] border-collapse">
+        <table className="w-full border-collapse md:min-w-[640px]">
           <thead className="bg-slate-50">{head}</thead>
           <tbody>
             {CMP_MOVES.map((mv, mi) => (
               <tr key={mv} className="border-t border-slate-100">
-                <td className="px-2.5 py-1.5 text-[12px] text-slate-600">
+                <td className={labelCell}>
                   {mv === 0 ? "No change" : pct(mv, 1)}
                   {dim(nf(m.spot * (1 + mv / 100)))}
                 </td>
@@ -164,7 +180,10 @@ export default function StrikeCompare({
               </tr>
             ))}
             <tr className="border-t border-slate-200 bg-slate-50">
-              <td className="px-2.5 py-1.5 text-[12px] font-medium text-slate-600">Best when a strike makes money</td>
+              <td className={labelCell + " font-medium"}>
+                <span className="md:hidden">Best in</span>
+                <span className="hidden md:inline">Best when a strike makes money</span>
+              </td>
               {wins.map((w, i) => <td key={i} className={td}>{w} of {profitRows}</td>)}
             </tr>
           </tbody>

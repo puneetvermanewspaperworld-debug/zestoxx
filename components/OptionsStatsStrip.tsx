@@ -39,7 +39,7 @@ function Stat({
       className="relative overflow-hidden rounded-lg border border-slate-200 bg-white py-2.5 pl-3.5 pr-3"
     >
       <span className={"absolute inset-y-0 left-0 w-0.5 " + ACCENT_BAR[accent]} aria-hidden />
-      <div className="flex items-center justify-between gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-1 gap-y-0.5">
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{label}</span>
         {tag && accent !== "none" && (
           <span className={"rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide " + TAG_STYLE[accent]}>
@@ -48,7 +48,7 @@ function Stat({
         )}
       </div>
       <div className="mt-1 font-mono text-[17px] font-semibold leading-none text-slate-900">{value}</div>
-      <div className="mt-1.5 min-h-[14px] font-mono text-[10.5px] leading-tight text-slate-400">{sub}</div>
+      <div className="mt-1.5 min-h-[14px] break-words font-mono text-[10.5px] leading-tight text-slate-500">{sub}</div>
     </div>
   );
 }

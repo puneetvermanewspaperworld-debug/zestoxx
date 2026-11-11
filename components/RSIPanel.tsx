@@ -2,13 +2,16 @@
 
 import React from "react";
 import { rsiSeries } from "@/lib/indicators";
+import { useElementWidth } from "@/lib/useElementWidth";
 import type { Candle } from "@/lib/types";
 
 export default function RSIPanel({ candles }: { candles: Candle[] }) {
-  const width = 900,
+  const [boxRef, measured] = useElementWidth<HTMLDivElement>(900);
+  const compact = measured < 640;
+  const width = compact ? measured : 900,
     height = 90,
     padL = 8,
-    padR = 58,
+    padR = compact ? 66 : 58,
     padT = 10,
     padB = 10;
   const series = rsiSeries(candles, 14);
@@ -23,6 +26,7 @@ export default function RSIPanel({ candles }: { candles: Candle[] }) {
     .filter(Boolean)
     .join(" ");
   return (
+    <div ref={boxRef} className="h-full w-full">
     <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full">
       {[30, 50, 70].map((v) => (
         <line
@@ -36,13 +40,14 @@ export default function RSIPanel({ candles }: { candles: Candle[] }) {
           strokeWidth="1"
         />
       ))}
-      <text x={width - padR + 12} y={yFor(70) + 3} fontSize="9" fill="#586179" fontFamily="ui-monospace, monospace">
+      <text x={width - padR + 12} y={yFor(70) + 3} fontSize={compact ? 12 : 9} fill="#586179" fontFamily="ui-monospace, monospace">
         70
       </text>
-      <text x={width - padR + 12} y={yFor(30) + 3} fontSize="9" fill="#586179" fontFamily="ui-monospace, monospace">
+      <text x={width - padR + 12} y={yFor(30) + 3} fontSize={compact ? 12 : 9} fill="#586179" fontFamily="ui-monospace, monospace">
         30
       </text>
       <path d={path} fill="none" stroke="#B87FE0" strokeWidth="1.4" />
     </svg>
+    </div>
   );
 }

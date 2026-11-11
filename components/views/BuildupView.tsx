@@ -127,6 +127,14 @@ const BADGE_TEXT: Record<Buildup, string> = {
   "long-unwinding": "text-slate-900",
 };
 
+/** Badge fills: darker than the heatmap swatches where the label is white, so it reads at 4.5:1 or better. */
+const BADGE_BG: Record<Buildup, string> = {
+  "long-buildup": "bg-emerald-700",
+  "short-covering": "bg-teal-300",
+  "short-buildup": "bg-rose-700",
+  "long-unwinding": "bg-orange-300",
+};
+
 /** How many strikes either side of ATM the heatmap shows. */
 const HEAT_WINDOW = 6;
 
@@ -164,7 +172,7 @@ function HeatSide({ b, maxOi, side }: { b: LegBuildup; maxOi: number; side: "cal
         <span
           className={
             "w-7 shrink-0 rounded py-0.5 text-center font-mono text-[10px] font-bold " +
-            meta.swatch +
+            BADGE_BG[b.kind] +
             " " +
             BADGE_TEXT[b.kind]
           }
@@ -195,7 +203,7 @@ function Heatmap({ grid, maxOi, since }: { grid: GridRow[]; maxOi: number; since
               <span
                 className={
                   "rounded-full px-1.5 py-px font-mono text-[9.5px] font-bold " +
-                  BUILDUP_META[k].swatch +
+                  BADGE_BG[k] +
                   " " +
                   BADGE_TEXT[k]
                 }
@@ -286,7 +294,7 @@ function Summary({
             >
               <span className={"absolute inset-y-0 left-0 w-1 " + BUILDUP_META[k].swatch} aria-hidden />
               <div className="flex items-center justify-between gap-1">
-                <span className="truncate text-[11px] font-medium text-slate-500">{BUILDUP_META[k].label}</span>
+                <span className="min-w-0 break-words text-[11px] font-medium text-slate-500">{BUILDUP_META[k].label}</span>
                 <span className="rounded bg-slate-100 px-1 font-mono text-[9.5px] font-semibold text-slate-500">
                   {BUILDUP_META[k].code}
                 </span>

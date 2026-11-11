@@ -14,8 +14,8 @@ export default function TickerTape() {
   });
   const loop = [...items, ...items];
   return (
-    <div className="relative overflow-hidden border-y border-slate-200 bg-slate-50">
-      <div className="flex w-max animate-[ticker_30s_linear_infinite] gap-8 py-2 px-4">
+    <div className="ticker-strip relative h-8 overflow-hidden border-y border-slate-200 bg-slate-50 md:h-auto">
+      <div className="flex h-full w-max animate-[ticker_30s_linear_infinite] items-center gap-8 px-4 md:py-2">
         {loop.map((it, i) => (
           <div key={i} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
             <span className="text-[11px] font-semibold tracking-wide text-slate-500">{it.id}</span>

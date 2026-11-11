@@ -43,3 +43,121 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ==========================================================================================
+   PHONES (below 768px) — everything here is scoped to the media query, so desktop is untouched.
+   These rules are deliberately *unlayered*: they have to beat Tailwind's layered utilities
+   (text-[11px], text-slate-400 …) on small screens without editing every component.
+   ========================================================================================== */
+@media (max-width: 767px) {
+  /* Numbers: Inter with tabular figures, normal spacing — not the wide-spaced system monospace. */
+  .font-mono {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Nothing smaller than 12px; running text and buttons at 14px. Dense table cells keep 12–13px. */
+  .text-\[8\.5px\],
+  .text-\[9px\],
+  .text-\[9\.5px\],
+  .text-\[10px\],
+  .text-\[10\.5px\],
+  .text-\[11px\],
+  .text-\[11\.5px\] {
+    font-size: 12px;
+  }
+  .text-\[12\.5px\]:not(td):not(th),
+  .text-\[13px\]:not(td):not(th) {
+    font-size: 14px;
+  }
+
+  /* Inputs at 16px or more (smaller makes phones zoom the page on focus) and a 44px touch height. */
+  /* !important: a utility like text-[11.5px] has higher specificity than these element selectors, and 16px
+     is what stops iOS zooming the page when a field gets focus. */
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+  input[type="range"] {
+    min-height: 32px;
+  }
+
+  /* Touch targets: toggles and tabs are really 44px tall; every other button/link gets an invisible
+     44px hit area, so small controls are easy to hit without changing how the page lays out. */
+  button[aria-pressed],
+  [role="tab"] {
+    min-height: 44px;
+  }
+  button:not(.absolute):not(.fixed):not(.sticky):not(.relative),
+  a[href]:not(.absolute):not(.fixed):not(.sticky):not(.relative),
+  [role="tab"]:not(.absolute):not(.fixed):not(.sticky):not(.relative) {
+    position: relative;
+  }
+  button::after,
+  a[href]::after,
+  [role="tab"]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Contrast: help text and coloured figures darkened to at least 4.5:1 on white and on the tinted cards. */
+  .text-slate-300,
+  .text-slate-400,
+  .text-slate-500 {
+    color: #556274;
+  }
+  .text-emerald-500,
+  .text-emerald-600 {
+    color: #047857;
+  }
+  .text-rose-500,
+  .text-rose-600 {
+    color: #be123c;
+  }
+  .text-amber-500,
+  .text-amber-600 {
+    color: #b45309;
+  }
+  .placeholder-slate-400::placeholder {
+    color: #556274;
+  }
+  button.bg-emerald-500 {
+    background-color: #047857;
+  }
+  button.bg-rose-500 {
+    background-color: #be123c;
+  }
+
+  /* Markets table: on phones keep Symbol, Price and Chg % (the rest is on the Trade page). */
+  .markets-table th:nth-child(n + 4),
+  .markets-table td:nth-child(n + 4) {
+    display: none;
+  }
+
+  /* Ticker strip: one 32px line; soft fade at both ends so the scrolling items don't look chopped. */
+  .ticker-strip {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+
+  /* Tables that scroll sideways keep their first column (the row's name) pinned. */
+  .overflow-x-auto > table:not(.no-sticky-col) tr > :first-child,
+  .overflow-auto > table:not(.no-sticky-col) tr > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #fff;
+  }
+}

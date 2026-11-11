@@ -200,6 +200,30 @@ payload in `lib/options.ts`:
 With no token (or if Upstox errors) the route answers `{source:"unavailable"}` and the client
 shows a deterministic simulated chain, badged **Simulated**.
 
+### Phones (below 768px)
+
+Everything phone-specific is scoped to `@media (max-width: 767px)` (or Tailwind `md:` and up for the desktop
+side), so the desktop layout is unchanged.
+
+- **Navigation:** a bottom tab bar (Dashboard, Watchlist, Trade, Pulse, More) with every other page under **More**;
+  the sidebar is the desktop/tablet (768px+) navigation. The bar respects the bottom safe area
+  (`viewport-fit=cover` + `env(safe-area-inset-bottom)`).
+- **Trade:** a sticky **Paper buy / Paper sell** bar opens the order ticket as a bottom sheet; the watchlist drops
+  below the chart. The option contract view is a bottom sheet.
+- **Type and touch:** numbers use Inter with tabular figures (not the wide monospace); text is never under 12px;
+  form fields are 16px (no focus-zoom) and 44px tall; every button and link has a 44px hit area; help text and the
+  green/red figures are darkened to at least 4.5:1. These are unlayered rules at the end of `app/globals.css` so they
+  beat Tailwind's layered utilities without touching every component.
+- **Charts** draw at their real width (not a scaled viewBox), so axis text stays 12px; 260px high on phones.
+  The FII/DII chart shows buying above a zero line (green) and selling below (red) in ₹ crore, for the same rows as the
+  table. Amounts read `+₹3,401 Cr` / `−₹475 Cr` (`lib/format-cr.ts`).
+- **Tables** either fit (FII/DII, Movers, Markets and the F&O grids drop or stack columns) or scroll inside their own
+  box with the first column pinned (the option chain and the strike comparison). The page itself never scrolls sideways.
+- **Checks:** `npm run test:mobile` (Playwright, your installed Chrome; needs `npm run build` first) fails if any route
+  scrolls sideways at 360px, and pins the FII/DII amount, the tab bar, the 32px ticker and "three strikes visible".
+  `npm run audit:mobile -- before|after` re-measures every route at 360/390/414 into `docs/mobile-audit/`, and
+  `npm run audit:compare` writes `BEFORE-AFTER.md` and `before/PROBLEMS.md`.
+
 ### Market hours, exchange holidays and the Muhurat session
 
 Everything that asks "is the market open?" goes through `lib/market-calendar.ts`: the top bar (Market Open /

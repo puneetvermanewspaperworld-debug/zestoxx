@@ -16,7 +16,10 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "test": "tsx --tsconfig tsconfig.json --test lib/*.test.ts lib/fno/*.test.ts",
-    "check:holidays": "tsx --tsconfig tsconfig.json scripts/check-nse-holidays.ts"
+    "check:holidays": "tsx --tsconfig tsconfig.json scripts/check-nse-holidays.ts",
+    "audit:mobile": "tsx --tsconfig tsconfig.json scripts/mobile-audit.ts",
+    "test:mobile": "playwright test",
+    "audit:compare": "tsx --tsconfig tsconfig.json scripts/mobile-audit-compare.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -27,6 +30,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

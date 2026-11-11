@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -29,6 +29,8 @@ import { fmt } from "@/lib/helpers";
 import type { Candle, Timeframe } from "@/lib/types";
 
 export default function TradeView({ symbol }: { symbol?: string }) {
+  // Phones: the order ticket opens as a bottom sheet from the sticky Paper buy / Paper sell bar.
+  const [orderOpen, setOrderOpen] = useState(false);
   const {
     selected,
     setSelected,
@@ -92,7 +94,8 @@ export default function TradeView({ symbol }: { symbol?: string }) {
 
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-[220px_1fr_260px]">
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      {/* On phones the watchlist comes after the chart and ticket, not before them. */}
+      <div className="order-last overflow-hidden rounded-xl border border-slate-200 bg-white xl:order-none">
         <div className="px-3 pt-3 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
           Watchlist
         </div>
@@ -292,7 +295,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                   : "Click a point to draw a horizontal line at that price."}
               </span>
             )}
-            <div className="ml-auto flex flex-1 items-center gap-1.5 sm:flex-none sm:w-[340px]">
+            <div className="ml-auto flex w-full basis-full items-center gap-1.5 sm:w-[340px] sm:flex-none sm:basis-auto">
               <FunctionSquare size={13} className="shrink-0 text-slate-400" />
               <input
                 value={formula}
@@ -304,7 +307,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           </div>
           {formulaError && <div className="mb-2 text-[11px] text-rose-500">{formulaError}</div>}
 
-          <div className="h-[300px]">
+          <div className="h-[260px] md:h-[300px]">
             <CandleChart
               candles={visible}
               showMA={showMA}
@@ -327,7 +330,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
             <div className="mt-1 text-[10.5px] text-cyan-600">— cyan line = your custom formula</div>
           )}
           {showRSI && (
-            <div className="mt-1 h-[80px] border-t border-blue-50 pt-1">
+            <div className="mt-1 h-[90px] border-t border-blue-50 pt-1 md:h-[80px]">
               <RSIPanel candles={visible} />
             </div>
           )}
@@ -362,14 +365,42 @@ export default function TradeView({ symbol }: { symbol?: string }) {
       </div>
 
       <div className="space-y-3">
-        <OrderPanel
-          symId={selected}
-          price={price}
-          type={sym.type}
-          cash={cash}
-          holdings={holdings}
-          onTrade={onTrade}
-        />
+        {/* Sticky action bar (phones only), sitting just above the bottom tab bar */}
+        <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t border-slate-200 bg-white p-2 md:hidden">
+          <button type="button" onClick={() => setOrderOpen(true)} className="min-h-[44px] flex-1 rounded-md bg-emerald-500 text-[14px] font-semibold text-white">
+            Paper buy
+          </button>
+          <button type="button" onClick={() => setOrderOpen(true)} className="min-h-[44px] flex-1 rounded-md bg-rose-500 text-[14px] font-semibold text-white">
+            Paper sell
+          </button>
+        </div>
+        <div
+          className={orderOpen ? "fixed inset-0 z-50 flex items-end bg-slate-900/40 md:static md:z-auto md:block md:bg-transparent" : "hidden md:block"}
+          onClick={() => setOrderOpen(false)}
+        >
+          <div
+            role={orderOpen ? "dialog" : undefined}
+            aria-modal={orderOpen ? true : undefined}
+            aria-label="Paper trade ticket"
+            className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] md:max-h-none md:overflow-visible md:rounded-none md:bg-transparent md:pb-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 pt-3 md:hidden">
+              <span className="font-display text-[15px] font-semibold text-slate-900">Paper trade · {selected}</span>
+              <button type="button" onClick={() => setOrderOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded text-[20px] text-slate-600">
+                ×
+              </button>
+            </div>
+            <OrderPanel
+              symId={selected}
+              price={price}
+              type={sym.type}
+              cash={cash}
+              holdings={holdings}
+              onTrade={onTrade}
+            />
+          </div>
+        </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="mb-2 flex items-center gap-1.5 font-display text-[12.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">
             <Layers size={13} /> Order Book

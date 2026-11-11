@@ -2,6 +2,7 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import { maSeries, emaSeries, bollingerBands } from "@/lib/indicators";
+import { useElementWidth } from "@/lib/useElementWidth";
 import type { Candle, Drawing } from "@/lib/types";
 
 interface CandleChartProps {
@@ -29,10 +30,15 @@ export default function CandleChart({
   drawings,
   onAddDrawing,
 }: CandleChartProps) {
-  const width = 900,
-    height = showVolume ? 340 : 300;
+  // On phones draw at the real width (so text is its true size) and a 260px height; desktop keeps the
+  // 900-unit canvas it always had.
+  const [boxRef, measured] = useElementWidth<HTMLDivElement>(900);
+  const compact = measured < 640;
+  const width = compact ? measured : 900,
+    height = compact ? 260 : showVolume ? 340 : 300;
+  const labelPx = compact ? 12 : 10;
   const padL = 8,
-    padR = 58,
+    padR = compact ? 66 : 58,
     padT = 14;
   const volH = showVolume ? 60 : 0;
   const padB = 20 + volH;
@@ -116,10 +122,11 @@ export default function CandleChart({
   };
 
   return (
+    <div ref={boxRef} className="h-full w-full">
     <svg
       ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
-      className="h-full w-full"
+      className="h-full w-full touch-pan-y"
       onClick={handleClick}
       style={{ cursor: drawMode && drawMode !== "none" ? "crosshair" : "default" }}
     >
@@ -129,7 +136,7 @@ export default function CandleChart({
           <text
             x={width - padR + 12}
             y={yFor(v) + 3}
-            fontSize="10"
+            fontSize={labelPx}
             fill="#586179"
             fontFamily="ui-monospace, monospace"
           >
@@ -199,7 +206,7 @@ export default function CandleChart({
             <text
               x={padL + 4}
               y={yFor(d.price) - 3}
-              fontSize="9.5"
+              fontSize={labelPx}
               fill="#D4A94E"
               fontFamily="ui-monospace, monospace"
             >
@@ -212,5 +219,6 @@ export default function CandleChart({
       )}
       {pending && <circle cx={pending.x} cy={pending.y} r="3" fill="#D4A94E" />}
     </svg>
+    </div>
   );
 }

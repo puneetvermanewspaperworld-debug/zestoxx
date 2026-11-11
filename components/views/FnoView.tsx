@@ -29,7 +29,7 @@ import { useFnoSnapshot } from "@/lib/useFnoSnapshot";
 
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
 const round2 = (x: number) => Math.round(x * 100) / 100;
-const card = "rounded-xl border border-slate-200 bg-white p-4";
+const card = "rounded-xl border border-slate-200 bg-white p-3 md:p-4";
 const inputCls =
   "mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] text-slate-900 outline-none focus:border-blue-400";
 
@@ -61,7 +61,7 @@ function Num({ label, value, onChange, min, step, hint, id }: { label: string; v
         }}
         className={inputCls}
       />
-      {hint && <p className="mt-0.5 text-[10.5px] text-slate-400">{hint}</p>}
+      {hint && <p className="mt-0.5 text-[10.5px] text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -94,9 +94,9 @@ const BADGE: Record<FnoSource | "manual", { text: string; cls: string; dot: stri
 function Stat({ k, v, s, cls = "" }: { k: string; v: string; s?: string; cls?: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-      <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{k}</div>
+      <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{k}</div>
       <div className={"mt-1 font-mono text-[17px] font-semibold leading-none " + (cls || "text-slate-900")}>{v}</div>
-      <div className="mt-1.5 min-h-[14px] text-[10.5px] text-slate-400">{s}</div>
+      <div className="mt-1.5 min-h-[14px] text-[10.5px] text-slate-500">{s}</div>
     </div>
   );
 }
@@ -211,7 +211,7 @@ export default function FnoView() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-[17px] font-semibold text-slate-900">F&amp;O Analyzer</h1>
-            <p className="mt-0.5 text-[12px] text-slate-400">Test an options or futures trade: what it can make or lose, where it breaks even, and what the charges do to it.</p>
+            <p className="mt-0.5 text-[12px] text-slate-500">Test an options or futures trade: what it can make or lose, where it breaks even, and what the charges do to it.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className={"flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold " + badge.cls}>
@@ -226,7 +226,7 @@ export default function FnoView() {
           </div>
         </div>
         {live && (
-          <p className="mt-2 text-[11px] text-slate-400">
+          <p className="mt-2 text-[11px] text-slate-500">
             {live.source === "simulated"
               ? "Upstox isn’t answering, so every number here is generated — treat it as a demonstration, not a market."
               : live.source === "delayed"
@@ -242,7 +242,7 @@ export default function FnoView() {
 
       {!market || !live ? (
         <div className="h-[320px] animate-pulse rounded-xl bg-slate-50" aria-busy="true">
-          {loading ? null : <p className="p-6 text-[12.5px] text-slate-400">Couldn’t load market data.</p>}
+          {loading ? null : <p className="p-6 text-[12.5px] text-slate-500">Couldn’t load market data.</p>}
         </div>
       ) : (
         <>
@@ -287,7 +287,7 @@ export default function FnoView() {
                 </div>
               </div>
             </div>
-            <p className="mt-3 text-[11px] text-slate-400">
+            <p className="mt-3 text-[11px] text-slate-500">
               Every field is editable — type your broker’s numbers over the feed and the badge turns to Manual.
               {live.pcr != null && <> Put-call ratio (OI) {live.pcr.toFixed(2)}.</>}
             </p>
@@ -311,7 +311,7 @@ export default function FnoView() {
             </div>
 
             <div className="mt-3 space-y-2">
-              {legs.length === 0 && <p className="py-3 text-center text-[12px] text-slate-400">No legs yet. Pick a strategy above or add a leg.</p>}
+              {legs.length === 0 && <p className="py-3 text-center text-[12px] text-slate-500">No legs yet. Pick a strategy above or add a leg.</p>}
               {legs.map((L) => {
                 const pl = P.find((x) => x.id === L.id);
                 const fut = L.type === "FUT";
@@ -351,7 +351,7 @@ export default function FnoView() {
                       <button type="button" aria-label="Remove this leg" onClick={() => editLegs((ls) => ls.filter((x) => x.id !== L.id))} className="h-8 rounded-md px-2 text-[18px] leading-none text-slate-300 hover:text-rose-500">×</button>
                     </div>
                     {pl && (
-                      <p className="mt-1.5 text-[11px] text-slate-400">
+                      <p className="mt-1.5 text-[11px] text-slate-500">
                         {pl.isOpt
                           ? `Priced from ${pl.priceSource === "chain" ? "the live chain" : pl.priceSource === "typed" ? "your price" : "the model"} · volatility ${((pl.iv ?? 0) * 100).toFixed(1)}%${pl.ivNote === "implied" ? " (this strike’s own)" : ""} · model value ${nf(pl.model, 2)}`
                           : "Futures price follows the index"}
@@ -390,7 +390,7 @@ export default function FnoView() {
               resetExit={() => { setExitSpotRaw(null); setDays(0); setDIV(0); }}
             />
           ) : (
-            <p className={card + " text-center text-[12.5px] text-slate-400"}>Add at least one leg, and check the price, days to expiry and volatility are above zero, to see the analysis.</p>
+            <p className={card + " text-center text-[12.5px] text-slate-500"}>Add at least one leg, and check the price, days to expiry and volatility are above zero, to see the analysis.</p>
           )}
 
           {ok && comparison && (
@@ -471,8 +471,8 @@ function Analysis({
         <Stat k="Chance of profit" v={`${Math.round(st.pop * 100)}%`} s="model estimate" />
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
-        <section aria-label="Profit and loss chart" className={card}>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[3fr_2fr]">
+        <section aria-label="Profit and loss chart" className={card + " min-w-0"}>
           <h2 className="font-display text-[14px] font-semibold text-slate-900">Profit or loss at different index levels</h2>
           <PayoffChart P={P} m={m} st={st} sc={sc} exitSpot={exitSpot} days={d} dIV={dIV} onPick={setExitSpotRaw} />
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -497,9 +497,9 @@ function Analysis({
           <button type="button" onClick={resetExit} className="mt-2 text-[11.5px] font-medium text-blue-600 hover:underline">Reset exit</button>
         </section>
 
-        <section aria-label="What you keep" className={card}>
+        <section aria-label="What you keep" className={card + " min-w-0"}>
           <h2 className="font-display text-[14px] font-semibold text-slate-900">What you keep</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400">
+          <p className="mt-0.5 text-[11px] text-slate-500">
             {name} at {nf(exitSpot, 2)}, {m.exitStyle === "expire" ? "held to expiry" : d >= m.dte - 1e-9 ? "squared off at expiry" : `squared off after ${nf(d, d % 1 ? 2 : 0)} day${d === 1 ? "" : "s"}`}
             {dIV ? `, volatility ${dIV > 0 ? "up " : "down "}${Math.abs(dIV)} points` : ""}.
           </p>
@@ -529,20 +529,39 @@ function Analysis({
         </ul>
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <section aria-label="Greeks" className={card}>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <section aria-label="Greeks" className={card + " min-w-0"}>
           <h2 className="font-display text-[14px] font-semibold text-slate-900">How the position behaves</h2>
-          <table className="mt-2 w-full text-[12.5px]">
-            <thead><tr className="text-left text-[11px] text-slate-500"><th className="py-1 font-medium">Measure</th><th className="py-1 text-right font-medium">Your position</th><th className="py-1 pl-3 font-medium">In plain terms</th></tr></thead>
+          <table className="no-sticky-col mt-2 w-full text-[12.5px]">
+            <thead>
+              <tr className="text-left text-[11px] text-slate-500">
+                <th className="py-1 font-medium">Measure</th>
+                <th className="py-1 text-right font-medium">Your position</th>
+                <th className="hidden py-1 pl-3 font-medium md:table-cell">In plain terms</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr className="border-t border-slate-100"><td className="py-1.5">Delta</td><td className={"py-1.5 text-right font-mono " + TONE_CLASS[tone(n.delta)]}>{nf(n.delta, 1)}</td><td className="py-1.5 pl-3 text-slate-500">{rsS(n.delta)} for each 1 point the index rises</td></tr>
-              <tr className="border-t border-slate-100"><td className="py-1.5">Gamma</td><td className="py-1.5 text-right font-mono">{nf(n.gamma, 2)}</td><td className="py-1.5 pl-3 text-slate-500">Delta changes by {nf(Math.abs(n.gamma), 2)} per point. {n.gamma >= 0 ? "Gains speed up, losses slow down." : "Losses speed up, gains slow down."}</td></tr>
-              <tr className="border-t border-slate-100"><td className="py-1.5">Theta</td><td className={"py-1.5 text-right font-mono " + TONE_CLASS[tone(n.theta)]}>{rsS(n.theta)}</td><td className="py-1.5 pl-3 text-slate-500">{n.theta < 0 ? "You lose this each day from time passing" : "You earn this each day from time passing"}</td></tr>
-              <tr className="border-t border-slate-100"><td className="py-1.5">Vega</td><td className={"py-1.5 text-right font-mono " + TONE_CLASS[tone(n.vega)]}>{rsS(n.vega)}</td><td className="py-1.5 pl-3 text-slate-500">For each 1 point rise in volatility</td></tr>
+              {(
+                [
+                  ["Delta", nf(n.delta, 1), TONE_CLASS[tone(n.delta)], `${rsS(n.delta)} for each 1 point the index rises`],
+                  ["Gamma", nf(n.gamma, 2), "", `Delta changes by ${nf(Math.abs(n.gamma), 2)} per point. ${n.gamma >= 0 ? "Gains speed up, losses slow down." : "Losses speed up, gains slow down."}`],
+                  ["Theta", rsS(n.theta), TONE_CLASS[tone(n.theta)], n.theta < 0 ? "You lose this each day from time passing" : "You earn this each day from time passing"],
+                  ["Vega", rsS(n.vega), TONE_CLASS[tone(n.vega)], "For each 1 point rise in volatility"],
+                ] as const
+              ).map(([name, value, cls, text]) => (
+                <tr key={name} className="border-t border-slate-100 align-top">
+                  <td className="py-1.5 pr-2">
+                    {name}
+                    <span className="mt-0.5 block text-[12px] leading-snug text-slate-500 md:hidden">{text}</span>
+                  </td>
+                  <td className={"whitespace-nowrap py-1.5 text-right font-mono " + cls}>{value}</td>
+                  <td className="hidden py-1.5 pl-3 text-slate-500 md:table-cell">{text}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
           {gk.rows.length > 1 && (
-            <table className="mt-3 w-full text-[12px]">
+            <table className="no-sticky-col mt-3 w-full text-[12px]">
               <thead><tr className="text-left text-[11px] text-slate-500"><th className="py-1 font-medium">Leg</th><th className="py-1 text-right font-medium">Delta</th><th className="py-1 text-right font-medium">Theta</th><th className="py-1 text-right font-medium">Vega</th></tr></thead>
               <tbody>
                 {gk.rows.map((r) => (
@@ -558,24 +577,24 @@ function Analysis({
           )}
         </section>
 
-        <section aria-label="Profit grid" className={card}>
+        <section aria-label="Profit grid" className={card + " min-w-0"}>
           <h2 className="font-display text-[14px] font-semibold text-slate-900">Profit or loss by index move and day</h2>
-          <p className="mt-0.5 text-[11px] text-slate-400">After charges, before tax.</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">After charges, before tax.</p>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full min-w-[380px] border-collapse text-[12px]">
+            <table className="no-sticky-col w-full border-collapse text-[12px] md:min-w-[380px]">
               <thead>
                 <tr className="text-[11px] text-slate-500">
-                  <th className="px-2 py-1 text-left font-medium">Index move</th>
-                  {heat.cols.map((c) => <th key={c} className="px-2 py-1 text-right font-medium">{c === 0 ? "Today" : c >= m.dte - 1e-9 ? "Expiry" : `Day ${nf(c, c % 1 ? 1 : 0)}`}</th>)}
+                  <th className="px-1 py-1 text-left font-medium md:px-2">Move</th>
+                  {heat.cols.map((c) => <th key={c} className="px-1 py-1 text-right font-medium md:px-2">{c === 0 ? "Today" : c >= m.dte - 1e-9 ? "Expiry" : `D${nf(c, c % 1 ? 1 : 0)}`}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {heat.moves.map((mv, ri) => (
                   <tr key={mv} className="border-t border-slate-100">
-                    <td className="px-2 py-1 text-[12px] text-slate-600">{mv === 0 ? "0%" : pct(mv, 1)}<span className="block text-[10px] text-slate-400">{nf(m.spot * (1 + mv / 100))}</span></td>
+                    <td className="px-1 py-1 text-[12px] text-slate-600 md:px-2">{mv === 0 ? "0%" : pct(mv, 1)}<span className="block text-[12px] text-slate-500">{nf(m.spot * (1 + mv / 100))}</span></td>
                     {heat.cells[ri].map((v, ci) => {
                       const a = 0.08 + 0.5 * Math.min(1, Math.abs(v) / heat.mx);
-                      return <td key={ci} className="px-2 py-1 text-right font-mono" style={{ background: v >= 0 ? `rgba(16,185,129,${a.toFixed(2)})` : `rgba(244,63,94,${a.toFixed(2)})` }}>{compact(v)}</td>;
+                      return <td key={ci} className="px-1 py-1 text-right font-mono md:px-2" style={{ background: v >= 0 ? `rgba(16,185,129,${a.toFixed(2)})` : `rgba(244,63,94,${a.toFixed(2)})` }}>{compact(v)}</td>;
                     })}
                   </tr>
                 ))}
@@ -617,7 +636,7 @@ function Context({
   const setNum = (k: "pe" | "peAvg" | "bond") => (e: React.ChangeEvent<HTMLInputElement>) => { const v = parseFloat(e.target.value); if (isFinite(v)) setCtx({ ...ctx, [k]: v }); };
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       <section aria-label="Volatility context" className={card}>
         <h2 className="font-display text-[14px] font-semibold text-slate-900">Is volatility high or low?</h2>
         <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">
@@ -645,7 +664,7 @@ function Context({
             Valuation moves over months and years, so it says little about a weekly expiry.
           </p>
         )}
-        <p className="mt-2 text-[11px] text-slate-400">Index PE isn’t available from Upstox — enter the current figure yourself (NSE publishes it daily).</p>
+        <p className="mt-2 text-[11px] text-slate-500">Index PE isn’t available from Upstox — enter the current figure yourself (NSE publishes it daily).</p>
       </section>
     </div>
   );

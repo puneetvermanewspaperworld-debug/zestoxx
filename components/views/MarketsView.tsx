@@ -93,7 +93,7 @@ export default function MarketsView() {
       </div>
       {view === "table" ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-[12.5px]">
+          <table className="markets-table w-full border-collapse text-[12.5px] md:min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="px-3 py-2 text-left font-medium text-slate-500">Symbol</th>
