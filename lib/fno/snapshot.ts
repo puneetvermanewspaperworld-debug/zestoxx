@@ -26,6 +26,8 @@ export interface FnoLeg {
   gamma: number | null;
   theta: number | null;
   vega: number | null;
+  /** when this contract last traded (ISO); absent or null when the feed didn't say */
+  lastTrade?: string | null;
 }
 
 export interface FnoStrike {
@@ -99,12 +101,100 @@ export function strikeGap(strikes: number[]): number | null {
   return best;
 }
 
-/** A lookup into the chain for the analyzer: last price and the strike's own IV. Null if it didn't trade. */
-export function quoteFromSnapshot(snap: FnoSnapshot | null): QuoteLookup | undefined {
+/* ----------------------------------------------------- price quality ---- */
+
+/** A bid-ask spread wider than this share of the mid makes the price (and the volatility read from it) unreliable. */
+export const WIDE_SPREAD = 0.05;
+/** A contract whose last trade is this much older than the freshest trade in the chain is treated as stale. */
+export const STALE_TRADE_MS = 10 * 60_000;
+
+/** Middle of the bid and ask, when both are there and make sense; else null. */
+export function midPrice(l: Pick<FnoLeg, "bid" | "ask">): number | null {
+  return l.bid != null && l.ask != null && l.bid > 0 && l.ask >= l.bid ? (l.bid + l.ask) / 2 : null;
+}
+
+/** The latest last-trade time in the chain (ms), the yardstick for "old"; null when no contract reported one. */
+export function freshestTrade(chain: FnoStrike[]): number | null {
+  let best: number | null = null;
+  for (const r of chain)
+    for (const l of [r.ce, r.pe]) {
+      const t = l.lastTrade ? Date.parse(l.lastTrade) : NaN;
+      if (Number.isFinite(t) && (best == null || t > best)) best = t;
+    }
+  return best;
+}
+
+/** Why a contract's price is shaky ("" when it isn't). Unknown trade time is never read as stale. */
+export function legDoubts(l: FnoLeg, freshestMs: number | null): string[] {
+  const out: string[] = [];
+  const mid = midPrice(l);
+  if (mid == null) out.push("no two-sided bid and ask");
+  else if (((l.ask as number) - (l.bid as number)) / mid > WIDE_SPREAD) out.push(`wide bid-ask spread (${((((l.ask as number) - (l.bid as number)) / mid) * 100).toFixed(1)}%)`);
+  const t = l.lastTrade ? Date.parse(l.lastTrade) : NaN;
+  if (freshestMs != null && Number.isFinite(t) && freshestMs - t > STALE_TRADE_MS) {
+    out.push(`last trade ${Math.round((freshestMs - t) / 60_000)} minutes older than the chain's latest`);
+  }
+  return out;
+}
+
+export interface ForwardCheck {
+  /** the forward the option prices themselves imply, by put-call parity */
+  impliedForward: number;
+  /** spot grown at the model's rate and dividend yield */
+  modelForward: number;
+  /** impliedForward − modelForward, in index points */
+  gapPoints: number;
+  /** true when the gap is more than rate and dividend error could explain: spot and option prices are out of step */
+  outOfSync: boolean;
+}
+
+/**
+ * Do the index level and the option prices describe the same moment? Put-call parity at the strikes nearest the money
+ * gives the forward the options imply; if that is far from spot grown at the model's rate and yield, the spot was read at a
+ * different time from the option prices (the market has shut, or a price is stale) and every implied volatility read from
+ * them is off, most of all in the money, where delta is large.
+ */
+export function chainForwardCheck(snap: Pick<FnoSnapshot, "spot" | "chain">, r: number, q: number, dte: number): ForwardCheck | null {
+  const T = dte / 365;
+  if (!(T > 0) || !(snap.spot > 0)) return null;
+  const px = (l: FnoLeg) => midPrice(l) ?? (l.ltp > 0 ? l.ltp : null);
+  const ests: number[] = [];
+  const near = [...snap.chain].sort((a, b) => Math.abs(a.strike - snap.spot) - Math.abs(b.strike - snap.spot)).slice(0, 5);
+  for (const row of near) {
+    const c = px(row.ce), p = px(row.pe);
+    if (c != null && p != null) ests.push(row.strike + Math.exp(r * T) * (c - p));
+  }
+  if (ests.length < 2) return null;
+  ests.sort((a, b) => a - b);
+  const impliedForward = ests[Math.floor(ests.length / 2)];
+  const modelForward = snap.spot * Math.exp((r - q) * T);
+  const gapPoints = impliedForward - modelForward;
+  // 0.1% of spot, plus what a 0.5-point error in the dividend yield could move the forward over this expiry
+  const tolerance = snap.spot * (0.001 + 0.005 * T);
+  return { impliedForward, modelForward, gapPoints, outOfSync: Math.abs(gapPoints) > tolerance };
+}
+
+/**
+ * A lookup into the chain for the analyzer. The price is the middle of the bid and ask when both are there (a last trade can be
+ * minutes old and can even sit outside the bid-ask), else the last trade. `low` says why the price should be trusted less: a
+ * wide spread, no two-sided quote, an old last trade, or (with `ctx`) spot and option prices being out of step. Null if the
+ * contract has no price at all.
+ */
+export function quoteFromSnapshot(snap: FnoSnapshot | null, ctx?: { r: number; q: number; dte: number }): QuoteLookup | undefined {
   if (!snap || snap.source === "simulated") return undefined; // simulated prices are never used as "chain" prices
   const byStrike = new Map(snap.chain.map((r) => [r.strike, r]));
+  const freshest = freshestTrade(snap.chain);
+  const sync = ctx ? chainForwardCheck(snap, ctx.r, ctx.q, ctx.dte) : null;
+  const syncNote = sync?.outOfSync
+    ? `index level and option prices are out of step by about ${Math.round(Math.abs(sync.gapPoints))} points, so implied volatility reads wrong (most in the money)`
+    : null;
   return (type, strike) => {
     const leg = byStrike.get(strike)?.[type === "CE" ? "ce" : "pe"];
-    return leg && leg.ltp > 0 ? { ltp: leg.ltp, iv: leg.iv } : null;
+    if (!leg) return null;
+    const mid = midPrice(leg);
+    const price = mid ?? leg.ltp;
+    if (!(price > 0)) return null;
+    const doubts = [...legDoubts(leg, freshest), ...(syncNote ? [syncNote] : [])];
+    return { ltp: price, iv: leg.iv, basis: mid != null ? "mid" : "last", ...(doubts.length ? { low: doubts.join("; ") } : {}) };
   };
 }

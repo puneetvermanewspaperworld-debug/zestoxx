@@ -20,7 +20,7 @@ import {
   type Market,
 } from "@/lib/fno/engine";
 import { explain } from "@/lib/fno/explain";
-import { TONE_CLASS, compact, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
+import { TONE_CLASS, compact, gammaStr, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
 import { daysToExpiry, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
 import { CALENDAR, lastCloseTime } from "@/lib/market-calendar";
@@ -173,7 +173,10 @@ export default function FnoView() {
 
   // Chain prices only describe the market the feed saw, so they're dropped once the user overrides it.
   const usingChain = !!live && live.source !== "simulated" && !manual;
-  const quote = useMemo(() => (usingChain ? quoteFromSnapshot(live) : undefined), [usingChain, live]);
+  const quote = useMemo(
+    () => (usingChain && market ? quoteFromSnapshot(live, { r: market.r / 100, q: market.q / 100, dte: market.dte }) : undefined),
+    [usingChain, live, market]
+  );
 
   const P = useMemo(() => (market ? prepareLegs(legs, market, quote) : []), [legs, market, quote]);
   const ok = !!market && P.length > 0 && market.spot > 0 && market.dte > 0 && market.iv > 0 && market.lot > 0;
@@ -355,7 +358,7 @@ export default function FnoView() {
                     {pl && (
                       <p className="mt-1.5 text-[11px] text-slate-500">
                         {pl.isOpt
-                          ? `Priced from ${pl.priceSource === "chain" ? "the live chain" : pl.priceSource === "typed" ? "your price" : "the model"} · volatility ${((pl.iv ?? 0) * 100).toFixed(1)}%${pl.ivNote === "implied" ? " (this strike’s own)" : ""} · model value ${nf(pl.model, 2)}`
+                          ? `Priced from ${pl.priceSource === "chain" ? (pl.quoteBasis === "mid" ? "the middle of the live bid and ask" : "the live chain") : pl.priceSource === "typed" ? "your price" : "the model"} · volatility ${((pl.iv ?? 0) * 100).toFixed(1)}%${pl.ivNote === "implied" ? " (this strike’s own)" : ""} · model value ${nf(pl.model, 2)}${pl.lowConfidence ? ` · low confidence: ${pl.lowConfidence}` : ""}`
                           : "Futures price follows the index"}
                         {pl.priceSource === "typed" && (
                           <button type="button" onClick={() => upd({ price: null })} className="ml-2 text-blue-600 hover:underline">
@@ -541,7 +544,7 @@ function Analysis({
               {(
                 [
                   ["Delta", nf(n.delta, 1), TONE_CLASS[tone(n.delta)], `${rsS(n.delta)} for each 1 point the index rises`],
-                  ["Gamma", nf(n.gamma, 2), "", `Delta changes by ${nf(Math.abs(n.gamma), 2)} per point. ${n.gamma >= 0 ? "Gains speed up, losses slow down." : "Losses speed up, gains slow down."}`],
+                  ["Gamma", gammaStr(n.gamma), "", `Delta changes by ${gammaStr(Math.abs(n.gamma))} per point. ${n.gamma >= 0 ? "Gains speed up, losses slow down." : "Losses speed up, gains slow down."}`],
                   ["Theta", rsS(n.theta), TONE_CLASS[tone(n.theta)], n.theta < 0 ? "You lose this each day from time passing" : "You earn this each day from time passing"],
                   ["Vega", rsS(n.vega), TONE_CLASS[tone(n.vega)], "For each 1 point rise in volatility"],
                 ] as const

@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { GreekRow } from "@/lib/fno/engine";
-import { TONE_CLASS, nf, rsS, tone } from "@/lib/fno/format";
+import { TONE_CLASS, gammaStr, nf, rsS, tone } from "@/lib/fno/format";
 
 type Net = { delta: number; gamma: number; theta: number; vega: number };
 
@@ -23,7 +23,7 @@ export default function LegGreeks({ rows, net }: { rows: GreekRow[]; net: Net })
     const t = nf(v, d);
     return Number(t.replace(/,/g, "")) === 0 ? nf(0, d) : t.replace("-", "−");
   };
-  const gamma = (v: number) => fixed(v, 4);
+  const gamma = gammaStr;
   const lines: { short: string; long: string; total: number; of: (r: GreekRow) => number; fmt: (v: number) => string; toned: boolean }[] = [
     { short: "Delta", long: "Delta (index points of exposure)", total: net.delta, of: (r) => r.delta, fmt: (v) => fixed(v, 1), toned: true },
     { short: "Gamma", long: "Gamma (change in delta per index point)", total: net.gamma, of: (r) => r.gamma, fmt: gamma, toned: false },
@@ -74,6 +74,11 @@ export default function LegGreeks({ rows, net }: { rows: GreekRow[]; net: Net })
               {rows.map((r) => (
                 <td key={r.leg.id} className={td}>
                   {r.leg.iv == null ? "–" : `${(r.leg.iv * 100).toFixed(1)}%`}
+                  {r.leg.lowConfidence && (
+                    <span title={r.leg.lowConfidence} className="block whitespace-normal text-center text-[12px] font-normal leading-tight text-amber-600 md:text-[10px]">
+                      low confidence
+                    </span>
+                  )}
                 </td>
               ))}
             </tr>

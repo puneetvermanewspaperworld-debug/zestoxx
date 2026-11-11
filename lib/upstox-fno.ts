@@ -2,6 +2,7 @@ import {
   OPTION_UNDERLYINGS,
   fetchIndiaVixQuote,
   fetchLastTradeTime,
+  fetchLastTradeTimes,
   fetchOptionChain,
   fetchOptionExpiries,
   fetchVixCloses,
@@ -19,8 +20,9 @@ import { classifySource, strikeGap, type FnoLeg, type FnoSnapshot } from "./fno/
  */
 
 const VIX_HISTORY_TTL = 6 * 3_600_000;
+const TRADE_TIMES_TTL = 20_000;
 
-const leg = (l: OptionLeg): FnoLeg => ({
+const leg = (l: OptionLeg, times: Record<string, string> = {}): FnoLeg => ({
   ltp: l.ltp,
   bid: l.bid ?? null,
   ask: l.ask ?? null,
@@ -30,9 +32,11 @@ const leg = (l: OptionLeg): FnoLeg => ({
   gamma: l.gamma ?? null,
   theta: l.theta ?? null,
   vega: l.vega ?? null,
+  lastTrade: (l.key && times[l.key]) || null,
 });
 
-const toStrikes = (rows: ChainRow[]) => rows.map((r) => ({ strike: r.strike, ce: leg(r.call), pe: leg(r.put) }));
+const toStrikes = (rows: ChainRow[], times: Record<string, string> = {}) =>
+  rows.map((r) => ({ strike: r.strike, ce: leg(r.call, times), pe: leg(r.put, times) }));
 
 /** Where today's VIX sits among the past year's daily closes, 0–100. */
 export function percentileOf(value: number, closes: number[]): number | null {
@@ -55,6 +59,11 @@ export async function liveSnapshot(token: string, underlying: string, expiry: st
   ]);
   if (chain.rows.length === 0 || chain.spot <= 0) return null;
 
+  // When each option last traded, to tell a stale last price from a live one. Cached a little, since it is one
+  // extra request per 100 contracts; an unanswered request just means "unknown".
+  const keys = chain.rows.flatMap((r) => [r.call.key, r.put.key]).filter((k): k is string => !!k);
+  const times = await memoized(`fno:trade-times:${underlying}:${exp}`, TRADE_TIMES_TTL, () => fetchLastTradeTimes(token, keys)).catch(() => ({}) as Record<string, string>);
+
   const stats = chainStats(chain.rows, chain.spot);
   return {
     asOf: new Date().toISOString(),
@@ -71,7 +80,7 @@ export async function liveSnapshot(token: string, underlying: string, expiry: st
     lot: lotSizes[exp] ?? lotFallback(underlying),
     step: strikeGap(chain.rows.map((r) => r.strike)) ?? UNDERLYINGS[underlying]?.step ?? 1,
     pcr: stats?.pcr ?? null,
-    chain: toStrikes(chain.rows),
+    chain: toStrikes(chain.rows, times),
   };
 }
 

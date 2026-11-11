@@ -1,4 +1,4 @@
-import { evaluate, type GreekRow, type Market, type PreparedLeg, type StaticResult } from "./engine";
+import { evaluate, marginKind, type GreekRow, type Market, type PreparedLeg, type StaticResult } from "./engine";
 import type { StrikeColumn } from "./strikes";
 import { CMP_MOVES } from "./strikes";
 import { TONE_CLASS, nf, pct, rs, rsS, tone, type Tone } from "./format";
@@ -32,7 +32,7 @@ export function explain(
 
   for (const l of P) {
     const what = l.type === "FUT" ? `${name} future` : `${name} ${nf(l.strike)} ${l.type === "CE" ? "call" : "put"}`;
-    const src = l.priceSource === "chain" ? " (live chain price)" : l.priceSource === "typed" ? " (your price)" : " (model price)";
+    const src = l.priceSource === "chain" ? (l.quoteBasis === "mid" ? " (middle of the live bid and ask)" : " (live chain price)") : l.priceSource === "typed" ? " (your price)" : " (model price)";
     L.push({
       kind: "",
       html: `<b>${l.sign > 0 ? "Buy" : "Sell"} ${l.lots} lot${l.lots > 1 ? "s" : ""} (${nf(l.qty)} qty) ${what}</b> at ${rs(l.entry, 2)}${src}${l.ivNote === "implied" ? `, implied volatility ${((l.iv as number) * 100).toFixed(1)}%` : ""}.`,
@@ -45,8 +45,11 @@ export function explain(
     if (debit > 0.5) L.push({ kind: "", html: `You pay <b>${rs(debit)}</b> upfront as premium.${hasShort ? "" : " That is the most you can lose, plus charges."}` });
     else if (debit < -0.5) L.push({ kind: "warn", html: `You receive <b>${rs(-debit)}</b> upfront, but the risk you take on can be far larger than that.` });
   }
-  if (P.some((l) => l.sign < 0 && l.isOpt) || P.some((l) => !l.isOpt)) {
+  const margin = marginKind(P);
+  if (margin === "full") {
     L.push({ kind: "warn", html: "This trade needs margin, not just premium. Check the exact amount in your broker’s margin calculator before you place it." });
+  } else if (margin === "hedged") {
+    L.push({ kind: "", html: "Margin is usually lower for hedged spreads. Check the exact amount in your broker's margin calculator." });
   }
   L.push({
     kind: st.unlimLoss ? "bad" : "",

@@ -41,7 +41,12 @@ export interface LegInput {
 
 /** A market price for one option, e.g. from the live chain. */
 export interface QuotePoint {
+  /** the price to use: the middle of the bid and ask when the chain has both, else the last trade */
   ltp: number;
+  /** what `ltp` is */
+  basis?: "mid" | "last";
+  /** why this price deserves less trust (wide spread, old last trade, ...); absent when it looks fine */
+  low?: string;
   /** percent */
   iv: number | null;
 }
@@ -71,6 +76,9 @@ export interface PreparedLeg {
    * it keeps "same spot, same day, same volatility" worth exactly the entry price. 0 otherwise.
    */
   anchor: number;
+  /** for a chain price: whether it is the bid-ask mid or the last trade, and why it is low confidence (else null) */
+  quoteBasis: "mid" | "last" | null;
+  lowConfidence: string | null;
 }
 
 /** Days held, rounded to a hundredth, so every table and chart means the same instant by the same number. */
@@ -93,7 +101,7 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
       out.push({
         id: L.id, side: L.side, type: "FUT", strike: 0, lots: L.lots, qty, sign, model,
         entry: typed ? (L.price as number) : model, priceSource: typed ? "typed" : "model",
-        iv: null, isOpt: false, ivNote: "", anchor: 0,
+        iv: null, isOpt: false, ivNote: "", anchor: 0, quoteBasis: null, lowConfidence: null,
       });
       continue;
     }
@@ -121,7 +129,11 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
       } else ivNote = "fallback";
       if (ivNote !== "implied" || !imp) anchor = entry - bsm(L.type, m.spot, L.strike, T0, iv, r, q).price;
     }
-    out.push({ id: L.id, side: L.side, type: L.type, strike: L.strike, lots: L.lots, qty, sign, model, entry, priceSource, iv, isOpt: true, ivNote, anchor });
+    out.push({
+      id: L.id, side: L.side, type: L.type, strike: L.strike, lots: L.lots, qty, sign, model, entry, priceSource, iv, isOpt: true, ivNote, anchor,
+      quoteBasis: priceSource === "chain" ? (chain?.basis ?? "last") : null,
+      lowConfidence: priceSource === "chain" ? (chain?.low ?? null) : null,
+    });
   }
   return out;
 }
@@ -305,6 +317,27 @@ export function greeksNow(P: PreparedLeg[], m: Market): { rows: GreekRow[]; net:
     net.delta += row.delta; net.gamma += row.gamma; net.theta += row.theta; net.vega += row.vega;
   }
   return { rows, net };
+}
+
+/* ---------------------------------------------------------------- margin ---- */
+
+export type MarginKind = "none" | "hedged" | "full";
+
+/**
+ * How much margin a trade is likely to need, from its legs:
+ *   none    nothing sold and no futures: the premium is all it costs (a long call, a long straddle)
+ *   hedged  options only, something sold, and the loss is capped at both ends by options you also hold
+ *           (a bull call spread, a bear put spread, an iron condor): brokers charge far less than for a naked sale
+ *   full    anything else with a short option or a future: a naked short call or put, a straddle or strangle,
+ *           a ratio spread, a short future (a long future also needs margin)
+ * The test is the expiry payoff's slope at each end: a net short call position loses without limit on the upside, and
+ * a net short put position (or a long future) keeps losing all the way down to zero. Both ends must be flat or rising.
+ */
+export function marginKind(P: PreparedLeg[]): MarginKind {
+  if (P.some((l) => !l.isOpt)) return "full";
+  if (!P.some((l) => l.sign < 0)) return "none";
+  const net = (t: LegType) => P.filter((l) => l.type === t).reduce((a, l) => a + l.sign * l.qty, 0);
+  return net("CE") >= 0 && net("PE") >= 0 ? "hedged" : "full";
 }
 
 /* --------------------------------------------------------------- presets ---- */

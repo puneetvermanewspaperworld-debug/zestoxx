@@ -5,7 +5,7 @@ import type { OptType } from "@/lib/fno/pricing";
 import type { Market } from "@/lib/fno/engine";
 import { CMP_MOVES, type Comparison, type Hold } from "@/lib/fno/strikes";
 import { argBest, columnLabel, compareInsights } from "@/lib/fno/explain";
-import { compact, nf, pct, rs } from "@/lib/fno/format";
+import { compact, gammaStr, nf, pct, rs } from "@/lib/fno/format";
 
 export type CmpMode = "lot" | "risk" | "budget";
 export interface CmpState {
@@ -37,6 +37,12 @@ const th = "whitespace-nowrap px-1.5 py-1.5 text-right text-[12px] font-medium t
 const td = "min-w-[72px] whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-[12px] text-slate-800 md:min-w-0 md:px-2.5";
 // the row label: pinned on the left, short, and allowed two lines on phones
 const labelCell = "w-[84px] min-w-[84px] bg-white px-1.5 py-1.5 text-[12px] leading-tight text-slate-600 md:w-auto md:px-2.5";
+/** "low confidence" under a figure whose price is shaky; the reason is its tooltip and is spelled out under the table. */
+const lowBadge = (why: string) => (
+  <span title={why} className="block whitespace-normal text-center text-[12px] font-normal leading-tight text-amber-600 md:text-[10px]">
+    low confidence
+  </span>
+);
 const dim = (t: string, long?: string) => (
   <span className="block text-[12px] font-normal text-slate-500 md:text-[10px]">
     {long ? (
@@ -90,6 +96,13 @@ export default function StrikeCompare({
   });
   const tableTitle = { lot: "Profit or loss after charges for 1 lot", risk: "Profit or loss as a % of the money you put at risk", budget: "Profit or loss after charges using the lots your limit allows" }[state.mode];
   const insights = compareInsights(cols, state.risk, state.dir);
+  // Strikes whose price is shaky, and why. The out-of-step note applies to the whole chain, so it is said once.
+  const SYNC = "index level and option prices are out of step";
+  const flagged = cols.filter((c) => c.low);
+  const syncNote = flagged.flatMap((c) => (c.low as string).split("; ")).find((r) => r.startsWith(SYNC)) ?? null;
+  const own = flagged
+    .map((c) => ({ K: c.K, reasons: (c.low as string).split("; ").filter((r) => !r.startsWith(SYNC)) }))
+    .filter((x) => x.reasons.length > 0);
 
   const head = (
     <tr>
@@ -117,7 +130,7 @@ export default function StrikeCompare({
       <h2 className="font-display text-[15px] font-semibold text-slate-900">Which strike? In-the-money, at-the-money or out-of-the-money</h2>
       <p className="mt-1 text-[11.5px] leading-snug text-slate-500">
         {name} at {nf(m.spot, 2)}, {nf(m.dte, m.dte % 1 ? 1 : 0)} day{m.dte === 1 ? "" : "s"} to expiry. Exit {holdTxt}.{" "}
-        {usingChain ? "Premiums and each strike’s own volatility come from the live option chain." : "Prices are model prices (a single volatility) — not live chain prices."}
+        {usingChain ? "Premiums (the middle of the bid and ask where both are quoted) and each strike’s own volatility come from the live option chain." : "Prices are model prices (a single volatility) — not live chain prices."}
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -150,9 +163,15 @@ export default function StrikeCompare({
             {row(
               usingChain ? "Implied vol" : "Vol used",
               usingChain ? "Implied volatility (this strike’s own)" : "Volatility used (one value for every strike)",
-              (c) => <>{c.iv.toFixed(1)}%{usingChain && c.priceSource === "model" ? dim("no trade", "no trade: model") : null}</>
+              (c) => (
+                <>
+                  {c.iv.toFixed(1)}%
+                  {usingChain && c.priceSource === "model" ? dim("no trade", "no trade: model") : null}
+                  {c.low ? lowBadge(c.low) : null}
+                </>
+              )
             )}
-            {row("Gamma", "Gamma per lot (change in delta per index point)", (c) => c.gamma.toFixed(4))}
+            {row("Gamma", "Gamma per lot (change in delta per index point)", (c) => gammaStr(c.gamma))}
             {row("Vega / vol pt", "Vega per lot (₹ per 1 volatility point)", (c) => rs(c.vega))}
             {row("Gain / 1%", "Gain per 1% the index moves your way (1 lot)", (c) => rs(c.perPct))}
             {row("Decay / day", "Time decay per day (1 lot)", (c) => <><span className="text-rose-500">{rs(c.decay)}</span>{dim(`${c.decayPct.toFixed(1)}%`, `${c.decayPct.toFixed(1)}% of cost`)}</>)}
@@ -160,6 +179,17 @@ export default function StrikeCompare({
           </tbody>
         </table>
       </div>
+
+      {flagged.length > 0 && (
+        <div role="note" className="mt-2 space-y-1 text-[12px] leading-snug text-amber-700">
+          {syncNote && <p><b>Check these volatilities:</b> {syncNote}.</p>}
+          {own.length > 0 && (
+            <p>
+              <b>Low confidence:</b> {own.map((x) => `${nf(x.K)} (${x.reasons.join("; ")})`).join(" · ")}.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[13px] font-semibold text-slate-900">{tableTitle}, exit {holdTxt}</h3>

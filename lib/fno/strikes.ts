@@ -22,6 +22,10 @@ export interface StrikeColumn {
   cost: number;
   entry: number;
   priceSource: "chain" | "model";
+  /** whether a chain price is the bid-ask mid or the last trade (null when priced from the model) */
+  quoteBasis: "mid" | "last" | null;
+  /** why this strike's price and volatility deserve less trust, or null */
+  low: string | null;
   /** worst case for 1 lot, after charges (positive number) */
   worst: number;
   /** lots that fit inside the risk limit */
@@ -91,6 +95,8 @@ export function compareStrikes(m: Market, dir: OptType, risk: number, hold: Hold
       cost,
       entry: L.entry,
       priceSource: L.priceSource === "chain" ? "chain" : "model",
+      quoteBasis: L.quoteBasis,
+      low: L.lowConfidence,
       worst,
       lots: worst > 0 ? Math.floor(risk / worst) : 0,
       be: roots.length ? roots[0] : null,

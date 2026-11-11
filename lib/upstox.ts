@@ -254,6 +254,35 @@ export async function fetchLastTradeTime(token: string, key: string): Promise<st
   return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
 }
 
+/**
+ * When each instrument last traded (ISO), keyed by instrument key. One quote request covers up to 100 keys; a failed
+ * request just leaves those keys out (the caller treats "unknown" as "can't tell", never as "stale").
+ */
+export async function fetchLastTradeTimes(token: string, keys: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const chunks: string[][] = [];
+  for (let i = 0; i < keys.length; i += 100) chunks.push(keys.slice(i, i + 100));
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      try {
+        const res = await fetch(`${UPSTOX_BASE}/v2/market-quote/quotes?instrument_key=${encodeURIComponent(chunk.join(","))}`, {
+          headers: authHeaders(token),
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = ((await res.json()) as { data?: Record<string, { instrument_token?: string; last_trade_time?: string | number }> }).data ?? {};
+        for (const q of Object.values(data)) {
+          const ms = Number(q?.last_trade_time);
+          if (q?.instrument_token && Number.isFinite(ms) && ms > 0) out[q.instrument_token] = new Date(ms).toISOString();
+        }
+      } catch {
+        /* leave these keys out */
+      }
+    })
+  );
+  return out;
+}
+
 /** India VIX last price and previous close. */
 export async function fetchIndiaVixQuote(token: string): Promise<{ ltp: number; prevClose: number | null } | null> {
   const res = await fetch(`${UPSTOX_BASE}/v3/market-quote/ltp?instrument_key=${encodeURIComponent(INDIA_VIX_KEY)}`, {

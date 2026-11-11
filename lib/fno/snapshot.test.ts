@@ -47,7 +47,9 @@ describe("snapshot helpers", () => {
   const base: FnoSnapshot = { asOf: "", feedAsOf: null, source: "live", underlying: "NIFTY", expiry: "2026-11-09", expiries: [], spot: 25000, vix: 16, vixPrevClose: 15, vixPercentile: 50, atmIv: 16, lot: 65, step: 50, pcr: 1, chain: [{ strike: 25000, ce: { ltp: 140, bid: 139, ask: 141, oi: 1, iv: 16, delta: 0.5, gamma: 0, theta: 0, vega: 0 }, pe: { ltp: 0, bid: null, ask: null, oi: 0, iv: null, delta: null, gamma: null, theta: null, vega: null } }] };
   it("offers chain prices for traded strikes only", () => {
     const q = quoteFromSnapshot(base)!;
-    assert.deepEqual(q("CE", 25000), { ltp: 140, iv: 16 });
+    assert.deepEqual(q("CE", 25000), { ltp: 140, iv: 16, basis: "mid" }); // the middle of 139 and 141
+    const oneSided = { ...base, chain: [{ ...base.chain[0], ce: { ...base.chain[0].ce, ltp: 140, bid: null, ask: null } }] };
+    assert.equal(quoteFromSnapshot(oneSided)!("CE", 25000)!.basis, "last"); // no two-sided quote: the last trade
     assert.equal(q("PE", 25000), null); // never traded
     assert.equal(q("CE", 99999), null); // not in the chain
   });
