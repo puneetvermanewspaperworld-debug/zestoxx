@@ -12,14 +12,42 @@ export interface BsResult {
   theta: number;
 }
 
-/** Standard normal CDF (Abramowitz–Stegun 7.1.26; error < 1.5e-7). */
+/**
+ * Standard normal CDF to double precision (Hart's rational approximation as given in West, "Better approximations to
+ * cumulative normal functions", 2005). The older Abramowitz–Stegun fit was good to 1.5e-7 in the value but its slope was
+ * off by about 0.1%, which showed up as a 0.1% error in anything taken from the price's curvature (gamma).
+ */
 export function normCdf(x: number): number {
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  const ax = Math.abs(x) / Math.SQRT2;
-  const t = 1 / (1 + p * ax);
-  const y = 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-ax * ax);
-  return 0.5 * (1 + sign * y);
+  const ax = Math.abs(x);
+  let c: number;
+  if (ax > 37) c = 0;
+  else {
+    const e = Math.exp((-ax * ax) / 2);
+    if (ax < 7.07106781186547) {
+      let n = 3.52624965998911e-2 * ax + 0.700383064443688;
+      n = n * ax + 6.37396220353165;
+      n = n * ax + 33.912866078383;
+      n = n * ax + 112.079291497871;
+      n = n * ax + 221.213596169931;
+      n = n * ax + 220.206867912376;
+      let d = 8.83883476483184e-2 * ax + 1.75566716318264;
+      d = d * ax + 16.064177579207;
+      d = d * ax + 86.7807322029461;
+      d = d * ax + 296.564248779674;
+      d = d * ax + 637.333633378831;
+      d = d * ax + 793.826512519948;
+      d = d * ax + 440.413735824752;
+      c = (e * n) / d;
+    } else {
+      let b = ax + 0.65;
+      b = ax + 4 / b;
+      b = ax + 3 / b;
+      b = ax + 2 / b;
+      b = ax + 1 / b;
+      c = e / b / 2.506628274631;
+    }
+  }
+  return x > 0 ? 1 - c : c;
 }
 
 export const normPdf = (x: number): number => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);

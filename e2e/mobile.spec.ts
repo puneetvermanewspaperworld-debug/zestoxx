@@ -135,6 +135,27 @@ test("the strike comparison shows at least three strikes at once", async ({ page
   expect(visible).toBeGreaterThanOrEqual(3);
 });
 
+test("strike comparison has implied volatility, gamma and vega rows; the per-leg Greeks table fits with a pinned first column", async ({ page }) => {
+  await open(page, "/app/fno", "#fno-und");
+  // rows in the strike comparison
+  const labels = await page.evaluate(() => Array.from(document.querySelectorAll('[aria-label="Strike comparison"] tbody tr td:first-child')).map((td) => (td as HTMLElement).innerText.trim()));
+  for (const want of ["Implied vol", "Gamma", "Vega / vol pt"]) expect(labels, `row ${want}`).toContain(want);
+  // a four-leg trade: the per-leg table scrolls inside its box, with the label pinned and 3 columns showing
+  await page.getByRole("button", { name: "Iron condor" }).click();
+  await page.waitForSelector('table[aria-label="Greeks for each leg"]');
+  const r = await page.evaluate(() => {
+    const table = document.querySelector('table[aria-label="Greeks for each leg"]') as HTMLElement;
+    const box = (table.parentElement as HTMLElement).getBoundingClientRect();
+    const heads = Array.from(table.querySelectorAll("thead th")).slice(1) as HTMLElement[];
+    const inside = heads.filter((h) => h.getBoundingClientRect().left >= box.left - 1 && h.getBoundingClientRect().right <= box.right + 1).length;
+    return { inside, total: heads.length, pinned: getComputedStyle(table.querySelector("tbody td")!).position, page: document.documentElement.scrollWidth - innerWidth };
+  });
+  expect(r.total).toBe(5); // Total + four legs
+  expect(r.inside).toBeGreaterThanOrEqual(3);
+  expect(r.pinned).toBe("sticky");
+  expect(r.page).toBeLessThanOrEqual(1);
+});
+
 test.describe("desktop is untouched", () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
   test("sidebar shows and there is no bottom tab bar", async ({ page }) => {

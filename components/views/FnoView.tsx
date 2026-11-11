@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import PayoffChart, { chartRange } from "@/components/fno/PayoffChart";
+import LegGreeks from "@/components/fno/LegGreeks";
 import StrikeCompare, { type CmpState } from "@/components/fno/StrikeCompare";
 import { RATES } from "@/lib/fno/charges";
 import {
@@ -556,21 +557,7 @@ function Analysis({
               ))}
             </tbody>
           </table>
-          {gk.rows.length > 1 && (
-            <table className="no-sticky-col mt-3 w-full text-[12px]">
-              <thead><tr className="text-left text-[11px] text-slate-500"><th className="py-1 font-medium">Leg</th><th className="py-1 text-right font-medium">Delta</th><th className="py-1 text-right font-medium">Theta</th><th className="py-1 text-right font-medium">Vega</th></tr></thead>
-              <tbody>
-                {gk.rows.map((r) => (
-                  <tr key={r.leg.id} className="border-t border-slate-100">
-                    <td className="py-1">{r.leg.sign > 0 ? "Buy " : "Sell "}{r.leg.type === "FUT" ? "future" : `${nf(r.leg.strike)} ${r.leg.type}`}</td>
-                    <td className="py-1 text-right font-mono">{nf(r.delta, 1)}</td>
-                    <td className={"py-1 text-right font-mono " + TONE_CLASS[tone(r.theta)]}>{rsS(r.theta)}</td>
-                    <td className={"py-1 text-right font-mono " + TONE_CLASS[tone(r.vega)]}>{rsS(r.vega)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <LegGreeks rows={gk.rows} net={n} />
         </section>
 
         <section aria-label="Profit grid" className={card + " min-w-0"}>

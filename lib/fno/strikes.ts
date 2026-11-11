@@ -31,6 +31,12 @@ export interface StrikeColumn {
   /** chance of losing 90% or more of the premium */
   ruin: number;
   delta: number;
+  /** this strike's own volatility, percent (implied from its price; the market volatility if it has none) */
+  iv: number;
+  /** change in the lot's delta per 1 index point, for 1 lot */
+  gamma: number;
+  /** ₹ gained per 1 volatility point rise, for 1 lot */
+  vega: number;
   decay: number;
   decayPct: number;
   perPct: number;
@@ -91,6 +97,9 @@ export function compareStrikes(m: Market, dir: OptType, risk: number, hold: Hold
       pop: probability(P, m, (e) => e.pre > 0),
       ruin: probability(P, m, (e) => e.pre <= -0.9 * cost),
       delta: g.delta,
+      iv: (L.iv as number) * 100,
+      gamma: g.gamma * L.qty,
+      vega: g.vega * L.qty,
       decay: g.theta * L.qty,
       decayPct: cost > 0 ? (Math.abs(g.theta * L.qty) / cost) * 100 : 0,
       perPct: Math.abs(g.delta * L.qty * m.spot * 0.01),

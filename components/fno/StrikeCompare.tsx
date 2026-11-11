@@ -147,6 +147,13 @@ export default function StrikeCompare({
             {row("Profit chance", "Chance of profit at expiry", (c) => `${Math.round(c.pop * 100)}%`)}
             {row("Lose 90%+", "Chance of losing 90% or more", (c) => `${Math.round(c.ruin * 100)}%`)}
             {row("Delta", "Delta", (c) => c.delta.toFixed(2))}
+            {row(
+              usingChain ? "Implied vol" : "Vol used",
+              usingChain ? "Implied volatility (this strike’s own)" : "Volatility used (one value for every strike)",
+              (c) => <>{c.iv.toFixed(1)}%{usingChain && c.priceSource === "model" ? dim("no trade", "no trade: model") : null}</>
+            )}
+            {row("Gamma", "Gamma per lot (change in delta per index point)", (c) => c.gamma.toFixed(4))}
+            {row("Vega / vol pt", "Vega per lot (₹ per 1 volatility point)", (c) => rs(c.vega))}
             {row("Gain / 1%", "Gain per 1% the index moves your way (1 lot)", (c) => rs(c.perPct))}
             {row("Decay / day", "Time decay per day (1 lot)", (c) => <><span className="text-rose-500">{rs(c.decay)}</span>{dim(`${c.decayPct.toFixed(1)}%`, `${c.decayPct.toFixed(1)}% of cost`)}</>)}
             {row("Charges", "Charges in and out (1 lot)", (c) => <>{rs(c.chg)}{dim(`${(c.cost > 0 ? (c.chg / c.cost) * 100 : 0).toFixed(1)}%`, `${(c.cost > 0 ? (c.chg / c.cost) * 100 : 0).toFixed(1)}% of cost`)}</>)}
