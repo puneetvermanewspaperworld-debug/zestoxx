@@ -117,8 +117,10 @@ change), `npm run db:studio` (Prisma Studio), `npm run db:reset` (drop + reapply
 ## Deploying to Vercel
 
 The repo is Vercel-ready: `vercel.json` sets the build command to
-`prisma generate && prisma migrate deploy && next build`, so each deploy regenerates
-the client and applies any pending migrations to your database.
+`prisma generate && prisma migrate deploy && next build`, so each **production** deploy
+regenerates the client and applies any pending migrations to your database. `prisma migrate
+deploy` is skipped unless `VERCEL_ENV=production`, so a preview build can never change the
+production database (and previews don't need `DIRECT_URL`).
 
 1. **Create a Postgres database.** In the Vercel project, **Storage → Create Database →
    Postgres** (Neon-backed). Connecting it to the project auto-adds `DATABASE_URL` and a
