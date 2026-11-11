@@ -1,5 +1,5 @@
 import { bsm, type OptType } from "./pricing";
-import { evaluate, findRoots, prepareLegs, probability, type Market, type QuoteLookup } from "./engine";
+import { evaluate, findRoots, prepareLegs, probability, roundDays, type Market, type QuoteLookup } from "./engine";
 
 /**
  * The ITM/ATM/OTM strike comparison: one long option per strike offset, same expiry. Prices and
@@ -49,7 +49,7 @@ export interface Comparison {
 
 export function holdDays(m: Pick<Market, "dte">, hold: Hold): number {
   const d = hold === "same" ? 0 : hold === "half" ? m.dte / 2 : m.dte;
-  return Math.round(d * 100) / 100;
+  return roundDays(d);
 }
 
 export function compareStrikes(m: Market, dir: OptType, risk: number, hold: Hold, quote?: QuoteLookup): Comparison {

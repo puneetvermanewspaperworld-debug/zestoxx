@@ -65,7 +65,16 @@ export interface PreparedLeg {
   iv: number | null;
   isOpt: boolean;
   ivNote: "" | "model" | "implied" | "fallback";
+  /**
+   * Entry price minus the model value at the entry state, for an option whose price could not be turned
+   * back into a volatility (a stale last trade below intrinsic value, say). Fading to nothing at expiry,
+   * it keeps "same spot, same day, same volatility" worth exactly the entry price. 0 otherwise.
+   */
+  anchor: number;
 }
+
+/** Days held, rounded to a hundredth, so every table and chart means the same instant by the same number. */
+export const roundDays = (d: number): number => Math.round(d * 100) / 100;
 
 /* ------------------------------------------------------------------ prep ---- */
 
@@ -84,7 +93,7 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
       out.push({
         id: L.id, side: L.side, type: "FUT", strike: 0, lots: L.lots, qty, sign, model,
         entry: typed ? (L.price as number) : model, priceSource: typed ? "typed" : "model",
-        iv: null, isOpt: false, ivNote: "",
+        iv: null, isOpt: false, ivNote: "", anchor: 0,
       });
       continue;
     }
@@ -94,6 +103,7 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
     let iv = iv0;
     let ivNote: PreparedLeg["ivNote"] = "model";
     let priceSource: PriceSource = "model";
+    let anchor = 0;
 
     const typed = L.price != null && L.price > 0;
     const chain = !typed && quote ? quote(L.type, L.strike) : null;
@@ -109,8 +119,9 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
         iv = chain.iv / 100;
         ivNote = "implied";
       } else ivNote = "fallback";
+      if (ivNote !== "implied" || !imp) anchor = entry - bsm(L.type, m.spot, L.strike, T0, iv, r, q).price;
     }
-    out.push({ id: L.id, side: L.side, type: L.type, strike: L.strike, lots: L.lots, qty, sign, model, entry, priceSource, iv, isOpt: true, ivNote });
+    out.push({ id: L.id, side: L.side, type: L.type, strike: L.strike, lots: L.lots, qty, sign, model, entry, priceSource, iv, isOpt: true, ivNote, anchor });
   }
   return out;
 }
@@ -120,7 +131,9 @@ export function exitPrice(L: PreparedLeg, m: Market, spot: number, days: number,
   const r = m.r / 100;
   const q = m.q / 100;
   if (!L.isOpt) return spot * Math.exp((r - q) * rem);
-  return bsm(L.type as OptType, spot, L.strike, rem, Math.max(0.01, (L.iv as number) + dIV / 100), r, q).price;
+  const px = bsm(L.type as OptType, spot, L.strike, rem, Math.max(0.01, (L.iv as number) + dIV / 100), r, q).price;
+  if (!L.anchor || m.dte <= 0) return px;
+  return Math.max(0, px + L.anchor * Math.min(1, Math.max(0, Math.max(0, m.dte - days) / m.dte)));
 }
 
 /* -------------------------------------------------------------- evaluate ---- */
@@ -169,6 +182,18 @@ export function evaluate(P: PreparedLeg[], m: Market, spot: number, days: number
   const pre = gross - ch.total;
   const tax = pre > 0 ? pre * (m.slab / 100) * 1.04 : 0;
   return { ...ch, gross, pre, tax, net: pre - tax, orders: a.orders, mode };
+}
+
+/** Index moves (%) and days held that the profit grid shows. */
+export const GRID_MOVES = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3];
+export const GRID_FRACTIONS = [0, 0.25, 0.5, 0.75, 1];
+
+/** The profit grid: after-charges P&L for each index move (rows) and days held (columns), same volatility shift `dIV`. */
+export function profitGrid(P: PreparedLeg[], m: Market, dIV: number) {
+  const moves = GRID_MOVES;
+  const cols = [...new Set(GRID_FRACTIONS.map((f) => roundDays(m.dte * f)))];
+  const cells = moves.map((mv) => cols.map((c) => evaluate(P, m, m.spot * (1 + mv / 100), c, dIV, c >= m.dte - 1e-9 && m.exitStyle === "expire" ? "expire" : "square").pre));
+  return { moves, cols, cells, mx: Math.max(1, ...cells.flat().map(Math.abs)) };
 }
 
 export function findRoots(fn: (x: number) => number, lo: number, hi: number): number[] {

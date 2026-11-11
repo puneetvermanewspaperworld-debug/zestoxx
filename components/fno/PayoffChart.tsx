@@ -42,6 +42,7 @@ export default function PayoffChart({ P, m, st, sc, exitSpot, days, dIV, onPick 
   const [boxRef, W] = useElementWidth<HTMLDivElement>(640);
   const H = W < 640 ? 260 : 290;
   const dragging = useRef(false);
+  const start = useRef<{ x: number; y: number; scrub: boolean } | null>(null);
   const { lo, hi } = useMemo(() => chartRange(P, m), [P, m]);
   const showExit = m.exitStyle === "square" && days < m.dte - 1e-9;
 
@@ -106,10 +107,30 @@ export default function PayoffChart({ P, m, st, sc, exitSpot, days, dIV, onPick 
         role="img"
         aria-label="Profit and loss at expiry for the trade. Drag to move the exit level."
         className="block touch-pan-y select-none"
-        onPointerDown={(e) => { dragging.current = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} pick(e.clientX); }}
-        onPointerMove={(e) => { if (dragging.current) pick(e.clientX); }}
-        onPointerUp={() => { dragging.current = false; }}
-        onPointerCancel={() => { dragging.current = false; }}
+        onPointerDown={(e) => {
+          start.current = { x: e.clientX, y: e.clientY, scrub: e.pointerType === "mouse" };
+          dragging.current = true;
+          // A mouse picks at once. A finger doesn't: it may be starting a scroll, which must never move the exit.
+          if (e.pointerType === "mouse") { try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} pick(e.clientX); }
+        }}
+        onPointerMove={(e) => {
+          const st = start.current;
+          if (!dragging.current || !st) return;
+          if (!st.scrub) {
+            const dx = Math.abs(e.clientX - st.x), dy = Math.abs(e.clientY - st.y);
+            if (dx < 8 || dx < dy) return; // not (yet) a deliberate sideways drag
+            st.scrub = true;
+          }
+          pick(e.clientX);
+        }}
+        onPointerUp={(e) => {
+          const st = start.current;
+          // a tap (finger lifted almost where it landed) picks that spot
+          if (st && !st.scrub && Math.abs(e.clientX - st.x) < 8 && Math.abs(e.clientY - st.y) < 8) pick(e.clientX);
+          dragging.current = false;
+          start.current = null;
+        }}
+        onPointerCancel={() => { dragging.current = false; start.current = null; }}
       >
         <defs>
           <clipPath id="fno-cu"><rect x={PL} y={PT} width={W - PL - PR} height={Math.max(0, zy - PT)} /></clipPath>

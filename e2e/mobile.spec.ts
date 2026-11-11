@@ -84,6 +84,47 @@ test("the ticker strip is one 32px line", async ({ page }) => {
   expect(Math.round(h)).toBe(32);
 });
 
+test("the ticker strip stays fully visible, one 32px line, however the page is scrolled", async ({ page }) => {
+  await open(page, "/app/fno", "#fno-und");
+  await page.evaluate(() => {
+    window.scrollTo(0, 5000);
+    document.scrollingElement?.scrollTo(0, 5000);
+    document.querySelectorAll<HTMLElement>(".overflow-y-auto").forEach((e) => e.scrollTo(0, 800));
+  });
+  await page.waitForTimeout(300);
+  const r = await page.evaluate(() => {
+    const t = document.querySelector(".ticker-strip")!.getBoundingClientRect();
+    const se = document.scrollingElement!;
+    return { top: t.top, height: t.height, docScrolls: se.scrollHeight - se.clientHeight, docY: se.scrollTop };
+  });
+  expect(r.docScrolls, "the page itself must not scroll; only the content area under the ticker does").toBeLessThanOrEqual(1);
+  expect(r.docY).toBe(0);
+  expect(Math.round(r.height)).toBe(32);
+  expect(r.top, "the strip is clipped at the top edge").toBeGreaterThanOrEqual(0);
+});
+
+test("touching or scrolling past the payoff chart does not move the exit", async ({ page }) => {
+  await open(page, "/app/fno", "#fno-und");
+  const keep = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('[aria-label="What you keep"]') as HTMLElement | null;
+      const lines = (el?.innerText ?? "").split("\n");
+      return lines.filter((l) => l.startsWith("Nifty at") || l.startsWith("Result after charges")).join(" | ");
+    });
+  const before = await keep();
+  expect(before).toContain("Result after charges");
+  // a finger lands on the chart and the browser takes over as a vertical scroll (pointercancel)
+  await page.evaluate(() => {
+    const svg = document.querySelector('[aria-label="Profit and loss chart"] svg') as SVGElement;
+    const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.left + r.width * 0.8, clientY: r.top + 40, pointerId: 7, pointerType: "touch", bubbles: true }));
+    svg.dispatchEvent(new PointerEvent("pointermove", { clientX: r.left + r.width * 0.8 + 2, clientY: r.top + 140, pointerId: 7, pointerType: "touch", bubbles: true }));
+    svg.dispatchEvent(new PointerEvent("pointercancel", { pointerId: 7, pointerType: "touch", bubbles: true }));
+  });
+  await page.waitForTimeout(400);
+  expect(await keep()).toBe(before);
+});
+
 test("the strike comparison shows at least three strikes at once", async ({ page }) => {
   await open(page, "/app/fno", "#fno-und");
   const visible = await page.evaluate(() => {

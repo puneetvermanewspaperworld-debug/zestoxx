@@ -11,6 +11,7 @@ import {
   evaluate,
   greeksNow,
   prepareLegs,
+  profitGrid,
   presetLegs,
   type ExitStyle,
   type LegInput,
@@ -445,12 +446,7 @@ function Analysis({
   const sc = useMemo(() => evaluate(P, m, exitSpot, d, dIV, m.exitStyle), [P, m, exitSpot, d, dIV]);
   const gk = useMemo(() => greeksNow(P, m), [P, m]);
   const lines = useMemo(() => explain(P, m, st, sc, gk, name, d), [P, m, st, sc, gk, name, d]);
-  const heat = useMemo(() => {
-    const moves = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3];
-    const cols = [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(m.dte * f * 10) / 10))];
-    const cells = moves.map((mv) => cols.map((c) => evaluate(P, m, m.spot * (1 + mv / 100), c, dIV, c >= m.dte - 1e-9 && m.exitStyle === "expire" ? "expire" : "square").pre));
-    return { moves, cols, cells, mx: Math.max(1, ...cells.flat().map(Math.abs)) };
-  }, [P, m, dIV]);
+  const heat = useMemo(() => profitGrid(P, m, dIV), [P, m, dIV]);
 
   const be = st.beNet.length ? st.beNet.map((x) => nf(x)).join(" / ") : "None in range";
   const n = gk.net;
