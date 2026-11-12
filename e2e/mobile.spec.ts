@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { ROUTES, measure } from "../scripts/mobile-audit";
+import { bsm } from "../lib/fno/pricing";
 
 /**
  * The phone guard. Fails if any route scrolls sideways at 360px (the page itself, not a table inside its own
@@ -187,4 +188,82 @@ test.describe("desktop is untouched", () => {
     await expect(page.getByRole("navigation", { name: "Main" })).toBeHidden();
     await expect(page.getByText("Paper Trading Mode")).toBeVisible();
   });
+});
+
+/* ---------------------------------------------------------------- frozen prices --- */
+
+
+/** A live Nifty snapshot for the mocked feed: every poll moves spot, the exchange's update time and the option prices. */
+function mockSnapshot(n: number) {
+  const spot = 25255.05 + n * 3.5;
+  const sec = String(12 + n * 5).padStart(2, "0");
+  const feedAsOf = `2026-11-11T13:50:${sec}+05:30`;
+  const T = 5.9 / 365;
+  const leg = (type: "CE" | "PE", k: number) => {
+    const p = bsm(type, spot, k, T, 0.16, 0.065, 0.013).price;
+    return { ltp: p, bid: p - 0.5, ask: p + 0.5, oi: 1000, iv: 16, delta: null, gamma: null, theta: null, vega: null, lastTrade: feedAsOf };
+  };
+  const chain = [];
+  for (let k = 24500; k <= 26000; k += 50) chain.push({ strike: k, ce: leg("CE", k), pe: leg("PE", k) });
+  return {
+    asOf: feedAsOf, feedAsOf, source: "live", underlying: "NIFTY", expiry: "2026-11-17", expiries: ["2026-11-17", "2026-11-24"],
+    spot, vix: 16, vixPrevClose: 15.5, vixPercentile: 50, atmIv: 16, lot: 65, step: 50, pcr: 1, chain,
+  };
+}
+
+test("frozen prices: the analysis holds still while the feed moves, updates on request, and never overwrites typed values", async ({ page }) => {
+  let n = 0;
+  await page.route("**/api/fno/snapshot**", (route) => route.fulfill({ json: mockSnapshot(n++) }));
+  await page.clock.install({ time: new Date("2026-11-11T13:50:00+05:30") }); // a Wednesday in market hours, so the page polls
+  await page.goto("/app/fno", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="priced-at"]', { timeout: 30_000 });
+  const read = () =>
+    page.evaluate(() => ({
+      priced: (document.querySelector('[data-testid="priced-at"]') as HTMLElement).innerText,
+      spot: (document.querySelector("#fno-spot") as HTMLInputElement).value,
+      result: (document.querySelector('[aria-label="Result"]') as HTMLElement).innerText,
+      words: (document.querySelector('[aria-label="In plain words"]') as HTMLElement).innerText,
+      keep: (document.querySelector('[aria-label="What you keep"]') as HTMLElement).innerText,
+      hasUpdate: !!document.querySelector('[data-testid="update-live"]'),
+    }));
+  const first = await read();
+  expect(first.priced).toBe("Priced at 13:50:12 IST");
+  expect(first.hasUpdate).toBe(false);
+
+  // the feed polls every 5 s and moves each time; nothing on the page may change
+  for (let i = 0; i < 3; i++) {
+    await page.clock.runFor(5200);
+    await page.waitForTimeout(250);
+  }
+  expect(n, "the page kept polling in the background").toBeGreaterThanOrEqual(3);
+  const held = await read();
+  expect(held.priced).toBe(first.priced);
+  expect(held.spot).toBe(first.spot);
+  expect(held.result).toBe(first.result);
+  expect(held.words).toBe(first.words);
+  expect(held.keep).toBe(first.keep);
+  expect(held.hasUpdate, "the feed has moved, so the update button shows").toBe(true);
+
+  // type a spot of your own, then update: the snapshot changes, your value stays
+  await page.fill("#fno-spot", "25000");
+  await page.waitForTimeout(250);
+  await page.getByTestId("update-live").click();
+  await page.waitForTimeout(400);
+  const updated = await read();
+  expect(updated.priced).not.toBe(first.priced);
+  expect(updated.spot).toBe("25000");
+  await expect(page.getByText("Manual", { exact: true }).first()).toBeVisible();
+
+  // use live values, let the feed move again, then change the strike: that takes a fresh snapshot by itself
+  await page.getByRole("button", { name: "Use live values" }).click();
+  await page.waitForTimeout(300);
+  await page.clock.runFor(5200);
+  await page.waitForTimeout(250);
+  const before = await read();
+  expect(before.hasUpdate).toBe(true);
+  const strike = page.locator('xpath=//label[text()="Strike"]/following-sibling::input').first();
+  await strike.fill("25300");
+  await page.waitForTimeout(400);
+  const after = await read();
+  expect(after.priced, "editing the strike took a fresh snapshot").not.toBe(before.priced);
 });

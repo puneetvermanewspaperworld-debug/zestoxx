@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useReducer, useState } from "react";
 import PayoffChart, { chartRange } from "@/components/fno/PayoffChart";
 import LegGreeks from "@/components/fno/LegGreeks";
 import StrikeCompare, { type CmpState } from "@/components/fno/StrikeCompare";
@@ -26,8 +26,9 @@ import type { OptType } from "@/lib/fno/pricing";
 import { explain, slopeText } from "@/lib/fno/explain";
 import { TONE_CLASS, compact, gammaStr, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
-import { daysToExpiry, expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
-import { CALENDAR, lastCloseTime } from "@/lib/market-calendar";
+import { expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
+import { buildMarket, feedMoved, freezeReducer, initialFreeze, pricedAtText, snapKey, type Overrides } from "@/lib/fno/freeze";
+import { CALENDAR } from "@/lib/market-calendar";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { compareStrikes } from "@/lib/fno/strikes";
 import { fmtIsoDate } from "@/lib/helpers";
@@ -147,44 +148,26 @@ export default function FnoView() {
   const [und, setUnd] = useState("NIFTY");
   const [expiry, setExpiry] = useState<string | null>(null);
   const { snap, loading, feedLost } = useFnoSnapshot(und, expiry);
-  const live = snap && snap.underlying === und ? snap : null;
+  // `feed` is the latest answer and keeps refreshing in the background. The analysis is priced from `fz.frozen`, one snapshot
+  // held still until the user acts (Update to live prices, a trade edit, another expiry or underlying), so no number moves under them.
+  const feed = snap && snap.underlying === und ? snap : null;
   const info = UNDERLYINGS[und];
 
-  // A clock for days-to-expiry, ticking while the page is open.
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    const first = setTimeout(() => setNow(Date.now()), 0);
-    const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => { clearTimeout(first); clearInterval(t); };
-  }, []);
+  const [fz, dispatch] = useReducer(freezeReducer, initialFreeze);
+  // Take the first snapshot, and a fresh one for a different contract; the same contract refreshing changes nothing.
+  if (freezeReducer(fz, { type: "feed", feed }) !== fz) dispatch({ type: "feed", feed });
+  // Shown only while the frozen snapshot is for the contract the feed is on (not for a moment after switching expiry).
+  const live = fz.frozen && feed && snapKey(fz.frozen) === snapKey(feed) ? fz.frozen : null;
+  const feedAhead = feedMoved(live, feed);
 
-  // Anything the user types over the feed is a "manual" override.
-  const [ov, setOv] = useState<{ spot?: number; dte?: number; iv?: number; lot?: number; step?: number }>({});
+  // Anything the user types over the feed is a "manual" override; an update replaces the snapshot, never these.
+  const ov = fz.ov;
+  const setOv = (patch: Partial<Overrides>) => dispatch({ type: "override", patch });
   const manual = ov.spot != null || ov.dte != null || ov.iv != null;
   const [costs, setCosts] = useState({ r: 6.5, q: 1.3, brokerage: 20, slab: 30 });
   const [exitStyle, setExitStyle] = useState<ExitStyle>("square");
 
-  const feedIv = live ? (info.kind === "index" ? (live.vix ?? live.atmIv) : (live.atmIv ?? live.vix)) : null;
-  const market = useMemo<Market | null>(
-    () =>
-      live
-        ? {
-            spot: ov.spot ?? live.spot,
-            // Delayed prices belong to the moment the feed last updated, so count time to expiry from there
-        // (else from the last close). Live prices are counted from now.
-        dte: ov.dte ?? daysToExpiry(live.expiry, live.source === "delayed" ? new Date(live.feedAsOf ?? lastCloseTime(new Date(now ?? Date.parse(live.asOf)))) : new Date(now ?? Date.parse(live.asOf))),
-            iv: ov.iv ?? feedIv ?? 16,
-            r: costs.r,
-            q: costs.q,
-            lot: ov.lot ?? live.lot,
-            step: ov.step ?? live.step,
-            brokerage: costs.brokerage,
-            slab: costs.slab,
-            exitStyle,
-        }
-        : null,
-    [live, ov, costs, exitStyle, now, feedIv]
-  );
+  const market = useMemo<Market | null>(() => buildMarket(live, ov, costs, exitStyle, info.kind), [live, ov, costs, exitStyle, info.kind]);
 
   // The legs follow a preset around the money until the user edits them.
   const [preset, setPreset] = useState("lc");
@@ -202,6 +185,7 @@ export default function FnoView() {
     setLegsFor("custom");
     setPreset("");
     setCmpSide(null);
+    dispatch({ type: "tradeEdit", feed }); // changing the trade takes a fresh snapshot
     setExitSpotRaw(null); // a new trade starts with the exit at the current spot, never at a leftover marker
   };
 
@@ -230,13 +214,15 @@ export default function FnoView() {
   const changeUnderlying = (u: string) => {
     setUnd(u);
     setExpiry(null);
-    setOv({});
+    dispatch({ type: "reset" });
     setExitSpotRaw(null);
     setCmpSide(null);
     setLegsFor("");
     setPreset((p) => p || "lc");
   };
-  const useLive = () => { setOv((o) => ({ lot: o.lot, step: o.step })); setExitSpotRaw(null); };
+  const useLive = () => { dispatch({ type: "clearOverrides" }); setExitSpotRaw(null); };
+  // "Update to live prices": a new snapshot now (typed values stay), and the exit goes back to the current spot.
+  const updateLive = () => { dispatch({ type: "update", feed }); setExitSpotRaw(null); };
 
   const badgeKey: FnoSource | "manual" = manual ? "manual" : (live?.source ?? "simulated");
   const badge = BADGE[badgeKey];
@@ -275,12 +261,31 @@ export default function FnoView() {
           </div>
         </div>
         {live && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p data-testid="priced-at" className="text-[13px] font-semibold text-slate-800">
+              {pricedAtText(live)}
+            </p>
+            {feedAhead ? (
+              <button
+                type="button"
+                data-testid="update-live"
+                onClick={updateLive}
+                className="min-h-[44px] rounded-md bg-blue-600 px-3 text-[12.5px] font-semibold text-white hover:bg-blue-700 md:min-h-0 md:py-1"
+              >
+                Update to live prices
+              </button>
+            ) : (
+              <span className="text-[11.5px] text-slate-500">Prices are frozen at this time; they stay put until you change the trade or update.</span>
+            )}
+          </div>
+        )}
+        {live && (
           <p className="mt-2 text-[11px] text-slate-500">
             {live.source === "simulated"
               ? "Upstox isn’t answering, so every number here is generated — treat it as a demonstration, not a market."
               : live.source === "delayed"
                 ? delayedWhy
-                : "Spot, VIX and option prices refresh every 5 seconds while the market is open."}{" "}
+                : "The feed refreshes every 5 seconds in the background while the market is open; the analysis below stays frozen until you update it."}{" "}
             {live.source !== "simulated" && live.feedAsOf && (
               <>Exchange’s last update: {new Date(live.feedAsOf).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}.</>
             )}
@@ -309,17 +314,17 @@ export default function FnoView() {
                 <select
                   id="fno-exp"
                   value={live.expiry}
-                  onChange={(e) => { setExpiry(e.target.value); setOv((o) => ({ ...o, dte: undefined })); }}
+                  onChange={(e) => { setExpiry(e.target.value); setOv({ dte: undefined }); }}
                   className={inputCls + " font-sans"}
                 >
                   {live.expiries.map((e) => <option key={e} value={e}>{fmtIsoDate(e)}</option>)}
                 </select>
               </div>
-              <Num id="fno-spot" label={`${name} price`} value={market.spot} onChange={(v) => setOv((o) => ({ ...o, spot: v }))} min={0} hint={ov.spot != null ? "typed by you" : "from the feed"} />
-              <Num id="fno-dte" label="Days to expiry" value={market.dte} onChange={(v) => setOv((o) => ({ ...o, dte: v }))} min={0} hint={ov.dte != null ? "typed by you" : live.source === "delayed" ? "from the feed’s last update to 15:30 IST on expiry day" : "to 15:30 IST on expiry day"} />
-              <Num id="fno-iv" label={info.kind === "index" ? "VIX" : "Volatility (ATM IV)"} value={market.iv} onChange={(v) => setOv((o) => ({ ...o, iv: v }))} min={0} hint={ov.iv != null ? "typed by you" : info.kind === "index" ? "India VIX" : "at-the-money implied volatility"} />
-              <Num id="fno-lot" label="Lot size" value={market.lot} onChange={(v) => setOv((o) => ({ ...o, lot: v }))} min={1} hint={ov.lot != null ? "typed by you" : "from the exchange contract list"} />
-              <Num id="fno-step" label="Strike gap" value={market.step} onChange={(v) => setOv((o) => ({ ...o, step: v }))} min={0} />
+              <Num id="fno-spot" label={`${name} price`} value={market.spot} onChange={(v) => setOv({ spot: v })} min={0} hint={ov.spot != null ? "typed by you" : "from the feed"} />
+              <Num id="fno-dte" label="Days to expiry" value={market.dte} onChange={(v) => setOv({ dte: v })} min={0} hint={ov.dte != null ? "typed by you" : live.source === "delayed" ? "from the feed’s last update to 15:30 IST on expiry day" : "to 15:30 IST on expiry day"} />
+              <Num id="fno-iv" label={info.kind === "index" ? "VIX" : "Volatility (ATM IV)"} value={market.iv} onChange={(v) => setOv({ iv: v })} min={0} hint={ov.iv != null ? "typed by you" : info.kind === "index" ? "India VIX" : "at-the-money implied volatility"} />
+              <Num id="fno-lot" label="Lot size" value={market.lot} onChange={(v) => setOv({ lot: v })} min={1} hint={ov.lot != null ? "typed by you" : "from the exchange contract list"} />
+              <Num id="fno-step" label="Strike gap" value={market.step} onChange={(v) => setOv({ step: v })} min={0} />
               <Num id="fno-brok" label="Brokerage per order (₹)" value={costs.brokerage} onChange={(v) => setCosts((c) => ({ ...c, brokerage: Math.max(0, v) }))} min={0} />
               <div>
                 <label htmlFor="fno-slab" className="text-[11px] text-slate-500">Income-tax slab</label>
@@ -356,7 +361,7 @@ export default function FnoView() {
                   key={p.id}
                   type="button"
                   aria-pressed={preset === p.id}
-                  onClick={() => { setPreset(p.id); setLegsFor(""); setCmpSide(null); setExitSpotRaw(null); }}
+                  onClick={() => { setPreset(p.id); setLegsFor(""); setCmpSide(null); dispatch({ type: "tradeEdit", feed }); setExitSpotRaw(null); }}
                   className={"rounded-full border px-3 py-1 text-[12px] " + (preset === p.id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-600 hover:border-blue-300")}
                 >
                   {p.label}
