@@ -27,7 +27,7 @@ import { explain, slopeText } from "@/lib/fno/explain";
 import { TONE_CLASS, compact, gammaStr, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
 import { expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
-import { buildMarket, feedMoved, freezeReducer, initialFreeze, pricedAtText, snapKey, type Overrides } from "@/lib/fno/freeze";
+import { buildMarket, feedMoved, freezeReducer, initialFreeze, pricedAtText, snapKey, type Overrides, type PriceMode } from "@/lib/fno/freeze";
 import { CALENDAR } from "@/lib/market-calendar";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { compareStrikes } from "@/lib/fno/strikes";
@@ -142,22 +142,39 @@ function OpenStat({ k, kind, view, cls }: { k: string; kind: "best" | "worst"; v
   );
 }
 
+/** The chosen price mode lives for the browser session (it survives trade, expiry and underlying changes, and a reload of the tab). */
+const MODE_KEY = "zestoxx-fno-price-mode";
+const readMode = (): PriceMode => {
+  try {
+    return sessionStorage.getItem(MODE_KEY) === "frozen" ? "frozen" : "live";
+  } catch {
+    return "live";
+  }
+};
+const saveMode = (mode: PriceMode) => {
+  try {
+    sessionStorage.setItem(MODE_KEY, mode);
+  } catch {
+    /* private window or blocked storage: the mode just lasts until the page is closed */
+  }
+};
+
 /* ------------------------------------------------------------------ view ---- */
 
 export default function FnoView() {
   const [und, setUnd] = useState("NIFTY");
   const [expiry, setExpiry] = useState<string | null>(null);
   const { snap, loading, feedLost } = useFnoSnapshot(und, expiry);
-  // `feed` is the latest answer and keeps refreshing in the background. The analysis is priced from `fz.frozen`, one snapshot
+  // `feed` is the latest answer and keeps refreshing in the background. The analysis is priced from `fz.snap`, one snapshot
   // held still until the user acts (Update to live prices, a trade edit, another expiry or underlying), so no number moves under them.
   const feed = snap && snap.underlying === und ? snap : null;
   const info = UNDERLYINGS[und];
 
-  const [fz, dispatch] = useReducer(freezeReducer, initialFreeze);
+  const [fz, dispatch] = useReducer(freezeReducer, undefined, () => ({ ...initialFreeze, mode: readMode() }));
   // Take the first snapshot, and a fresh one for a different contract; the same contract refreshing changes nothing.
   if (freezeReducer(fz, { type: "feed", feed }) !== fz) dispatch({ type: "feed", feed });
   // Shown only while the frozen snapshot is for the contract the feed is on (not for a moment after switching expiry).
-  const live = fz.frozen && feed && snapKey(fz.frozen) === snapKey(feed) ? fz.frozen : null;
+  const live = fz.snap && feed && snapKey(fz.snap) === snapKey(feed) ? fz.snap : null;
   const feedAhead = feedMoved(live, feed);
 
   // Anything the user types over the feed is a "manual" override; an update replaces the snapshot, never these.
@@ -223,6 +240,8 @@ export default function FnoView() {
   const useLive = () => { dispatch({ type: "clearOverrides" }); setExitSpotRaw(null); };
   // "Update to live prices": a new snapshot now (typed values stay), and the exit goes back to the current spot.
   const updateLive = () => { dispatch({ type: "update", feed }); setExitSpotRaw(null); };
+  // The Live / Frozen choice is kept for the session; going Live re-prices at once (the exit scenario you chose is left alone).
+  const chooseMode = (mode: PriceMode) => { saveMode(mode); dispatch({ type: "setMode", mode, feed }); };
 
   const badgeKey: FnoSource | "manual" = manual ? "manual" : (live?.source ?? "simulated");
   const badge = BADGE[badgeKey];
@@ -261,11 +280,22 @@ export default function FnoView() {
           </div>
         </div>
         {live && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div data-testid="price-mode" className="w-44">
+              <Seg
+                label="Price mode"
+                value={fz.mode}
+                onChange={chooseMode}
+                options={[
+                  { id: "live", text: "Live" },
+                  { id: "frozen", text: "Frozen" },
+                ]}
+              />
+            </div>
             <p data-testid="priced-at" className="text-[13px] font-semibold text-slate-800">
               {pricedAtText(live)}
             </p>
-            {feedAhead ? (
+            {fz.mode === "frozen" && feedAhead ? (
               <button
                 type="button"
                 data-testid="update-live"
@@ -275,7 +305,11 @@ export default function FnoView() {
                 Update to live prices
               </button>
             ) : (
-              <span className="text-[11.5px] text-slate-500">Prices are frozen at this time; they stay put until you change the trade or update.</span>
+              <span className="text-[11.5px] text-slate-500">
+                {fz.mode === "live"
+                  ? "Everything re-prices together with each feed update."
+                  : "Frozen: prices stay put until you change the trade or update."}
+              </span>
             )}
           </div>
         )}
@@ -285,7 +319,7 @@ export default function FnoView() {
               ? "Upstox isn’t answering, so every number here is generated — treat it as a demonstration, not a market."
               : live.source === "delayed"
                 ? delayedWhy
-                : "The feed refreshes every 5 seconds in the background while the market is open; the analysis below stays frozen until you update it."}{" "}
+                : "The feed refreshes every 5 seconds while the market is open. In Live mode the whole analysis re-prices with it; in Frozen mode it stays put until you update it."}{" "}
             {live.source !== "simulated" && live.feedAsOf && (
               <>Exchange’s last update: {new Date(live.feedAsOf).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}.</>
             )}
@@ -501,7 +535,7 @@ function Analysis({
   const { lo, hi } = chartRange(P, m);
   // The exit starts at the current spot. A marker left outside the chart (the legs or the market changed under it) is
   // dropped rather than pinned to an edge.
-  const exitSpot = exitSpotRaw != null && exitSpotRaw >= lo && exitSpotRaw <= hi ? exitSpotRaw : m.spot;
+  const exitSpot = exitSpotRaw != null && exitSpotRaw >= m.spot * 0.5 && exitSpotRaw <= m.spot * 1.5 ? exitSpotRaw : m.spot;
   const d = m.exitStyle === "expire" ? m.dte : clamp(days, 0, m.dte);
   const sc = useMemo(() => evaluate(P, m, exitSpot, d, dIV, m.exitStyle), [P, m, exitSpot, d, dIV]);
   const gk = useMemo(() => greeksNow(P, m), [P, m]);

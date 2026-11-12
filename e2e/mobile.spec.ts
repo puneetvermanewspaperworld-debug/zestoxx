@@ -211,12 +211,13 @@ function mockSnapshot(n: number) {
   };
 }
 
-test("frozen prices: the analysis holds still while the feed moves, updates on request, and never overwrites typed values", async ({ page }) => {
+test("frozen mode: the analysis holds still while the feed moves, updates on request, and never overwrites typed values", async ({ page }) => {
   let n = 0;
   await page.route("**/api/fno/snapshot**", (route) => route.fulfill({ json: mockSnapshot(n++) }));
   await page.clock.install({ time: new Date("2026-11-11T13:50:00+05:30") }); // a Wednesday in market hours, so the page polls
   await page.goto("/app/fno", { waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-testid="priced-at"]', { timeout: 30_000 });
+  await page.getByTestId("price-mode").getByRole("button", { name: "Frozen" }).click(); // Live is the default; this test is about Frozen
   const read = () =>
     page.evaluate(() => ({
       priced: (document.querySelector('[data-testid="priced-at"]') as HTMLElement).innerText,
@@ -266,4 +267,91 @@ test("frozen prices: the analysis holds still while the feed moves, updates on r
   await page.waitForTimeout(400);
   const after = await read();
   expect(after.priced, "editing the strike took a fresh snapshot").not.toBe(before.priced);
+});
+
+test("live mode (the default): each feed update re-prices everything together; typed values and the chosen exit survive; the mode is remembered", async ({ page }) => {
+  let n = 0;
+  await page.route("**/api/fno/snapshot**", (route) => route.fulfill({ json: mockSnapshot(n++) }));
+  await page.clock.install({ time: new Date("2026-11-11T13:50:00+05:30") });
+  await page.goto("/app/fno", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="priced-at"]', { timeout: 30_000 });
+  const mode = () => page.getByTestId("price-mode").locator('button[aria-pressed="true"]').innerText();
+  const read = () =>
+    page.evaluate(() => {
+      const txt = (sel: string) => (document.querySelector(sel) as HTMLElement).innerText;
+      return {
+        priced: txt('[data-testid="priced-at"]'),
+        spot: (document.querySelector("#fno-spot") as HTMLInputElement).value,
+        keep: txt('[aria-label="What you keep"]'),
+        words: txt('[aria-label="In plain words"]'),
+        entryPlaceholder: (Array.from(document.querySelectorAll("input")).find((i) => /^(Chain|Model) /.test(i.placeholder)) as HTMLInputElement | undefined)?.placeholder ?? "",
+        exitSlider: (document.querySelector("#fno-exs") as HTMLInputElement).value,
+        daysSlider: (document.querySelector("#fno-days") as HTMLInputElement).value,
+        hasUpdate: !!document.querySelector('[data-testid="update-live"]'),
+      };
+    });
+  const setRange = (id: string, v: number) =>
+    page.evaluate(([sel, val]) => {
+      const el = document.querySelector(sel as string) as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, String(val));
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }, [id, v] as const);
+  const tick = async () => {
+    await page.clock.runFor(5200);
+    await page.waitForTimeout(300);
+  };
+
+  expect(await mode()).toBe("Live");
+  const s0 = await read();
+  expect(s0.priced).toBe("Priced at 13:50:12 IST");
+  expect(s0.hasUpdate, "no update button in Live mode").toBe(false);
+
+  // choose an exit scenario of your own
+  await setRange("#fno-exs", 25400);
+  await setRange("#fno-days", 2);
+  await page.waitForTimeout(250);
+  const chosen = await read();
+  // (the slider snaps to its own step grid, so take the level it actually settled on)
+  const exitLabel = (chosen.keep.match(/Nifty at ([\d,.]+)/) ?? [])[1];
+  expect(exitLabel).toMatch(/^25,[34]\d\d\.\d\d$/);
+  expect(chosen.keep).toContain("after 2 days");
+
+  // each feed update re-prices the whole page together
+  for (let i = 1; i <= 3; i++) {
+    await tick();
+    const s = await read();
+    const sec = String(12 + i * 5).padStart(2, "0");
+    expect(s.priced).toBe(`Priced at 13:50:${sec} IST`);
+    expect(Number(s.spot)).toBeCloseTo(25255.05 + i * 3.5, 2);
+    // the entry price the words quote is the price the leg shows: one snapshot, so they agree
+    const words = Number((s.words.match(/at ₹([\d,.]+)/) ?? [])[1]?.replace(/,/g, ""));
+    const shown = Number((s.entryPlaceholder.match(/([\d,.]+)$/) ?? [])[1]?.replace(/,/g, ""));
+    expect(words).toBeGreaterThan(0);
+    expect(words).toBeCloseTo(shown, 2);
+    expect(s.hasUpdate).toBe(false);
+    // the chosen exit scenario is not reset by a tick: only the prices move
+    expect(s.daysSlider).toBe("2");
+    expect(s.keep).toContain(`Nifty at ${exitLabel}`);
+    expect(s.keep).toContain("after 2 days");
+  }
+  expect(n).toBeGreaterThanOrEqual(4);
+
+  // a typed value is never overwritten by a Live tick
+  await page.fill("#fno-spot", "25000");
+  await page.waitForTimeout(250);
+  await tick();
+  await tick();
+  const typed = await read();
+  expect(typed.spot).toBe("25000");
+  await expect(page.getByText("Manual", { exact: true }).first()).toBeVisible();
+  expect(typed.keep).toContain(`Nifty at ${exitLabel}`);
+
+  // the mode survives a change of trade, and a reload of the tab
+  await page.getByTestId("price-mode").getByRole("button", { name: "Frozen" }).click();
+  await page.getByRole("button", { name: "Long put" }).click();
+  await page.waitForTimeout(300);
+  expect(await mode()).toBe("Frozen");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="priced-at"]', { timeout: 30_000 });
+  expect(await mode()).toBe("Frozen");
 });

@@ -36,13 +36,15 @@ function snapshot(o: { spot: number; feedAsOf: string; iv?: number; underlying?:
   };
 }
 const feedAt = (spot: number, hhmmss: string) => snapshot({ spot, feedAsOf: `2026-11-11T${hhmmss}+05:30` });
+/** The tests below that are about holding still start in Frozen mode; Live is the default and has its own tests at the end. */
+const initialFrozen: FreezeState = { ...initialFreeze, mode: "frozen" };
 const run = (s: FreezeState, ...actions: FreezeAction[]) => actions.reduce(freezeReducer, s);
 
 const long = (type: "CE" | "PE", strike: number): LegInput => ({ id: 1, side: "B", type, strike, lots: 1, price: null });
 /** Everything the page shows, computed from one frozen snapshot with the typed values on top. */
 function analysis(s: FreezeState, legs: LegInput[]) {
-  const m = buildMarket(s.frozen, s.ov, COSTS, "square", "index")!;
-  const quote = quoteFromSnapshot(s.frozen, { r: m.r / 100, q: m.q / 100, dte: m.dte });
+  const m = buildMarket(s.snap, s.ov, COSTS, "square", "index")!;
+  const quote = quoteFromSnapshot(s.snap, { r: m.r / 100, q: m.q / 100, dte: m.dte });
   const P = prepareLegs(legs, m, quote);
   const st = computeStatic(P, m);
   const sc = evaluate(P, m, m.spot, 0, 0, "square");
@@ -53,20 +55,20 @@ function analysis(s: FreezeState, legs: LegInput[]) {
 const T1 = feedAt(25255.05, "13:50:12");
 const tick = (n: number) => feedAt(25255.05 + n * 3.5, `13:50:${String(12 + n * 5).padStart(2, "0")}`);
 
-describe("freeze: the feed refreshing does not move the analysis", () => {
+describe("frozen mode: the feed refreshing does not move the analysis", () => {
   it("the first snapshot is taken", () => {
-    const s = run(initialFreeze, { type: "feed", feed: T1 });
-    assert.equal(s.frozen, T1);
+    const s = run(initialFrozen, { type: "feed", feed: T1 });
+    assert.equal(s.snap, T1);
   });
   it("later refreshes for the same contract leave the state untouched (same object)", () => {
-    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s0 = run(initialFrozen, { type: "feed", feed: T1 });
     const s1 = run(s0, { type: "feed", feed: tick(1) }, { type: "feed", feed: tick(2) }, { type: "feed", feed: tick(3) });
     assert.equal(s1, s0);
-    assert.equal(s1.frozen, T1);
+    assert.equal(s1.snap, T1);
   });
   it("every number on the page is identical after many refreshes", () => {
     const legs = [long("CE", 25250)];
-    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s0 = run(initialFrozen, { type: "feed", feed: T1 });
     const before = analysis(s0, legs);
     const s1 = run(s0, ...[1, 2, 3, 4, 5, 6].map((n) => ({ type: "feed", feed: tick(n) }) as FreezeAction));
     const after = analysis(s1, legs);
@@ -79,7 +81,7 @@ describe("freeze: the feed refreshing does not move the analysis", () => {
     assert.equal(after.m.dte, before.m.dte, "time to expiry does not creep with the clock");
   });
   it("the cards, plain-words lines, grid and strike comparison all read the same snapshot, so they agree", () => {
-    const a = analysis(run(initialFreeze, { type: "feed", feed: T1 }), [long("CE", 25250)]);
+    const a = analysis(run(initialFrozen, { type: "feed", feed: T1 }), [long("CE", 25250)]);
     const words = a.lines.join(" ");
     // the exit result quoted in the words is the one the grid shows for 0% today
     const flat = a.grid.cells[a.grid.moves.indexOf(0)][0];
@@ -106,14 +108,14 @@ describe("feedMoved: when the 'Update to live prices' button appears", () => {
 describe("update: Update to live prices takes a new snapshot", () => {
   it("replaces the snapshot with the latest feed and the numbers follow", () => {
     const legs = [long("CE", 25250)];
-    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s0 = run(initialFrozen, { type: "feed", feed: T1 });
     const latest = tick(6);
     const s1 = run(s0, { type: "feed", feed: latest }, { type: "update", feed: latest });
-    assert.equal(s1.frozen, latest);
+    assert.equal(s1.snap, latest);
     const before = analysis(s0, legs), after = analysis(s1, legs);
     assert.equal(after.m.spot, latest.spot);
     assert.notEqual(after.P[0].entry, before.P[0].entry, "the option price is the new one");
-    assert.equal(feedMoved(s1.frozen, latest), false, "the button goes away once updated");
+    assert.equal(feedMoved(s1.snap, latest), false, "the button goes away once updated");
   });
   it("the 'Priced at' time follows the exchange's last update", () => {
     const now = new Date("2026-11-11T14:00:00+05:30");
@@ -125,7 +127,7 @@ describe("update: Update to live prices takes a new snapshot", () => {
     assert.equal(pricedAtText(shut, new Date("2026-11-12T02:42:00+05:30")), "Priced at 15:39:59 IST (Wed 11 Nov)");
   });
   it("an update with nothing to update to changes nothing", () => {
-    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s0 = run(initialFrozen, { type: "feed", feed: T1 });
     assert.equal(run(s0, { type: "update", feed: null }), s0);
   });
 });
@@ -133,53 +135,53 @@ describe("update: Update to live prices takes a new snapshot", () => {
 describe("manual values survive a refresh", () => {
   const typed = (s: FreezeState) => run(s, { type: "override", patch: { spot: 25000, iv: 20 } });
   it("a typed spot and volatility stay through background refreshes", () => {
-    const s = run(typed(run(initialFreeze, { type: "feed", feed: T1 })), { type: "feed", feed: tick(2) });
-    const m = buildMarket(s.frozen, s.ov, COSTS, "square", "index")!;
+    const s = run(typed(run(initialFrozen, { type: "feed", feed: T1 })), { type: "feed", feed: tick(2) });
+    const m = buildMarket(s.snap, s.ov, COSTS, "square", "index")!;
     assert.equal(m.spot, 25000);
     assert.equal(m.iv, 20);
   });
   it("and through Update to live prices, which replaces the snapshot underneath", () => {
     const latest = tick(8);
-    const s = run(typed(run(initialFreeze, { type: "feed", feed: T1 })), { type: "update", feed: latest });
-    assert.equal(s.frozen, latest);
+    const s = run(typed(run(initialFrozen, { type: "feed", feed: T1 })), { type: "update", feed: latest });
+    assert.equal(s.snap, latest);
     assert.deepEqual({ spot: s.ov.spot, iv: s.ov.iv }, { spot: 25000, iv: 20 });
-    const m = buildMarket(s.frozen, s.ov, COSTS, "square", "index")!;
+    const m = buildMarket(s.snap, s.ov, COSTS, "square", "index")!;
     assert.equal(m.spot, 25000);
     assert.equal(m.iv, 20);
     assert.equal(m.lot, 65, "values nobody typed still come from the new snapshot");
   });
   it("and through a trade edit, and through a switch to another expiry's snapshot", () => {
-    let s = typed(run(initialFreeze, { type: "feed", feed: T1 }));
+    let s = typed(run(initialFrozen, { type: "feed", feed: T1 }));
     s = run(s, { type: "tradeEdit", feed: tick(3) });
     assert.equal(s.ov.spot, 25000);
     s = run(s, { type: "feed", feed: snapshot({ spot: 25300, feedAsOf: "2026-11-11T13:55:00+05:30", expiry: "2026-11-24" }) });
-    assert.equal(s.frozen!.expiry, "2026-11-24");
+    assert.equal(s.snap!.expiry, "2026-11-24");
     assert.equal(s.ov.spot, 25000);
     assert.equal(s.ov.iv, 20);
   });
   it("only the user clears them: 'Use live values' drops spot, days and volatility but keeps lot size and strike gap", () => {
-    let s = run(initialFreeze, { type: "feed", feed: T1 }, { type: "override", patch: { spot: 25000, dte: 3, iv: 20, lot: 75, step: 100 } });
+    let s = run(initialFrozen, { type: "feed", feed: T1 }, { type: "override", patch: { spot: 25000, dte: 3, iv: 20, lot: 75, step: 100 } });
     s = run(s, { type: "clearOverrides" });
     assert.deepEqual(s.ov, { lot: 75, step: 100 });
   });
   it("a typed value can be cleared by the user typing nothing back (undefined)", () => {
-    const s = run(typed(run(initialFreeze, { type: "feed", feed: T1 })), { type: "override", patch: { spot: undefined } });
-    assert.equal(buildMarket(s.frozen, s.ov, COSTS, "square", "index")!.spot, T1.spot);
+    const s = run(typed(run(initialFrozen, { type: "feed", feed: T1 })), { type: "override", patch: { spot: undefined } });
+    assert.equal(buildMarket(s.snap, s.ov, COSTS, "square", "index")!.spot, T1.spot);
   });
 });
 
 describe("changing the trade, strike, expiry or underlying takes a fresh snapshot", () => {
   const legsFor = (strike: number) => [long("CE", strike)];
   it("a strike change takes the latest feed, not the stale frozen one", () => {
-    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s0 = run(initialFrozen, { type: "feed", feed: T1 });
     const latest = tick(7);
     // the feed moved while the user was reading; the frozen analysis did not
     const s1 = run(s0, { type: "feed", feed: latest });
-    assert.equal(s1.frozen, T1);
-    assert.equal(feedMoved(s1.frozen, latest), true);
+    assert.equal(s1.snap, T1);
+    assert.equal(feedMoved(s1.snap, latest), true);
     // now the user changes the strike
     const s2 = run(s1, { type: "tradeEdit", feed: latest });
-    assert.equal(s2.frozen, latest);
+    assert.equal(s2.snap, latest);
     const a = analysis(s2, legsFor(25350));
     const lq = quoteFromSnapshot(latest, { r: 0.065, q: 0.013, dte: a.m.dte })!("CE", 25350)!;
     assert.equal(a.P[0].entry, lq.ltp, "the new strike is priced from the fresh snapshot");
@@ -188,19 +190,19 @@ describe("changing the trade, strike, expiry or underlying takes a fresh snapsho
     assert.notEqual(a.P[0].entry, old.ltp, "and not from the old one");
   });
   it("a different expiry's snapshot is taken as soon as the feed delivers it", () => {
-    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s0 = run(initialFrozen, { type: "feed", feed: T1 });
     const next = snapshot({ spot: 25260, feedAsOf: "2026-11-11T13:50:20+05:30", expiry: "2026-11-24" });
     const s1 = run(s0, { type: "feed", feed: next });
-    assert.equal(s1.frozen, next);
-    assert.notEqual(snapKey(s1.frozen!), snapKey(T1));
+    assert.equal(s1.snap, next);
+    assert.notEqual(snapKey(s1.snap!), snapKey(T1));
   });
   it("another underlying starts clean: nothing typed carries over", () => {
-    let s = run(initialFreeze, { type: "feed", feed: T1 }, { type: "override", patch: { spot: 25000, iv: 20 } });
+    let s = run(initialFrozen, { type: "feed", feed: T1 }, { type: "override", patch: { spot: 25000, iv: 20 } });
     s = run(s, { type: "reset" });
-    assert.deepEqual(s, initialFreeze);
+    assert.deepEqual(s, initialFrozen);
     const bank = snapshot({ spot: 60700, feedAsOf: "2026-11-11T13:51:00+05:30", underlying: "BANKNIFTY" });
     s = run(s, { type: "feed", feed: bank });
-    assert.equal(s.frozen!.underlying, "BANKNIFTY");
+    assert.equal(s.snap!.underlying, "BANKNIFTY");
     assert.deepEqual(s.ov, {});
   });
 });
@@ -220,4 +222,125 @@ describe("the market is built from the snapshot, not the wall clock", () => {
     assert.equal(buildMarket(T1, {}, COSTS, "square", "index")!.iv, 16);
     assert.equal(buildMarket(null, {}, COSTS, "square", "index"), null);
   });
+});
+
+/* ------------------------------------------------------------------ live mode --- */
+
+describe("live mode (the default): every feed update re-prices the whole analysis together", () => {
+  it("is the default", () => assert.equal(initialFreeze.mode, "live"));
+  it("takes a new snapshot on each feed update", () => {
+    let s = run(initialFreeze, { type: "feed", feed: T1 });
+    assert.equal(s.snap, T1);
+    for (let n = 1; n <= 4; n++) {
+      s = run(s, { type: "feed", feed: tick(n) });
+      assert.equal(s.snap!.feedAsOf, tick(n).feedAsOf);
+      assert.equal(s.snap!.spot, tick(n).spot);
+    }
+  });
+  it("the same feed object arriving twice changes nothing", () => {
+    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    assert.equal(run(s0, { type: "feed", feed: T1 }), s0);
+    assert.equal(run(s0, { type: "feed", feed: null }), s0);
+  });
+  it("after each update the cards, plain words, grid, comparison and extremes all agree because they read one snapshot", () => {
+    const legs = [long("CE", 25250)];
+    let s = run(initialFreeze, { type: "feed", feed: T1 });
+    for (let n = 1; n <= 4; n++) {
+      s = run(s, { type: "feed", feed: tick(n) });
+      const a = analysis(s, legs);
+      const snapNow = s.snap!;
+      // everything is priced at THIS snapshot's spot and option price
+      assert.equal(a.m.spot, snapNow.spot);
+      const want = quoteFromSnapshot(snapNow, { r: 0.065, q: 0.013, dte: a.m.dte })!("CE", 25250)!;
+      assert.equal(a.P[0].entry, want.ltp);
+      // the result at the current spot today is the grid's 0% / Today cell, and the comparison column uses the same entry price
+      assert.equal(a.grid.cells[a.grid.moves.indexOf(0)][0], a.sc.pre);
+      assert.equal(a.cmp.cols.find((c) => c.K === 25250)!.entry, a.P[0].entry);
+      // the headline best/worst case and the plain-words lines are built from the same legs and market
+      assert.equal(a.ex.best.stress[0].spot, snapNow.spot * 1.2); // a long call: the stress case is 20% higher, from THIS spot
+      assert.ok(a.lines.some((l) => l.includes("Nifty 25,250 call")));
+    }
+  });
+  it("the numbers do move with the feed (that is the point of Live)", () => {
+    const legs = [long("CE", 25250)];
+    const s0 = run(initialFreeze, { type: "feed", feed: T1 });
+    const s1 = run(s0, { type: "feed", feed: tick(5) });
+    assert.notEqual(analysis(s1, legs).P[0].entry, analysis(s0, legs).P[0].entry);
+    assert.notEqual(analysis(s1, legs).m.spot, analysis(s0, legs).m.spot);
+  });
+  it("feedMoved is only about Frozen mode: in Live the analysis already is the latest feed", () => {
+    const s = run(initialFreeze, { type: "feed", feed: T1 }, { type: "feed", feed: tick(3) });
+    assert.equal(feedMoved(s.snap, tick(3)), false);
+  });
+});
+
+describe("switching between Live and Frozen", () => {
+  it("going Frozen holds the current snapshot while the feed moves on", () => {
+    let s = run(initialFreeze, { type: "feed", feed: T1 });
+    s = run(s, { type: "setMode", mode: "frozen", feed: T1 });
+    assert.equal(s.mode, "frozen");
+    const held = s.snap;
+    s = run(s, { type: "feed", feed: tick(2) }, { type: "feed", feed: tick(3) });
+    assert.equal(s.snap, held);
+    assert.equal(feedMoved(s.snap, tick(3)), true, "the Update button would show");
+  });
+  it("going Live takes the latest feed at once", () => {
+    let s = run(initialFrozen, { type: "feed", feed: T1 }, { type: "feed", feed: tick(4) });
+    assert.equal(s.snap, T1);
+    s = run(s, { type: "setMode", mode: "live", feed: tick(4) });
+    assert.equal(s.mode, "live");
+    assert.equal(s.snap!.spot, tick(4).spot);
+    s = run(s, { type: "feed", feed: tick(5) });
+    assert.equal(s.snap!.spot, tick(5).spot, "and follows it from then on");
+  });
+  it("choosing the mode you are already in changes nothing", () => {
+    const s = run(initialFreeze, { type: "feed", feed: T1 });
+    assert.equal(run(s, { type: "setMode", mode: "live", feed: tick(2) }), s);
+  });
+  it("the chosen mode is kept through a trade edit, an expiry switch and another underlying", () => {
+    for (const mode of ["live", "frozen"] as const) {
+      let s = run(initialFreeze, { type: "setMode", mode, feed: T1 }, { type: "feed", feed: T1 });
+      s = run(s, { type: "tradeEdit", feed: tick(1) });
+      assert.equal(s.mode, mode, "trade edit");
+      s = run(s, { type: "feed", feed: snapshot({ spot: 25300, feedAsOf: "2026-11-11T13:55:00+05:30", expiry: "2026-11-24" }) });
+      assert.equal(s.mode, mode, "expiry switch");
+      s = run(s, { type: "reset" });
+      assert.equal(s.mode, mode, "underlying change");
+      assert.equal(s.snap, null);
+    }
+  });
+  it("Frozen mode still takes a fresh snapshot for a trade edit; Live already has the latest", () => {
+    let f = run(initialFrozen, { type: "feed", feed: T1 }, { type: "feed", feed: tick(3) });
+    f = run(f, { type: "tradeEdit", feed: tick(3) });
+    assert.equal(f.snap!.spot, tick(3).spot);
+    let l = run(initialFreeze, { type: "feed", feed: T1 }, { type: "feed", feed: tick(3) });
+    l = run(l, { type: "tradeEdit", feed: tick(3) });
+    assert.equal(l.snap!.spot, tick(3).spot);
+  });
+});
+
+describe("a typed value survives in both modes", () => {
+  for (const mode of ["live", "frozen"] as const) {
+    it(`${mode}: through feed updates, an update, a trade edit and a mode switch`, () => {
+      let s = run({ ...initialFreeze, mode }, { type: "feed", feed: T1 }, { type: "override", patch: { spot: 25000, iv: 20 } });
+      const check = (why: string) => {
+        const m = buildMarket(s.snap, s.ov, COSTS, "square", "index")!;
+        assert.equal(m.spot, 25000, `spot after ${why}`);
+        assert.equal(m.iv, 20, `volatility after ${why}`);
+      };
+      for (let n = 1; n <= 3; n++) {
+        s = run(s, { type: "feed", feed: tick(n) });
+        check(`feed ${n}`);
+      }
+      s = run(s, { type: "update", feed: tick(4) });
+      check("update");
+      s = run(s, { type: "tradeEdit", feed: tick(5) });
+      check("trade edit");
+      s = run(s, { type: "setMode", mode: mode === "live" ? "frozen" : "live", feed: tick(6) });
+      check("mode switch");
+      s = run(s, { type: "feed", feed: tick(7) });
+      check("a later feed in the other mode");
+      assert.equal(s.snap!.lot, 65, "values nobody typed still come from the snapshot");
+    });
+  }
 });

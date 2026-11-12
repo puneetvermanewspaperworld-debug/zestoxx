@@ -2,10 +2,15 @@ import type { ExitStyle, Market } from "./engine";
 import { daysToExpiry, lastCloseTime, type FnoSnapshot } from "./snapshot";
 
 /**
- * Frozen prices. The analyzer prices everything (cards, plain-words lines, tables, chart) from ONE snapshot that is held still
- * while the feed refreshes in the background. The snapshot only changes when the user acts: presses "Update to live prices",
- * edits the trade (a leg, a strike, a preset), or switches expiry or underlying. A value the user typed over the feed is an
- * override: a refresh can replace the snapshot underneath it but never the override itself.
+ * One snapshot, one analysis. The analyzer prices everything (cards, plain-words lines, tables, chart, strike comparison) from a
+ * single snapshot, so nothing on the page can disagree with anything else. Two modes decide how that snapshot is chosen:
+ *
+ *   Live     (default) every feed update takes a new snapshot, so the whole analysis re-prices together.
+ *   Frozen   the snapshot is held still while the feed refreshes in the background, and only changes when the user acts: presses
+ *            "Update to live prices", edits the trade (a leg, a strike, a preset), or switches expiry or underlying.
+ *
+ * In both modes a value the user typed over the feed is an override that sits on top of the snapshot: a refresh replaces the
+ * snapshot underneath it but never the override itself. The mode survives trade, expiry and underlying changes.
  *
  * Pure functions and a reducer, so the rules are tested without a browser.
  */
@@ -19,27 +24,32 @@ export interface Overrides {
   step?: number;
 }
 
+export type PriceMode = "live" | "frozen";
+
 export interface FreezeState {
-  /** the snapshot the analysis is priced from; null until the first one arrives */
-  frozen: FnoSnapshot | null;
+  mode: PriceMode;
+  /** the snapshot the analysis is priced from: follows the feed in Live mode, held still in Frozen mode; null until the first one arrives */
+  snap: FnoSnapshot | null;
   ov: Overrides;
 }
 
 export type FreezeAction =
-  /** the feed delivered something (every few seconds): only the first snapshot, or one for a different underlying/expiry, is taken */
+  /** the feed delivered something (every few seconds): Live takes it; Frozen takes only the first snapshot, or one for a different contract */
   | { type: "feed"; feed: FnoSnapshot | null }
   /** "Update to live prices": take the latest snapshot now */
   | { type: "update"; feed: FnoSnapshot | null }
   /** the user changed the trade (a leg, a strike, a preset): take the latest snapshot now */
   | { type: "tradeEdit"; feed: FnoSnapshot | null }
+  /** the Live / Frozen switch; going Live takes the latest snapshot at once, going Frozen holds the current one */
+  | { type: "setMode"; mode: PriceMode; feed: FnoSnapshot | null }
   /** the user typed a value (or cleared one by passing undefined) */
   | { type: "override"; patch: Partial<Overrides> }
   /** "Use live values": drop typed spot, days and volatility (lot size and strike gap stay) */
   | { type: "clearOverrides" }
-  /** another underlying: nothing carries over */
+  /** another underlying: the snapshot and typed values go, the chosen mode stays */
   | { type: "reset" };
 
-export const initialFreeze: FreezeState = { frozen: null, ov: {} };
+export const initialFreeze: FreezeState = { mode: "live", snap: null, ov: {} };
 
 /** Which contract a snapshot is for. */
 export const snapKey = (s: Pick<FnoSnapshot, "underlying" | "expiry">): string => `${s.underlying}|${s.expiry}`;
@@ -49,25 +59,29 @@ export function freezeReducer(state: FreezeState, a: FreezeAction): FreezeState 
     case "feed": {
       const f = a.feed;
       if (!f) return state;
-      if (!state.frozen || snapKey(state.frozen) !== snapKey(f)) return { ...state, frozen: f };
-      return state; // same contract: the feed refreshes in the background, the analysis stays put
+      if (state.mode === "live") return state.snap === f ? state : { ...state, snap: f }; // every update re-prices the whole analysis
+      if (!state.snap || snapKey(state.snap) !== snapKey(f)) return { ...state, snap: f };
+      return state; // frozen, same contract: the feed refreshes in the background, the analysis stays put
     }
     case "update":
     case "tradeEdit":
-      return a.feed ? { ...state, frozen: a.feed } : state; // overrides are kept as they are
+      return a.feed ? { ...state, snap: a.feed } : state; // typed values are kept as they are
+    case "setMode":
+      if (a.mode === state.mode) return state;
+      return { ...state, mode: a.mode, snap: a.mode === "live" && a.feed ? a.feed : state.snap };
     case "override":
       return { ...state, ov: { ...state.ov, ...a.patch } };
     case "clearOverrides":
       return { ...state, ov: { lot: state.ov.lot, step: state.ov.step } };
     case "reset":
-      return initialFreeze;
+      return { ...initialFreeze, mode: state.mode };
   }
 }
 
-/** Has the live feed moved on from what the analysis is priced at? Drives the "Update to live prices" button. */
-export function feedMoved(frozen: FnoSnapshot | null, feed: FnoSnapshot | null): boolean {
-  if (!frozen || !feed || snapKey(frozen) !== snapKey(feed)) return false;
-  return feed.feedAsOf !== frozen.feedAsOf || feed.spot !== frozen.spot || feed.vix !== frozen.vix;
+/** Has the live feed moved on from what the analysis is priced at? Drives the "Update to live prices" button (Frozen mode only). */
+export function feedMoved(snap: FnoSnapshot | null, feed: FnoSnapshot | null): boolean {
+  if (!snap || !feed || snapKey(snap) !== snapKey(feed)) return false;
+  return feed.feedAsOf !== snap.feedAsOf || feed.spot !== snap.spot || feed.vix !== snap.vix;
 }
 
 /** "Priced at 15:39:59 IST", from the exchange's last update (else when the snapshot was built); the date is added when it is not today. */
@@ -88,29 +102,29 @@ export interface MarketInputs {
 }
 
 /**
- * The market the analysis runs on: the frozen snapshot with the user's typed values on top. Time to expiry is counted from the
+ * The market the analysis runs on: the current snapshot with the user's typed values on top. Time to expiry is counted from the
  * snapshot's own time (the exchange's last update when delayed, else when it was built), never from the wall clock, so nothing
  * drifts while the page is open.
  */
 export function buildMarket(
-  frozen: FnoSnapshot | null,
+  snap: FnoSnapshot | null,
   ov: Overrides,
   costs: MarketInputs,
   exitStyle: ExitStyle,
   kind: "index" | "stock"
 ): Market | null {
-  if (!frozen) return null;
-  const feedIv = kind === "index" ? (frozen.vix ?? frozen.atmIv) : (frozen.atmIv ?? frozen.vix);
-  const built = new Date(Date.parse(frozen.asOf));
-  const from = frozen.source === "delayed" ? new Date(frozen.feedAsOf ?? lastCloseTime(built)) : built;
+  if (!snap) return null;
+  const feedIv = kind === "index" ? (snap.vix ?? snap.atmIv) : (snap.atmIv ?? snap.vix);
+  const built = new Date(Date.parse(snap.asOf));
+  const from = snap.source === "delayed" ? new Date(snap.feedAsOf ?? lastCloseTime(built)) : built;
   return {
-    spot: ov.spot ?? frozen.spot,
-    dte: ov.dte ?? daysToExpiry(frozen.expiry, from),
+    spot: ov.spot ?? snap.spot,
+    dte: ov.dte ?? daysToExpiry(snap.expiry, from),
     iv: ov.iv ?? feedIv ?? 16,
     r: costs.r,
     q: costs.q,
-    lot: ov.lot ?? frozen.lot,
-    step: ov.step ?? frozen.step,
+    lot: ov.lot ?? snap.lot,
+    step: ov.step ?? snap.step,
     brokerage: costs.brokerage,
     slab: costs.slab,
     exitStyle,
