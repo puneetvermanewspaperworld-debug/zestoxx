@@ -259,7 +259,7 @@ charge stack, long-ATM-call breakeven and worst case, strike-table monotonicity)
   percentile), expiries, lot size (from Upstox's contract list), strike gap, PCR and every strike's price, bid/ask,
   OI, IV and Greeks — from one option-chain call, cached 4 s. `source` is **live** (market open), **delayed**
   (market shut: last close) or **simulated** (Upstox didn't answer; generated numbers, labelled as such and never
-  used as chain prices). The page polls every 5 s during 09:15–15:30 IST on weekdays; the badge turns **Manual** the
+  used as chain prices). The page polls every 5 s during 09:15–15:30 IST on weekdays. The status pill reads **Live feed**, **Delayed feed** or **Simulated feed** (the **Live / Frozen** switch beside it is a different thing: Live, the default, re-prices the whole analysis on every update; Frozen holds one snapshot until you press Update to live prices). The pill turns **Manual** the
   moment you type over spot, days or volatility, and chain prices are then dropped.
 - **Chain prices drive the trade:** a leg with no typed price enters at the chain price and uses that strike's own
   implied volatility (so there's no flat-vol assumption); the strike table does the same. Typed price > chain > model.

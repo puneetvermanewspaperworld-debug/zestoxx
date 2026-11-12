@@ -92,9 +92,9 @@ function Seg<T extends string>({ label, value, options, onChange }: { label: str
 }
 
 const BADGE: Record<FnoSource | "manual", { text: string; cls: string; dot: string }> = {
-  live: { text: "Live", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  delayed: { text: "Delayed", cls: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
-  simulated: { text: "Simulated", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+  live: { text: "Live feed", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  delayed: { text: "Delayed feed", cls: "bg-sky-50 text-sky-700", dot: "bg-sky-500" },
+  simulated: { text: "Simulated feed", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
   manual: { text: "Manual", cls: "bg-violet-50 text-violet-700", dot: "bg-violet-500" },
 };
 
