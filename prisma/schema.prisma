@@ -143,3 +143,23 @@ model FiiDiiDay {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
+
+/// One row per NSE index per day, from NSE's daily index closing file (ind_close_all_DDMMYYYY.csv): the closing level and the
+/// index's P/E, P/B and dividend yield. The valuation columns are null where NSE shows "-" (futures, leverage and strategy indices).
+/// Written once per day by the cron job and by backfill, upserted by (indexName, date).
+model IndexValuation {
+  /// the index's name as NSE writes it, e.g. "Nifty 50"
+  indexName String
+  /// YYYY-MM-DD, the trading day the figures are for
+  date      String
+  /// the index's closing value, used to scale the P/E to a live level
+  close     Float
+  pe        Float?
+  pb        Float?
+  /// dividend yield, per cent
+  divYield  Float?
+  fetchedAt DateTime @default(now())
+
+  @@id([indexName, date])
+  @@index([date])
+}

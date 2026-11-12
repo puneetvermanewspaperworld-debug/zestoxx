@@ -4,11 +4,11 @@
   "buildCommand": "prisma generate && if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy; else echo \"Skipping prisma migrate deploy (VERCEL_ENV=$VERCEL_ENV)\"; fi && next build",
   "crons": [
     {
-      "path": "/api/cron/fiidii",
+      "path": "/api/cron/daily",
       "schedule": "0 14 * * 1-5"
     },
     {
-      "path": "/api/cron/fiidii",
+      "path": "/api/cron/daily",
       "schedule": "30 15 * * 1-5"
     }
   ]

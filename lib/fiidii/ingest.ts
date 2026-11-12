@@ -1,4 +1,5 @@
 import { istParts, isTradingDay, previousTradingDay } from "../market-calendar";
+import { RETRY_DELAYS_MS, getWithRetry, type Fetcher } from "../nse/http";
 import { ParseError, parseCashJson, parseParticipantOiCsv } from "./parse";
 import type { CashFigures, FiiDiiDayRow, IdxFut } from "./types";
 
@@ -16,8 +17,7 @@ import type { CashFigures, FiiDiiDayRow, IdxFut } from "./types";
 export const CASH_URL = "https://www.nseindia.com/api/fiidiiTradeReact";
 export const oiUrl = (date: string): string => `https://nsearchives.nseindia.com/content/nsccl/fao_participant_oi_${date.slice(8, 10)}${date.slice(5, 7)}${date.slice(0, 4)}.csv`;
 
-/** Wait before the 2nd and 3rd attempt. */
-export const RETRY_DELAYS_MS = [3_000, 8_000];
+export { RETRY_DELAYS_MS };
 
 /** A stored day as the ingest sees it: which halves exist and whether each source has been fetched. */
 export interface StoredDay extends FiiDiiDayRow {
@@ -41,7 +41,7 @@ export interface FiiDiiStore {
   list(limit: number): Promise<FiiDiiDayRow[]>;
 }
 
-export type Fetcher = (url: string) => Promise<{ status: number; body: string }>;
+export type { Fetcher };
 
 export interface IngestDeps {
   fetcher: Fetcher;
@@ -69,26 +69,6 @@ export interface IngestReport {
 export function targetDay(now: Date): string {
   const ist = istParts(now);
   return isTradingDay(ist.date) && ist.minutes >= 19 * 60 + 30 ? ist.date : previousTradingDay(ist.date);
-}
-
-type Attempt<T> = { kind: "ok"; value: T } | { kind: "not-found" } | { kind: "failed"; reason: string };
-
-/** GET `url`, parse it, and retry a transient failure (network error, 5xx/429/403, an unparseable body) after a delay. A 404 is returned, not retried. */
-async function getWithRetry<T>(deps: IngestDeps, what: string, url: string, parse: (body: string) => T): Promise<Attempt<T>> {
-  let reason = "";
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    if (attempt > 0) await deps.sleep(RETRY_DELAYS_MS[attempt - 1]);
-    try {
-      const res = await deps.fetcher(url);
-      if (res.status === 404) return { kind: "not-found" };
-      if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
-      return { kind: "ok", value: parse(res.body) };
-    } catch (e) {
-      reason = e instanceof ParseError ? `unexpected content: ${e.message}` : e instanceof Error ? e.message.slice(0, 160) : "failed";
-      deps.log(attempt < RETRY_DELAYS_MS.length ? "warn" : "error", `${what}: attempt ${attempt + 1} failed`, { url, reason });
-    }
-  }
-  return { kind: "failed", reason };
 }
 
 /** Fetch and store the cash figures. The JSON names its own date, which is the date they are stored under. */

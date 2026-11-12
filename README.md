@@ -61,7 +61,9 @@ app/
   api/
     market-data/route.ts      CoinGecko (crypto) + Upstox (NSE/BSE) proxy
     fiidii/route.ts           stored FII/DII days for the page (real NSE data only)
-    cron/fiidii/route.ts      the daily ingest, run by Vercel Cron (CRON_SECRET-protected)
+    cron/daily/route.ts       the one route Vercel Cron calls: runs every daily NSE ingest (CRON_SECRET-protected)
+    cron/fiidii/route.ts      the FII/DII ingest by hand, with ?backfill=N
+    cron/index-pe/route.ts    the index P/E ingest by hand, with ?backfill=N
     portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
     options-chain/route.ts    live Upstox option chain + expiries + India VIX (or `{source:"unavailable"}`)
     fno-movers/route.ts       market-wide movers from Upstox bulk quotes (or `{source:"unavailable"}`)
@@ -411,10 +413,10 @@ trading day in the `FiiDiiDay` table:
 | `https://www.nseindia.com/api/fiidiiTradeReact` | FII and DII cash buy, sell and net, ₹ crore, **provisional**, **latest day only** | about 5 pm IST |
 | `https://nsearchives.nseindia.com/content/nsccl/fao_participant_oi_DDMMYYYY.csv` | FII index futures long and short contracts | about 7 pm IST |
 
-- **Cron:** `vercel.json` runs `/api/cron/fiidii` on weekdays at 19:30 IST and again at 21:00 IST (as a retry for a late file). A source
+- **Cron:** `vercel.json` has two entries, both calling `/api/cron/daily` on weekdays at 19:30 IST and again at 21:00 IST (as a retry for a late file). That one route runs **every** daily NSE ingest (FII/DII and the index P/E below), independently, so a new ingest never needs a new cron entry. A source
   already stored for the day is never fetched again; a failure is retried twice (after 3 s and 8 s) and logged; a 404 on the
   open interest file (a holiday, a weekend, not out yet) is normal and is neither retried nor an error. Crons run on production
-  deployments only, and the two schedules are once-a-day each, which fits the Hobby plan's limits.
+  deployments only. The Hobby plan allows two cron jobs, each at most once a day: this is exactly two entries, once a day each, and stays that way as ingests are added.
 - **CRON_SECRET (required):** set it in Vercel (Production). Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; the route
   returns 503 if it is not set and 401 for a wrong secret, so no one can trigger an ingest by finding the URL.
 - **History builds from now on:** the cash source returns only the latest day, so earlier cash days cannot be recovered and the page
@@ -426,3 +428,24 @@ trading day in the `FiiDiiDay` table:
   available yet". The cash figures carry NSE's "provisional" label.
 - Tests: `lib/fiidii/*.test.ts` (parsing against the real files, roll-ups, a missing day, retry/at-most-once/404/backfill) and
   `e2e/fiidii.spec.ts` (the page against a mocked feed).
+
+## Index P/E (NSE close, estimated live)
+
+The analyzer's "Is the market cheap or expensive?" panel takes the index P/E from NSE instead of a typed number.
+
+- **Source:** `https://nsearchives.nseindia.com/content/indices/ind_close_all_DDMMYYYY.csv`, out by about 18:00 IST: every NSE index's closing
+  level, P/E, P/B and dividend yield (`-` where an index has none). Plain GET, ordinary headers; fetched at most once per day and
+  retried after 3 s and 8 s on failure; a 404 (a holiday, not out yet) is normal. It is fetched by the same daily cron run as the FII/DII
+  data (`/api/cron/daily`), at 19:30 IST and again at 21:00 IST if the first run found nothing.
+- **Table `IndexValuation`:** one row per index per date (primary key `indexName, date`), upserted: close, P/E, P/B, dividend yield.
+- **Backfill (once, by hand):** `GET /api/cron/index-pe?backfill=400` with the bearer secret fills about a year from the dated files (they
+  exist back to at least Nov 2024). It does at most 40 files a call, spaced out; call it again until the response says `"more": false`.
+  Days already stored are skipped and 404s (holidays) are normal.
+- **`/api/fno/snapshot`** returns `indexPE: { value, asOfDate, source: "NSE close", livePE, medianPE, historyDays, tradingDaysOld, stale }`
+  for the four index underlyings (stocks have none), where `livePE = closePE × live spot ÷ the index's last close` (earnings held fixed, the
+  price moves). `medianPE` is the median of the stored P/E history once at least 20 days are stored.
+- **In the analyzer:** the P/E shows "NSE close, estimated live" and the long-run P/E "Median of N stored days". If NSE's data is missing or
+  older than 3 trading days, or fewer than 20 days are stored (long-run only), the field shows **Manual** with the reason and stays
+  editable; typing over an NSE value also shows Manual (with a way back). The 10-year bond yield is always an editable input.
+- Tests: `lib/indexpe/*.test.ts` (the parser against the file's quirks, the live P/E maths, stale data, the ingest rules) and
+  `e2e/index-pe.spec.ts` (the panel against a mocked snapshot).

@@ -1,3 +1,4 @@
+import { ParseError } from "../nse/http";
 import type { CashFigures, Flow, IdxFut } from "./types";
 
 /**
@@ -5,12 +6,7 @@ import type { CashFigures, Flow, IdxFut } from "./types";
  * changed layout, a number that does not add up) throws a ParseError and nothing is stored, rather than storing a guess.
  */
 
-export class ParseError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ParseError";
-  }
-}
+export { ParseError };
 
 const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 const iso = (y: number, m: number, d: number): string => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;

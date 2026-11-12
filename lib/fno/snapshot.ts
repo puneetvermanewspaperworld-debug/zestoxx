@@ -1,3 +1,4 @@
+import type { IndexPE } from "../indexpe/types";
 import type { QuoteLookup } from "./engine";
 
 /**
@@ -47,6 +48,11 @@ export interface FnoSnapshot {
   expiry: string;
   expiries: string[];
   spot: number;
+  /**
+   * The index's P/E from NSE's daily close (index underlyings only): the close P/E, the same scaled to the live spot, and the
+   * median of the stored history. Absent for stocks, a simulated feed, or when nothing is stored.
+   */
+  indexPE?: IndexPE | null;
   vix: number | null;
   vixPrevClose: number | null;
   /** share of the past year's daily closes at or below today's VIX, 0–100 */

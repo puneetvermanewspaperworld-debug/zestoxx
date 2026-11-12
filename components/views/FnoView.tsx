@@ -27,6 +27,8 @@ import { explain, slopeText } from "@/lib/fno/explain";
 import { TONE_CLASS, compact, gammaStr, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
 import { expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
+import { resolveValuation, whyManual } from "@/lib/indexpe/valuation";
+import type { IndexPE } from "@/lib/indexpe/types";
 import { buildMarket, feedMoved, freezeReducer, initialFreeze, pricedAtText, snapKey, type Overrides, type PriceMode } from "@/lib/fno/freeze";
 import { CALENDAR } from "@/lib/market-calendar";
 import { useMarketStatus } from "@/lib/useMarketStatus";
@@ -212,7 +214,7 @@ export default function FnoView() {
   const [dIV, setDIV] = useState(0);
 
   const [cmp, setCmp] = useState<CmpState>({ dir: "CE", risk: 15000, hold: "half", mode: "lot" });
-  const [ctx, setCtx] = useState({ pe: 22, peAvg: 20, bond: 6.5 });
+  const [ctx, setCtx] = useState<CtxInputs>({ bond: 6.5 });
 
   // Chain prices only describe the market the feed saw, so they're dropped once the user overrides it.
   const usingChain = !!live && live.source !== "simulated" && !manual;
@@ -498,7 +500,7 @@ export default function FnoView() {
             />
           )}
 
-          <Context iv={market.iv} percentile={manual ? null : live.vixPercentile} vixPrev={live.vixPrevClose} vix={live.vix} ctx={ctx} setCtx={setCtx} />
+          <Context iv={market.iv} percentile={manual ? null : live.vixPercentile} vixPrev={live.vixPrevClose} vix={live.vix} ctx={ctx} setCtx={setCtx} indexPE={live.indexPE} />
 
           <footer className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-[11.5px] leading-relaxed text-slate-500">
             <p>
@@ -689,15 +691,20 @@ function Analysis({
 
 /* ----------------------------------------------------------------- context --- */
 
+/** What the user has typed in the valuation panel: the P/E and long-run P/E only when typed over NSE's figures; the bond yield is always theirs. */
+type CtxInputs = { pe?: number; peAvg?: number; bond: number };
+
 function Context({
-  iv, percentile, vix, vixPrev, ctx, setCtx,
+  iv, percentile, vix, vixPrev, ctx, setCtx, indexPE,
 }: {
   iv: number;
   percentile: number | null;
   vix: number | null;
   vixPrev: number | null;
-  ctx: { pe: number; peAvg: number; bond: number };
-  setCtx: (c: { pe: number; peAvg: number; bond: number }) => void;
+  ctx: CtxInputs;
+  setCtx: (c: CtxInputs) => void;
+  /** NSE's stored P/E for this index, from the same snapshot as everything else on the page */
+  indexPE: IndexPE | null | undefined;
 }) {
   const band = iv < 12 ? "very low" : iv < 15 ? "low" : iv < 20 ? "normal" : iv < 25 ? "elevated" : "high";
   const txt = {
@@ -707,13 +714,21 @@ function Context({
     elevated: "Options are expensive. Buyers face “IV crush” if the VIX falls back; sellers earn more but carry bigger swings.",
     high: "Fear is priced in. Premiums are rich, moves are large, and a falling VIX can hurt buyers badly even when they are right on direction.",
   }[band];
-  const { pe, peAvg, bond } = ctx;
+  const val = resolveValuation(indexPE, ctx);
+  const pe = val.pe.value;
+  const peAvg = val.peAvg.value;
+  const bond = ctx.bond;
   const ey = pe > 0 ? 100 / pe : 0;
   const spread = ey - bond;
   const vs = pe > 0 && peAvg > 0 ? (pe / peAvg - 1) * 100 : 0;
   const lbl = vs > 10 ? "richer than its long-run average" : vs < -10 ? "cheaper than its long-run average" : "close to its long-run average";
   const field = "mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] outline-none focus:border-blue-400";
   const setNum = (k: "pe" | "peAvg" | "bond") => (e: React.ChangeEvent<HTMLInputElement>) => { const v = parseFloat(e.target.value); if (isFinite(v)) setCtx({ ...ctx, [k]: v }); };
+  const badge = (v: { source: string; label: string }) => (
+    <span data-testid="pe-source" className={"mt-0.5 block text-[12px] " + (v.source === "nse" ? "text-emerald-700" : "text-amber-700")}>{v.label}</span>
+  );
+  // you typed over a figure that NSE could have supplied: offer the way back
+  const typedOverNse = (ctx.pe != null || ctx.peAvg != null) && !whyManual(indexPE);
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -733,9 +748,9 @@ function Context({
       <section aria-label="Valuation context" className={card}>
         <h2 className="font-display text-[14px] font-semibold text-slate-900">Is the market cheap or expensive?</h2>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          <div><label className="text-[11px] text-slate-500" htmlFor="ctx-pe">Index PE</label><input id="ctx-pe" type="number" step="any" value={ctx.pe} onChange={setNum("pe")} className={field} /></div>
-          <div><label className="text-[11px] text-slate-500" htmlFor="ctx-avg">Long-run avg PE</label><input id="ctx-avg" type="number" step="any" value={ctx.peAvg} onChange={setNum("peAvg")} className={field} /></div>
-          <div><label className="text-[11px] text-slate-500" htmlFor="ctx-bond">Bond yield %</label><input id="ctx-bond" type="number" step="any" value={ctx.bond} onChange={setNum("bond")} className={field} /></div>
+          <div><label className="block min-h-[2.6em] text-[11px] text-slate-500 md:min-h-0" htmlFor="ctx-pe">Index PE</label><input id="ctx-pe" type="number" step="any" value={Number(val.pe.value.toFixed(2))} onChange={setNum("pe")} className={field} />{badge(val.pe)}</div>
+          <div><label className="block min-h-[2.6em] text-[11px] text-slate-500 md:min-h-0" htmlFor="ctx-avg">Long-run avg PE</label><input id="ctx-avg" type="number" step="any" value={Number(val.peAvg.value.toFixed(2))} onChange={setNum("peAvg")} className={field} />{badge(val.peAvg)}</div>
+          <div><label className="block min-h-[2.6em] text-[11px] text-slate-500 md:min-h-0" htmlFor="ctx-bond">10-year bond yield %</label><input id="ctx-bond" type="number" step="any" value={ctx.bond} onChange={setNum("bond")} className={field} /><span className="mt-0.5 block text-[12px] text-slate-500">Editable</span></div>
         </div>
         {pe > 0 && peAvg > 0 && (
           <p className="mt-3 text-[12.5px] leading-relaxed text-slate-600">
@@ -744,7 +759,16 @@ function Context({
             Valuation moves over months and years, so it says little about a weekly expiry.
           </p>
         )}
-        <p className="mt-2 text-[11px] text-slate-500">Index PE isn’t available from Upstox — enter the current figure yourself (NSE publishes it daily).</p>
+        <p data-testid="pe-detail" className="mt-2 text-[12px] leading-snug text-slate-600">
+          {val.pe.detail}{" "}
+          {/* when both are Manual for the same reason, say it once */}
+          {val.peAvg.source !== "typed" && !(val.pe.source === "manual" && val.peAvg.source === "manual" && whyManual(indexPE)) && val.peAvg.detail}
+        </p>
+        {typedOverNse && (
+          <button type="button" onClick={() => setCtx({ bond: ctx.bond })} className="mt-1 min-h-[44px] text-[12px] font-medium text-blue-600 hover:underline md:min-h-0">
+            Use NSE’s figures again
+          </button>
+        )}
       </section>
     </div>
   );
