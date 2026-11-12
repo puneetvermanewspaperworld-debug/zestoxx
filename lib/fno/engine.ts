@@ -319,6 +319,16 @@ export function greeksNow(P: PreparedLeg[], m: Market): { rows: GreekRow[]; net:
   return { rows, net };
 }
 
+/**
+ * Which side of the market a trade is on, for starting the strike comparison there: the type of the first option bought
+ * (a long put, a bear put spread: puts), else of the first option sold, else calls (futures, or no legs yet).
+ */
+export function tradeSide(legs: Pick<LegInput, "side" | "type">[]): OptType {
+  const opts = legs.filter((l) => l.type === "CE" || l.type === "PE");
+  const first = opts.find((l) => l.side === "B") ?? opts[0];
+  return (first?.type as OptType | undefined) ?? "CE";
+}
+
 /* ---------------------------------------------------------------- margin ---- */
 
 export type MarginKind = "none" | "hedged" | "full";

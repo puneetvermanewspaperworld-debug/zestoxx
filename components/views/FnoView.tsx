@@ -14,15 +14,17 @@ import {
   prepareLegs,
   profitGrid,
   presetLegs,
+  tradeSide,
   type ExitStyle,
   type LegInput,
   type LegType,
   type Market,
 } from "@/lib/fno/engine";
+import type { OptType } from "@/lib/fno/pricing";
 import { explain } from "@/lib/fno/explain";
 import { TONE_CLASS, compact, gammaStr, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
-import { daysToExpiry, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
+import { daysToExpiry, expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
 import { CALENDAR, lastCloseTime } from "@/lib/market-calendar";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { compareStrikes } from "@/lib/fno/strikes";
@@ -157,10 +159,14 @@ export default function FnoView() {
     setLegsFor(`${und}|${preset}`);
     setLegs(presetLegs(preset, market, nextId(legs)));
   }
+  // The strike comparison starts on the same side as the trade (puts for a put trade) until the user picks a side.
+  const [cmpSide, setCmpSide] = useState<OptType | null>(null);
   const editLegs = (fn: (ls: LegInput[]) => LegInput[]) => {
     setLegs(fn);
     setLegsFor("custom");
     setPreset("");
+    setCmpSide(null);
+    setExitSpotRaw(null); // a new trade starts with the exit at the current spot, never at a leftover marker
   };
 
   // Exit controls.
@@ -181,7 +187,8 @@ export default function FnoView() {
   const P = useMemo(() => (market ? prepareLegs(legs, market, quote) : []), [legs, market, quote]);
   const ok = !!market && P.length > 0 && market.spot > 0 && market.dte > 0 && market.iv > 0 && market.lot > 0;
   const st = useMemo(() => (ok && market ? computeStatic(P, market) : null), [ok, P, market]);
-  const comparison = useMemo(() => (ok && market ? compareStrikes(market, cmp.dir, cmp.risk, cmp.hold, quote) : null), [ok, market, cmp, quote]);
+  const cmpState = useMemo<CmpState>(() => ({ ...cmp, dir: cmpSide ?? tradeSide(legs) }), [cmp, cmpSide, legs]);
+  const comparison = useMemo(() => (ok && market ? compareStrikes(market, cmpState.dir, cmpState.risk, cmpState.hold, quote) : null), [ok, market, cmpState, quote]);
 
   // ---- handlers
   const changeUnderlying = (u: string) => {
@@ -189,6 +196,7 @@ export default function FnoView() {
     setExpiry(null);
     setOv({});
     setExitSpotRaw(null);
+    setCmpSide(null);
     setLegsFor("");
     setPreset((p) => p || "lc");
   };
@@ -283,8 +291,8 @@ export default function FnoView() {
                   {[0, 5, 10, 15, 20, 25, 30].map((s) => <option key={s} value={s}>{s}%</option>)}
                 </select>
               </div>
-              <Num id="fno-r" label="Interest rate (%)" value={costs.r} onChange={(v) => setCosts((c) => ({ ...c, r: v }))} />
-              <Num id="fno-q" label="Dividend yield (%)" value={costs.q} onChange={(v) => setCosts((c) => ({ ...c, q: v }))} />
+              <Num id="fno-r" label="Risk-free rate (%)" value={costs.r} onChange={(v) => setCosts((c) => ({ ...c, r: v }))} hint="What a safe government bond pays a year; used to price options." />
+              <Num id="fno-q" label="Dividend yield (%)" value={costs.q} onChange={(v) => setCosts((c) => ({ ...c, q: v }))} hint="Dividends the index pays out in a year, as a share of its price." />
               <div>
                 <span className="text-[11px] text-slate-500">If you hold to expiry</span>
                 <div className="mt-0.5">
@@ -292,6 +300,11 @@ export default function FnoView() {
                 </div>
               </div>
             </div>
+            {expiresToday(live.expiry, new Date(live.feedAsOf ?? live.asOf)) && (
+              <p role="note" className="mt-3 rounded-lg border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-800">
+                This expiry is today ({fmtIsoDate(live.expiry)}, 15:30 IST). Prices move very fast on expiry day and almost no time value is left; the next expiry is in the list above.
+              </p>
+            )}
             <p className="mt-3 text-[11px] text-slate-500">
               Every field is editable — type your broker’s numbers over the feed and the badge turns to Manual.
               {live.pcr != null && <> Put-call ratio (OI) {live.pcr.toFixed(2)}.</>}
@@ -307,7 +320,7 @@ export default function FnoView() {
                   key={p.id}
                   type="button"
                   aria-pressed={preset === p.id}
-                  onClick={() => { setPreset(p.id); setLegsFor(""); }}
+                  onClick={() => { setPreset(p.id); setLegsFor(""); setCmpSide(null); setExitSpotRaw(null); }}
                   className={"rounded-full border px-3 py-1 text-[12px] " + (preset === p.id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-600 hover:border-blue-300")}
                 >
                   {p.label}
@@ -403,10 +416,10 @@ export default function FnoView() {
               m={market}
               name={name}
               result={comparison}
-              state={cmp}
-              onChange={setCmp}
+              state={cmpState}
+              onChange={(next) => { setCmp(next); if (next.dir !== cmpState.dir) setCmpSide(next.dir); }}
               usingChain={usingChain}
-              onLoad={(K, lots) => { editLegs(() => [{ id: 1, side: "B", type: cmp.dir, strike: K, lots, price: null }]); }}
+              onLoad={(K, lots) => { editLegs(() => [{ id: 1, side: "B", type: cmpState.dir, strike: K, lots, price: null }]); }}
             />
           )}
 
@@ -444,9 +457,11 @@ function Analysis({
   resetExit: () => void;
 }) {
   const m = market;
-  const exitSpot = exitSpotRaw ?? m.spot;
-  const d = m.exitStyle === "expire" ? m.dte : clamp(days, 0, m.dte);
   const { lo, hi } = chartRange(P, m);
+  // The exit starts at the current spot. A marker left outside the chart (the legs or the market changed under it) is
+  // dropped rather than pinned to an edge.
+  const exitSpot = exitSpotRaw != null && exitSpotRaw >= lo && exitSpotRaw <= hi ? exitSpotRaw : m.spot;
+  const d = m.exitStyle === "expire" ? m.dte : clamp(days, 0, m.dte);
   const sc = useMemo(() => evaluate(P, m, exitSpot, d, dIV, m.exitStyle), [P, m, exitSpot, d, dIV]);
   const gk = useMemo(() => greeksNow(P, m), [P, m]);
   const lines = useMemo(() => explain(P, m, st, sc, gk, name, d), [P, m, st, sc, gk, name, d]);
@@ -499,9 +514,12 @@ function Analysis({
 
         <section aria-label="What you keep" className={card + " min-w-0"}>
           <h2 className="font-display text-[14px] font-semibold text-slate-900">What you keep</h2>
-          <p className="mt-0.5 text-[11px] text-slate-500">
-            {name} at {nf(exitSpot, 2)}, {m.exitStyle === "expire" ? "held to expiry" : d >= m.dte - 1e-9 ? "squared off at expiry" : `squared off after ${nf(d, d % 1 ? 2 : 0)} day${d === 1 ? "" : "s"}`}
-            {dIV ? `, volatility ${dIV > 0 ? "up " : "down "}${Math.abs(dIV)} points` : ""}.
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[12.5px] leading-snug text-slate-700">
+            <span>
+              <b>Exit scenario:</b> {name} at {nf(exitSpot, 2)} ({pct((exitSpot / m.spot - 1) * 100)}), {m.exitStyle === "expire" ? "held to expiry" : d >= m.dte - 1e-9 ? "squared off at expiry" : `squared off after ${nf(d, d % 1 ? 2 : 0)} day${d === 1 ? "" : "s"}`}
+              {dIV ? `, volatility ${dIV > 0 ? "up " : "down "}${Math.abs(dIV)} points` : ", volatility unchanged"}.
+            </span>
+            <button type="button" onClick={resetExit} className="min-h-[44px] text-[12px] font-medium text-blue-600 hover:underline md:min-h-0">Reset exit</button>
           </p>
           <table className="mt-2 w-full">
             <tbody>

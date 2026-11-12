@@ -128,6 +128,7 @@ export default function StrikeCompare({
   return (
     <section aria-label="Strike comparison" className="rounded-xl border border-slate-200 bg-white p-3 md:p-4">
       <h2 className="font-display text-[15px] font-semibold text-slate-900">Which strike? In-the-money, at-the-money or out-of-the-money</h2>
+      <p className="mt-1 text-[12.5px] font-semibold text-slate-900">Comparing {state.dir === "PE" ? "puts" : "calls"}</p>
       <p className="mt-1 text-[11.5px] leading-snug text-slate-500">
         {name} at {nf(m.spot, 2)}, {nf(m.dte, m.dte % 1 ? 1 : 0)} day{m.dte === 1 ? "" : "s"} to expiry. Exit {holdTxt}.{" "}
         {usingChain ? "Premiums (the middle of the bid and ask where both are quoted) and each strike’s own volatility come from the live option chain." : "Prices are model prices (a single volatility) — not live chain prices."}

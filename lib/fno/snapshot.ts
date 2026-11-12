@@ -88,6 +88,22 @@ export function daysToExpiry(expiry: string, now: Date = new Date()): number {
   return Number.isFinite(end) ? Math.max(0, (end - now.getTime()) / 86_400_000) : 0;
 }
 
+/** When an expiry ends: 15:30 IST on its date (ms). */
+export const expiryEndMs = (expiry: string): number => Date.parse(`${expiry}T15:30:00+05:30`);
+
+/**
+ * The expiries still open at `at` (the feed's last update): those whose 15:30 IST is after it, in order. An expiry that has
+ * already ended never appears, so it can neither be the default nor be picked from the list.
+ */
+export function activeExpiries(expiries: string[], at: Date): string[] {
+  return expiries.filter((e) => expiryEndMs(e) > at.getTime());
+}
+
+/** True when `expiry` falls on the same Indian calendar day as `at` (so it is the last day of that contract). */
+export function expiresToday(expiry: string, at: Date): boolean {
+  return new Date(at.getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10) === expiry;
+}
+
 /** Strike gap: the most common difference between neighbouring strikes. */
 export function strikeGap(strikes: number[]): number | null {
   const counts = new Map<number, number>();
