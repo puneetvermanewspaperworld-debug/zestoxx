@@ -8,6 +8,8 @@ export interface FlowPoint {
   key: string;
   label: string;
   net: number;
+  /** a trading day with no figures: its slot stays empty (no bar, never a zero) and it says so */
+  missing?: boolean;
 }
 
 const GREEN = "#047857";
@@ -31,7 +33,7 @@ export default function FlowChart({ rows, title }: { rows: FlowPoint[]; title: s
   const [picked, setPicked] = useState<string | null>(null);
 
   const g = useMemo(() => {
-    const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.net)));
+    const maxAbs = Math.max(1, ...rows.filter((r) => !r.missing).map((r) => Math.abs(r.net)));
     const step = niceStep(maxAbs * 2, 4);
     const top = Math.ceil(maxAbs / step) * step;
     const ticks: number[] = [];
@@ -66,9 +68,13 @@ export default function FlowChart({ rows, title }: { rows: FlowPoint[]; title: s
         {sel ? (
           <>
             <span className="font-medium text-slate-900">{sel.label}</span>:{" "}
-            <span className="font-semibold tabular-nums" style={{ color: sel.net >= 0 ? GREEN : RED }}>
-              {fmtCr(sel.net)}
-            </span>
+            {sel.missing ? (
+              <span className="text-slate-600">Data not available</span>
+            ) : (
+              <span className="font-semibold tabular-nums" style={{ color: sel.net >= 0 ? GREEN : RED }}>
+                {fmtCr(sel.net)}
+              </span>
+            )}
           </>
         ) : (
           "Tap a bar to see its amount."
@@ -92,6 +98,16 @@ export default function FlowChart({ rows, title }: { rows: FlowPoint[]; title: s
             </g>
           ))}
           {rows.map((r, i) => {
+            if (r.missing) {
+              return (
+                <g key={r.key} onClick={() => setPicked(r.key)} onMouseEnter={() => setPicked(r.key)} data-missing="true">
+                  <title>{`${r.label}: Data not available`}</title>
+                  <rect x={x(i) - slot / 2} y={padT} width={slot} height={innerH} fill="transparent" />
+                  {/* a small tick on the zero line, so the gap reads as "nothing here", not as a zero */}
+                  <line x1={x(i) - Math.min(4, slot / 3)} x2={x(i) + Math.min(4, slot / 3)} y1={zero} y2={zero} stroke="#94a3b8" strokeWidth={2} strokeDasharray="2 2" />
+                </g>
+              );
+            }
             const h = Math.max(1, Math.abs(y(r.net) - zero));
             const up = r.net >= 0;
             return (

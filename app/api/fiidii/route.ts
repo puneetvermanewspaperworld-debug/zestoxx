@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
-import { buildFiiDii } from "@/lib/fiidii";
+import { prismaStore } from "@/lib/fiidii/store";
 
 /**
- * FII/DII activity — cash market and derivatives, plus the Nifty move and FII
- * index-futures long/short share per day.
+ * Stored FII/DII days, oldest first, for the page.
  *
- * ⚠ Still SIMULATED (`source: "simulated"`). NSE publishes real figures at
- * nseindia.com/reports/fii-dii but blocks direct scraping without proper headers and
- * session handling. To go live: a scheduled function (Vercel Cron) that fetches and
- * caches the daily report into the database, with this route reading from there — the
- * response shape below is what that ingest should produce.
+ *   GET /api/fiidii  ->  { status: "ok" | "empty" | "unavailable", rows: FiiDiiDayRow[] }
  *
- * GET /api/fiidii?days=20  ->  { source, rows: FiiDiiDay[] }  (oldest first)
+ * Real NSE data only (see lib/fiidii/ingest.ts and the cron route). "empty" means nothing has been stored yet and "unavailable"
+ * means the database could not be read; in both cases `rows` is empty and the page says "Data not available yet". Nothing is
+ * ever generated here.
  */
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const days = Math.min(300, Math.max(1, Number(searchParams.get("days")) || 20));
-  const rows = buildFiiDii().slice(-days);
-  return NextResponse.json({ source: "simulated", rows });
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    const rows = await prismaStore.list(300);
+    return NextResponse.json({ status: rows.length ? "ok" : "empty", rows }, { headers: { "Cache-Control": "public, s-maxage=60" } });
+  } catch {
+    return NextResponse.json({ status: "unavailable", rows: [] }, { headers: { "Cache-Control": "no-store" } });
+  }
 }

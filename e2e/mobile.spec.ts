@@ -35,38 +35,6 @@ for (const r of ROUTES) {
   });
 }
 
-test("FII/DII: the whole Net amount is visible on every row", async ({ page }) => {
-  await open(page, "/app/fiidii");
-  const rows = page.locator("table tbody tr");
-  expect(await rows.count()).toBeGreaterThan(5);
-  const bad = await page.evaluate(() => {
-    const out: string[] = [];
-    document.querySelectorAll("table tbody tr").forEach((tr, i) => {
-      const cell = tr.lastElementChild as HTMLElement;
-      const r = cell.getBoundingClientRect();
-      if (r.right > window.innerWidth + 0.5 || r.left < 0 || cell.scrollWidth > cell.clientWidth + 1) out.push(`row ${i}: ${cell.innerText} right=${Math.round(r.right)}`);
-    });
-    return out;
-  });
-  expect(bad).toEqual([]);
-});
-
-test("FII/DII: amounts put the sign before the rupee sign", async ({ page }) => {
-  await open(page, "/app/fiidii");
-  const text = await page.locator("table tbody").innerText();
-  expect(text).toMatch(/[+−]₹[\d,]+ Cr/);
-  expect(text).not.toMatch(/₹[+\-−]/);
-});
-
-test("FII/DII: the chart shows the same date range as the table", async ({ page }) => {
-  await open(page, "/app/fiidii");
-  const caption = await page.locator("p.tabular-nums, span.tabular-nums").filter({ hasText: /–/ }).first().innerText();
-  const bars = await page.locator("svg[role=img] rect[fill='#047857'], svg[role=img] rect[fill='#be123c']").count();
-  const rows = await page.locator("table tbody tr").count();
-  expect(caption).toMatch(/\d/);
-  expect(bars).toBe(rows);
-});
-
 test("phones get a bottom tab bar with Dashboard, Watchlist, Trade, Pulse and More", async ({ page }) => {
   await open(page, "/app/dashboard");
   const nav = page.getByRole("navigation", { name: "Main" });

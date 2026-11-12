@@ -40,7 +40,7 @@ won't persist; without an Upstox token, NSE/BSE symbols stay on the simulation.
 | `/app/movers` | Market movers: Equity (all NSE) · F&O → Equity / Futures / Options (OPTIDX, OPTSTK; volume- or price-based) |
 | `/app/options` | Real option chain (OI, ΔOI, IV) + ATM IV / PCR / India VIX / max pain / second-highest call & put OI |
 | `/app/buildup` | Long/Short buildup: stacked LB/SC/SB/LU bar + per-strike heatmap for NIFTY, BANK NIFTY, FINNIFTY, MIDCPNIFTY |
-| `/app/fiidii` | FII/DII — FII|DII × Cash|Derivatives × daily/weekly/monthly, Nifty % column, FII index-futures long/short (**simulated**) |
+| `/app/fiidii` | FII/DII — real NSE cash flows (provisional) and FII index-futures long/short, FII|DII × daily/weekly/monthly, stored once a day; "Data not available yet" until the first day is stored |
 | `/app/news` | Market news |
 | `/app/alerts` | Price alerts |
 | `/app/orders` | Open limit orders + fill history |
@@ -60,7 +60,8 @@ app/
     trade/[symbol]/page.tsx   validates symbol, renders <TradeView symbol=… />
   api/
     market-data/route.ts      CoinGecko (crypto) + Upstox (NSE/BSE) proxy
-    fiidii/route.ts           returns the seeded mock; wire a daily cron for real data
+    fiidii/route.ts           stored FII/DII days for the page (real NSE data only)
+    cron/fiidii/route.ts      the daily ingest, run by Vercel Cron (CRON_SECRET-protected)
     portfolio/route.ts        GET/PUT the portfolio blob, backed by Prisma
     options-chain/route.ts    live Upstox option chain + expiries + India VIX (or `{source:"unavailable"}`)
     fno-movers/route.ts       market-wide movers from Upstox bulk quotes (or `{source:"unavailable"}`)
@@ -86,7 +87,7 @@ lib/
   movers.ts / useMovers.ts     shared types + the polling hook for the Movers view
   options.ts                   buildup classification, chain stats (PCR, max pain…), simulated chain
   useOptionChain.ts            client hook: live chain, else labelled simulation
-  fiidii.ts                    simulated FII/DII generator + daily/weekly/monthly aggregation
+  fiidii/                      FII/DII: parse.ts (NSE JSON/CSV), ingest.ts (daily run + backfill), rollup.ts, store.ts (Postgres)
   useIsClient.ts               defers date-dependent UI past hydration
   db.ts                        Prisma client singleton
   auth.ts                      getCurrentUser() — demo user until real auth
@@ -154,7 +155,7 @@ candles + price and flips that symbol's badge from **Simulated** to **Live data*
 | BTC, ETH, SOL | CoinGecko | none | price 25 s, history on load |
 | RELIANCE, TCS, INFY, HDFCBANK, SBIN, TATAMOTORS, NIFTY50, SENSEX, BANKNIFTY | Upstox v3 | `UPSTOX_ANALYTICS_TOKEN` | LTP 25 s (cached 10 s), ~400 d of daily candles on load (cached 1 h) |
 | Option chains (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, the stocks above, SENSEX) + India VIX | Upstox v2 `option/chain`, `option/contract` | same token | chain re-polled every 30 s (cached 15 s), expiry list cached 1 h |
-| FII/DII flows | — | — | **simulated** (NSE blocks scraping; see `app/api/fiidii/route.ts` for the ingest plan) |
+| FII/DII flows | — | — | **real NSE data**, stored daily by a cron (see "FII/DII ingest" below); never simulated |
 
 Both are proxied server-side through `app/api/market-data/route.ts` so no credential or
 CORS issue reaches the browser. The Upstox token is a **long-lived, read-only Analytics
@@ -399,3 +400,29 @@ haven't traded yet that day; indices already move in the pre-open session.
 2. ~~Add Prisma + replace the `storage` shim with API routes.~~ ✅ done — see "Data layer".
 3. Add real auth; update `lib/auth.ts` `getCurrentUser()`.
 4. Deploy to Vercel with Postgres (see "Switching to Postgres"), point `zestoxx.com` at it.
+
+## FII/DII ingest (real NSE data)
+
+Two public NSE files, fetched with plain GETs and ordinary request headers (no cookies or session handling), feed one row per
+trading day in the `FiiDiiDay` table:
+
+| Source | What it gives | Published |
+|---|---|---|
+| `https://www.nseindia.com/api/fiidiiTradeReact` | FII and DII cash buy, sell and net, ₹ crore, **provisional**, **latest day only** | about 5 pm IST |
+| `https://nsearchives.nseindia.com/content/nsccl/fao_participant_oi_DDMMYYYY.csv` | FII index futures long and short contracts | about 7 pm IST |
+
+- **Cron:** `vercel.json` runs `/api/cron/fiidii` on weekdays at 19:30 IST and again at 21:00 IST (as a retry for a late file). A source
+  already stored for the day is never fetched again; a failure is retried twice (after 3 s and 8 s) and logged; a 404 on the
+  open interest file (a holiday, a weekend, not out yet) is normal and is neither retried nor an error. Crons run on production
+  deployments only, and the two schedules are once-a-day each, which fits the Hobby plan's limits.
+- **CRON_SECRET (required):** set it in Vercel (Production). Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; the route
+  returns 503 if it is not set and 401 for a wrong secret, so no one can trigger an ingest by finding the URL.
+- **History builds from now on:** the cash source returns only the latest day, so earlier cash days cannot be recovered and the page
+  says "History is building" until 20 days are stored. Futures positions can be backfilled because their files exist per day:
+  call once, by hand, `GET /api/cron/fiidii?backfill=30` with the bearer secret (at most 30 files per call, spaced out; repeat to go
+  further; days already stored are skipped and 404s are normal).
+- **Honest gaps:** a trading day with no stored figures is shown as "Data not available", never as zero or an estimate; weekly and
+  monthly rows sum only the days held and say how many trading days they cover. With nothing stored the page says "Data not
+  available yet". The cash figures carry NSE's "provisional" label.
+- Tests: `lib/fiidii/*.test.ts` (parsing against the real files, roll-ups, a missing day, retry/at-most-once/404/backfill) and
+  `e2e/fiidii.spec.ts` (the page against a mocked feed).

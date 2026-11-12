@@ -118,3 +118,28 @@ model Sip {
 
   @@index([userId])
 }
+
+/// One row per trading day of institutional activity. The cash figures (₹ Cr) come from NSE's provisional FII/DII JSON, which
+/// only ever returns the latest day, so history is stored from the first ingest onwards. The index-futures positions (open
+/// contracts) come from NSE's participant-wise open interest file, which exists per day and can be backfilled. Either half can be
+/// missing for a day; nothing is ever filled in with an estimate.
+model FiiDiiDay {
+  /// YYYY-MM-DD, the day the figures are for
+  date           String    @id
+  fiiBuy         Float?
+  fiiSell        Float?
+  fiiNet         Float?
+  diiBuy         Float?
+  diiSell        Float?
+  diiNet         Float?
+  /// FII index futures, open contracts
+  fiiIdxFutLong  Int?
+  fiiIdxFutShort Int?
+  /// true while the cash figures are NSE's provisional ones
+  provisional    Boolean   @default(true)
+  /// when each source was fetched and stored; a source with a timestamp is not fetched again
+  cashFetchedAt  DateTime?
+  oiFetchedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
