@@ -290,6 +290,99 @@ export function computeStatic(P: PreparedLeg[], m: Market): StaticResult {
   return { beNet, beGross, maxV, maxX, minV, minX, unlimProfit: up > 0, unlimLoss: up < 0, pop: probability(P, m, (o) => o.pre > 0, 900) };
 }
 
+/* ------------------------------------------------------- open-ended extremes ---- */
+
+/** The stress case: the index 20% lower or higher. */
+export const STRESS_MOVE = 0.2;
+
+/** One end of the payoff (index far above, or down toward zero) where profit or loss never stops growing. */
+export interface OpenEnd {
+  /** which way the index has to go */
+  dir: "up" | "down";
+  /** ₹ gained (or lost) for each extra index point, from the position's slope beyond its last strike */
+  perPoint: number;
+}
+
+export interface RangeValue {
+  lo: number;
+  hi: number;
+  /** the best (or worst) after-charges result at expiry anywhere in lo..hi */
+  value: number;
+}
+
+export interface StressPoint {
+  dir: "up" | "down";
+  /** the index level 20% away */
+  spot: number;
+  value: number;
+}
+
+/** What one side of the trade (its best case, or its worst) looks like. */
+export interface SideView {
+  /** the ends where this side is open-ended; empty means it is capped and `cap` is the real number */
+  open: OpenEnd[];
+  /** the real best/worst case at expiry, after charges, used as it always was when the side is capped */
+  cap: number;
+  /** inside the range that covers about 2 days in 3 (one standard deviation) */
+  inRange: RangeValue;
+  /** inside the range at 3 standard deviations */
+  at3: RangeValue;
+  /** at a 20% fall or rise, one entry per open end */
+  stress: StressPoint[];
+}
+
+export interface Extremes {
+  best: SideView;
+  worst: SideView;
+}
+
+/**
+ * Best and worst case, side by side, without ever quoting the index-at-zero number. An end of the expiry payoff is open-ended
+ * when the legs' slope there is not flat: far above spot the slope is the net of calls and futures; down toward zero it is
+ * the net of futures minus puts. A rising payoff at an end is open-ended profit; a falling one is open-ended loss. A side
+ * with no open end is capped, and keeps its real cap (a long call's loss, both sides of a spread).
+ */
+export function computeExtremes(P: PreparedLeg[], m: Market, st: Pick<StaticResult, "maxV" | "minV">): Extremes {
+  const slopeUp = P.reduce((a, L) => a + (L.type === "PE" ? 0 : L.sign * L.qty), 0);
+  const slopeDown = P.reduce((a, L) => a + (L.type === "FUT" ? L.sign * L.qty : 0) - (L.type === "PE" ? L.sign * L.qty : 0), 0);
+  const eps = 1e-9;
+  const bestOpen: OpenEnd[] = [];
+  const worstOpen: OpenEnd[] = [];
+  if (slopeUp > eps) bestOpen.push({ dir: "up", perPoint: slopeUp });
+  if (slopeUp < -eps) worstOpen.push({ dir: "up", perPoint: -slopeUp });
+  if (slopeDown < -eps) bestOpen.push({ dir: "down", perPoint: -slopeDown }); // profit grows as the index falls
+  if (slopeDown > eps) worstOpen.push({ dir: "down", perPoint: slopeDown });
+
+  const net = (x: number) => evaluate(P, m, x, m.dte, 0, m.exitStyle).pre;
+  const sigT = (m.iv / 100) * Math.sqrt(Math.max(m.dte, 0) / 365);
+  const around = (k: number) => ({ lo: Math.max(0.01, m.spot * Math.exp(-k * sigT)), hi: m.spot * Math.exp(k * sigT) });
+  const over = (r: { lo: number; hi: number }, pick: "max" | "min"): RangeValue => {
+    const xs = [r.lo, r.hi];
+    const n = 240;
+    for (let i = 1; i < n; i++) xs.push(r.lo + ((r.hi - r.lo) * i) / n);
+    for (const L of P) if (L.isOpt && L.strike > r.lo && L.strike < r.hi) xs.push(L.strike);
+    let v = pick === "max" ? -Infinity : Infinity;
+    for (const x of xs) {
+      const e = net(x);
+      v = pick === "max" ? Math.max(v, e) : Math.min(v, e);
+    }
+    return { ...r, value: v };
+  };
+  const stressOf = (open: OpenEnd[]): StressPoint[] =>
+    open.map((o) => {
+      const spot = m.spot * (o.dir === "up" ? 1 + STRESS_MOVE : 1 - STRESS_MOVE);
+      return { dir: o.dir, spot, value: net(spot) };
+    });
+  const side = (open: OpenEnd[], pick: "max" | "min", cap: number): SideView => ({
+    open,
+    cap,
+    inRange: over(around(1), pick),
+    at3: over(around(3), pick),
+    stress: stressOf(open),
+  });
+  return { best: side(bestOpen, "max", st.maxV), worst: side(worstOpen, "min", st.minV) };
+}
+
 /* ---------------------------------------------------------------- greeks ---- */
 
 export interface GreekRow {

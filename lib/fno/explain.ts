@@ -1,4 +1,4 @@
-import { evaluate, marginKind, type GreekRow, type Market, type PreparedLeg, type StaticResult } from "./engine";
+import { computeExtremes, evaluate, marginKind, type GreekRow, type Market, type OpenEnd, type PreparedLeg, type SideView, type StaticResult } from "./engine";
 import type { StrikeColumn } from "./strikes";
 import { CMP_MOVES } from "./strikes";
 import { TONE_CLASS, nf, pct, rs, rsS, tone, type Tone } from "./format";
@@ -15,6 +15,19 @@ export interface Line {
 }
 
 const b = (t: Tone, text: string) => `<b class="${TONE_CLASS[t]}">${text}</b>`;
+
+/**
+ * "Grows about ₹6,500 for every 100 points the index falls" / "Loses about …": the open-ended side's slope. One end gets its
+ * direction; two ends with the same slope say "moves either way"; two different slopes are given separately.
+ */
+export function slopeText(open: OpenEnd[], kind: "best" | "worst"): string {
+  const verb = kind === "best" ? "Grows" : "Loses";
+  const per = (o: OpenEnd) => rs(o.perPoint * 100);
+  if (open.length === 1) return `${verb} about ${per(open[0])} for every 100 points the index ${open[0].dir === "up" ? "rises" : "falls"}`;
+  const [a, c] = open;
+  if (Math.abs(a.perPoint - c.perPoint) < 1e-9) return `${verb} about ${per(a)} for every 100 points the index moves either way`;
+  return `${verb} about ${per(a)} for every 100 points the index ${a.dir === "up" ? "rises" : "falls"} and ${per(c)} for every 100 points it ${c.dir === "up" ? "rises" : "falls"}`;
+}
 
 export function explain(
   P: PreparedLeg[],
@@ -51,10 +64,25 @@ export function explain(
   } else if (margin === "hedged") {
     L.push({ kind: "", html: "Margin is usually lower for hedged spreads. Check the exact amount in your broker's margin calculator." });
   }
+  // Best and worst case. A side that never stops growing is described by its slope and by what it is worth at sensible
+  // distances; a capped side keeps its real number. The index-at-zero figure is never quoted.
+  const ex = computeExtremes(P, m, st);
+  const sideHtml = (v: SideView, kind: "best" | "worst") =>
+    v.open.length === 0
+      ? b(kind === "best" ? "up" : "down", rs(v.cap))
+      : `${slopeText(v.open, kind)}; ${b(kind === "best" ? "up" : "down", rs(v.inRange.value))} inside the expected range (${nf(v.inRange.lo)}–${nf(v.inRange.hi)}) and ${b(kind === "best" ? "up" : "down", rs(v.at3.value))} at 3 standard deviations (${nf(v.at3.lo)}–${nf(v.at3.hi)})`;
   L.push({
-    kind: st.unlimLoss ? "bad" : "",
-    html: `Worst case at expiry, after charges: ${b("down", st.unlimLoss ? "unlimited loss" : rs(st.minV))}. Best case: ${b("up", st.unlimProfit ? "unlimited profit" : rs(st.maxV))}.`,
+    kind: ex.worst.open.length ? "bad" : "",
+    html: `Worst case at expiry, after charges: ${sideHtml(ex.worst, "worst")}. Best case: ${sideHtml(ex.best, "best")}.`,
   });
+  for (const [v, kind] of [[ex.worst, "worst"], [ex.best, "best"]] as const) {
+    for (const s of v.stress) {
+      L.push({
+        kind: kind === "worst" ? "bad" : "",
+        html: `<b>Stress case</b>, index 20% ${s.dir === "down" ? "lower" : "higher"} (${nf(s.spot)}): ${b(s.value >= 0 ? "up" : "down", rs(s.value))}.${kind === "worst" ? " The loss is open-ended." : ""}`,
+      });
+    }
+  }
 
   if (st.beNet.length) {
     const parts = st.beNet.map((x) => `<b>${nf(x)}</b> (${pct((x / spot - 1) * 100)})`).join(" and ");

@@ -156,6 +156,30 @@ test("strike comparison has implied volatility, gamma and vega rows; the per-leg
   expect(r.page).toBeLessThanOrEqual(1);
 });
 
+test("open-ended trades show a slope and a stress case, never 'Unlimited' or an index-at-zero maximum; a spread keeps its caps", async ({ page }) => {
+  await open(page, "/app/fno", "#fno-und");
+  const result = () => page.evaluate(() => (document.querySelector('[aria-label="Result"]') as HTMLElement).innerText);
+  await page.getByRole("button", { name: "Long put" }).click();
+  await page.waitForTimeout(800);
+  let r = await result();
+  expect(r).toContain("Grows about");
+  expect(r).toContain("for every 100 points");
+  expect(r).toContain("Stress case");
+  expect(r).not.toMatch(/unlimited/i);
+  await page.getByRole("button", { name: "Short straddle" }).click();
+  await page.waitForTimeout(800);
+  r = await result();
+  expect(r).toContain("Loses about");
+  expect(r).toContain("The loss is open-ended.");
+  await page.getByRole("button", { name: "Bull call spread" }).click();
+  await page.waitForTimeout(800);
+  r = await result();
+  expect(r).not.toContain("Grows about");
+  expect(r).not.toContain("Loses about");
+  expect(r).not.toContain("Stress case");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
 test.describe("desktop is untouched", () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
   test("sidebar shows and there is no bottom tab bar", async ({ page }) => {

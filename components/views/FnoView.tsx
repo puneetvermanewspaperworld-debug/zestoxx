@@ -8,6 +8,7 @@ import { RATES } from "@/lib/fno/charges";
 import {
   PRESETS,
   atmStrike,
+  computeExtremes,
   computeStatic,
   evaluate,
   greeksNow,
@@ -18,10 +19,11 @@ import {
   type ExitStyle,
   type LegInput,
   type LegType,
+  type SideView,
   type Market,
 } from "@/lib/fno/engine";
 import type { OptType } from "@/lib/fno/pricing";
-import { explain } from "@/lib/fno/explain";
+import { explain, slopeText } from "@/lib/fno/explain";
 import { TONE_CLASS, compact, gammaStr, nf, pct, rs, rsS, tone } from "@/lib/fno/format";
 import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
 import { daysToExpiry, expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
@@ -101,6 +103,40 @@ function Stat({ k, v, s, cls = "" }: { k: string; v: string; s?: string; cls?: s
       <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{k}</div>
       <div className={"mt-1 font-mono text-[17px] font-semibold leading-none " + (cls || "text-slate-900")}>{v}</div>
       <div className="mt-1.5 min-h-[14px] text-[10.5px] text-slate-500">{s}</div>
+    </div>
+  );
+}
+
+/**
+ * Best or worst case for a side of the trade that never stops growing (a long call's profit, a naked short's loss...).
+ * Instead of one huge number it gives the slope, what the side is worth at sensible distances, and a labelled stress case.
+ */
+function OpenStat({ k, kind, view, cls }: { k: string; kind: "best" | "worst"; view: SideView; cls: string }) {
+  const row = "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5";
+  const val = (v: number) => <b className={"font-mono " + (v >= 0 ? "text-emerald-600" : "text-rose-500")}>{rs(v)}</b>;
+  return (
+    <div className="col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{k}</div>
+      <div className={"mt-1 text-[14px] font-semibold leading-snug " + cls}>{slopeText(view.open, kind)}</div>
+      <div className="mt-2 space-y-1 text-[12px] leading-snug text-slate-600">
+        <div className={row}>
+          <span>Inside the expected range ({nf(view.inRange.lo)}–{nf(view.inRange.hi)})</span>
+          {val(view.inRange.value)}
+        </div>
+        <div className={row}>
+          <span>At 3 standard deviations ({nf(view.at3.lo)}–{nf(view.at3.hi)})</span>
+          {val(view.at3.value)}
+        </div>
+        {view.stress.map((s) => (
+          <div key={s.dir} className={row + " rounded bg-slate-50 px-1.5 py-1"}>
+            <span>
+              <b>Stress case</b>, index 20% {s.dir === "down" ? "lower" : "higher"} ({nf(s.spot)})
+              {kind === "worst" && <span className="block text-slate-500">The loss is open-ended.</span>}
+            </span>
+            {val(s.value)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -466,6 +502,7 @@ function Analysis({
   const gk = useMemo(() => greeksNow(P, m), [P, m]);
   const lines = useMemo(() => explain(P, m, st, sc, gk, name, d), [P, m, st, sc, gk, name, d]);
   const heat = useMemo(() => profitGrid(P, m, dIV), [P, m, dIV]);
+  const ex = useMemo(() => computeExtremes(P, m, st), [P, m, st]);
 
   const be = st.beNet.length ? st.beNet.map((x) => nf(x)).join(" / ") : "None in range";
   const n = gk.net;
@@ -480,8 +517,8 @@ function Analysis({
   return (
     <>
       <section aria-label="Result" className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Stat k="Best case" v={st.unlimProfit ? "Unlimited" : rs(st.maxV)} s="at expiry, after charges" cls="text-emerald-600" />
-        <Stat k="Worst case" v={st.unlimLoss ? "Unlimited" : rs(st.minV)} s="at expiry, after charges" cls="text-rose-500" />
+        {ex.best.open.length ? <OpenStat k="Best case" kind="best" view={ex.best} cls="text-emerald-600" /> : <Stat k="Best case" v={rs(ex.best.cap)} s="at expiry, after charges" cls="text-emerald-600" />}
+        {ex.worst.open.length ? <OpenStat k="Worst case" kind="worst" view={ex.worst} cls="text-rose-500" /> : <Stat k="Worst case" v={rs(ex.worst.cap)} s="at expiry, after charges" cls="text-rose-500" />}
         <Stat k="Breakeven" v={be} s={st.beNet.length ? `${st.beNet.map((x) => pct((x / m.spot - 1) * 100)).join(" / ")} from spot` : ""} />
         <Stat k="Chance of profit" v={`${Math.round(st.pop * 100)}%`} s="model estimate" />
       </section>
