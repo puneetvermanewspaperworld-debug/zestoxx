@@ -264,6 +264,12 @@ charge stack, long-ATM-call breakeven and worst case, strike-table monotonicity)
   (market shut: last close) or **simulated** (Upstox didn't answer; generated numbers, labelled as such and never
   used as chain prices). The page polls every 5 s during 09:15–15:30 IST on weekdays. The status pill reads **Live feed**, **Delayed feed** or **Simulated feed** (the **Live / Frozen** switch beside it is a different thing: Live, the default, re-prices the whole analysis on every update; Frozen holds one snapshot until you press Update to live prices). The pill turns **Manual** the
   moment you type over spot, days or volatility, and chain prices are then dropped.
+- **One spot:** the index quote's last price (the same Upstox field and endpoint the ticker uses) is the only spot shown anywhere in the analyzer: the price field,
+  cards, plain-words lines, strike table header, grid row labels and chart. The option chain carries its own underlying level (the index when its
+  prices were quoted, `chainSpot`); it is used only inside the pricing and implied-volatility maths, as an offset (`Market.basis`) from the spot shown, so a
+  flat exit at the entry spot still costs exactly the charges. When the two differ by more than 0.1% one line says so ("Option prices were quoted when
+  the index was at X; the index is now at Y."), read from the same snapshot as everything else, in Live and Frozen mode. A typed spot is shown as typed
+  and drops the note (chain prices are no longer used).
 - **Chain prices drive the trade:** a leg with no typed price enters at the chain price and uses that strike's own
   implied volatility (so there's no flat-vol assumption); the strike table does the same. Typed price > chain > model.
 - **Delayed data** counts days to expiry from the *last close*, not the wall clock — otherwise implied volatility

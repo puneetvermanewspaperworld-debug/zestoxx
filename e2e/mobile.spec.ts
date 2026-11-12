@@ -348,6 +348,10 @@ function mockGapSnapshot(n: number) {
 test("one spot: the index quote is the only spot shown; the chain's level only appears in a one-line note, from the same snapshot, in Live and Frozen", async ({ page }) => {
   let n = 0;
   await page.route("**/api/fno/snapshot**", (route) => route.fulfill({ json: mockGapSnapshot(n++) }));
+  // the ticker's index quote: the same 25,200 the snapshot carries as its spot
+  await page.route("**/api/market-data**", (route) =>
+    route.request().url().includes("asset=equity") ? route.fulfill({ json: { NIFTY50: { price: 25200, prevClose: 25100 } } }) : route.fulfill({ status: 502, json: {} })
+  );
   await page.clock.install({ time: new Date("2026-11-11T13:50:00+05:30") });
   await page.goto("/app/fno", { waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-testid="spot-note"]', { timeout: 30_000 });
@@ -372,6 +376,18 @@ test("one spot: the index quote is the only spot shown; the chain's level only a
   expect(s.note).toBe("Option prices were quoted when the index was at 25,250.00; the index is now at 25,200.00.");
   expect(s.keep).toContain("Nifty at 25,200.00");
   expect(s.shown, "the chain's level is not shown as a spot anywhere in the analysis").not.toContain("25,250.00");
+  // one spot everywhere: the ticker, the price field, the strike table header and the grid row labels all carry the index quote
+  const where = await page.evaluate(() => ({
+    ticker: (document.querySelector(".ticker-strip") as HTMLElement).innerText,
+    strikeHeader: (document.querySelector('[aria-label="Strike comparison"]') as HTMLElement).innerText.split("\n").find((l) => l.includes(" at ") && l.includes("to expiry")) ?? "",
+    gridRows: Array.from(document.querySelectorAll('[aria-label="Profit grid"] tbody tr td:first-child')).map((td) => (td as HTMLElement).innerText.replace(/\s+/g, " ")),
+  }));
+  expect(where.ticker).toContain("25,200");
+  expect(where.strikeHeader).toContain("25,200.00");
+  expect(where.gridRows.find((r) => r.startsWith("0%"))).toContain("25,200");
+  expect(where.gridRows.find((r) => r.startsWith("+1.0%"))).toContain("25,452");
+  expect(where.gridRows.find((r) => r.startsWith("−1.0%"))).toContain("24,948");
+  expect(where.gridRows.join(" "), "no grid row is labelled from the chain's level (25,250)").not.toMatch(/25,2[5-9]\d/);
   await tick();
   s = await read();
   expect(s.spotInput).toBe("25210");
