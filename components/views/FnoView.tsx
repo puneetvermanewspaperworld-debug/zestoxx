@@ -29,7 +29,7 @@ import { UNDERLYINGS, UNDERLYING_IDS } from "@/lib/fno/lots";
 import { expiresToday, quoteFromSnapshot, type FnoSource } from "@/lib/fno/snapshot";
 import { resolveValuation, whyManual } from "@/lib/indexpe/valuation";
 import type { IndexPE } from "@/lib/indexpe/types";
-import { buildMarket, feedMoved, freezeReducer, initialFreeze, pricedAtText, snapKey, type Overrides, type PriceMode } from "@/lib/fno/freeze";
+import { buildMarket, feedMoved, freezeReducer, initialFreeze, pricedAtText, snapKey, spotNote, spotNoteText, type Overrides, type PriceMode } from "@/lib/fno/freeze";
 import { CALENDAR } from "@/lib/market-calendar";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { compareStrikes } from "@/lib/fno/strikes";
@@ -178,11 +178,13 @@ export default function FnoView() {
   // Shown only while the frozen snapshot is for the contract the feed is on (not for a moment after switching expiry).
   const live = fz.snap && feed && snapKey(fz.snap) === snapKey(feed) ? fz.snap : null;
   const feedAhead = feedMoved(live, feed);
+  // One spot everywhere: the index quote. The note and every number below read this same snapshot (Live or Frozen).
 
   // Anything the user types over the feed is a "manual" override; an update replaces the snapshot, never these.
   const ov = fz.ov;
   const setOv = (patch: Partial<Overrides>) => dispatch({ type: "override", patch });
   const manual = ov.spot != null || ov.dte != null || ov.iv != null;
+  const note = spotNote(live, ov);
   const [costs, setCosts] = useState({ r: 6.5, q: 1.3, brokerage: 20, slab: 30 });
   const [exitStyle, setExitStyle] = useState<ExitStyle>("square");
 
@@ -377,6 +379,11 @@ export default function FnoView() {
                 </div>
               </div>
             </div>
+            {note && (
+              <p role="note" data-testid="spot-note" className="mt-3 text-[12px] leading-snug text-slate-600">
+                {spotNoteText(note)}
+              </p>
+            )}
             {expiresToday(live.expiry, new Date(live.feedAsOf ?? live.asOf)) && (
               <p role="note" className="mt-3 rounded-lg border-l-2 border-amber-400 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-800">
                 This expiry is today ({fmtIsoDate(live.expiry)}, 15:30 IST). Prices move very fast on expiry day and almost no time value is left; the next expiry is in the list above.

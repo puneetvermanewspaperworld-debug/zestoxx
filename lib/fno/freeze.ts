@@ -1,4 +1,5 @@
 import type { ExitStyle, Market } from "./engine";
+import { nf } from "./format";
 import { daysToExpiry, lastCloseTime, type FnoSnapshot } from "./snapshot";
 
 /**
@@ -114,11 +115,16 @@ export function buildMarket(
   kind: "index" | "stock"
 ): Market | null {
   if (!snap) return null;
+  // Chain prices are dropped once anything is typed over the feed, so the options are then priced from the spot shown.
+  const manual = ov.spot != null || ov.dte != null || ov.iv != null;
   const feedIv = kind === "index" ? (snap.vix ?? snap.atmIv) : (snap.atmIv ?? snap.vix);
   const built = new Date(Date.parse(snap.asOf));
   const from = snap.source === "delayed" ? new Date(snap.feedAsOf ?? lastCloseTime(built)) : built;
   return {
+    // the index quote: the one spot shown anywhere; scenarios are measured from it
     spot: ov.spot ?? snap.spot,
+    // the chain's own underlying level matters only inside the option pricing, as an offset from the spot shown
+    basis: manual ? 0 : (snap.chainSpot ?? snap.spot) - snap.spot,
     dte: ov.dte ?? daysToExpiry(snap.expiry, from),
     iv: ov.iv ?? feedIv ?? 16,
     r: costs.r,
@@ -130,3 +136,30 @@ export function buildMarket(
     exitStyle,
   };
 }
+
+/** Two levels differing by more than this share of the index are worth saying so. */
+export const SPOT_NOTE_THRESHOLD = 0.001;
+
+export interface SpotNote {
+  /** the index when the option prices were quoted (the chain's own underlying level) */
+  quoted: number;
+  /** the index quote now (the spot shown) */
+  now: number;
+}
+
+/**
+ * The index quote is the only spot shown. The option chain carries its own underlying level, from when its prices were quoted; when
+ * that differs from the index quote by more than 0.1% the page says so in one line. Both numbers come from the same snapshot as
+ * everything else on screen. No note once anything has been typed over the feed: chain prices are dropped then, so the chain's
+ * level no longer matters.
+ */
+export function spotNote(snap: FnoSnapshot | null, ov: Overrides): SpotNote | null {
+  if (!snap || snap.source === "simulated") return null;
+  if (ov.spot != null || ov.dte != null || ov.iv != null) return null;
+  const quoted = snap.chainSpot;
+  if (!(quoted != null && quoted > 0) || !(snap.spot > 0)) return null;
+  return Math.abs(quoted - snap.spot) / snap.spot > SPOT_NOTE_THRESHOLD ? { quoted, now: snap.spot } : null;
+}
+
+export const spotNoteText = (n: SpotNote): string =>
+  `Option prices were quoted when the index was at ${nf(n.quoted, 2)}; the index is now at ${nf(n.now, 2)}.`;

@@ -323,3 +323,83 @@ test("live mode (the default): each feed update re-prices everything together; t
   await page.waitForSelector('[data-testid="priced-at"]', { timeout: 30_000 });
   expect(await mode()).toBe("Frozen");
 });
+
+/* ------------------------------------------------------------------- one spot --- */
+
+/** A feed whose option prices were quoted with the index 50 points above the index quote, and drifting further apart each poll. */
+function mockGapSnapshot(n: number) {
+  const spot = 25200 + n * 10; // the index quote
+  const chainSpot = 25250 + n * 20; // the chain's own underlying level
+  const sec = String(12 + n * 5).padStart(2, "0");
+  const feedAsOf = `2026-11-11T13:50:${sec}+05:30`;
+  const T = 5.9 / 365;
+  const leg = (type: "CE" | "PE", k: number) => {
+    const p = bsm(type, chainSpot, k, T, 0.16, 0.065, 0.013).price;
+    return { ltp: p, bid: p - 0.5, ask: p + 0.5, oi: 1000, iv: 16, delta: null, gamma: null, theta: null, vega: null, lastTrade: feedAsOf };
+  };
+  const chain = [];
+  for (let k = 24500; k <= 26200; k += 50) chain.push({ strike: k, ce: leg("CE", k), pe: leg("PE", k) });
+  return {
+    asOf: feedAsOf, feedAsOf, source: "live", underlying: "NIFTY", expiry: "2026-11-17", expiries: ["2026-11-17"],
+    spot, chainSpot, vix: 16, vixPrevClose: 15.5, vixPercentile: 50, atmIv: 16, lot: 65, step: 50, pcr: 1, chain,
+  };
+}
+
+test("one spot: the index quote is the only spot shown; the chain's level only appears in a one-line note, from the same snapshot, in Live and Frozen", async ({ page }) => {
+  let n = 0;
+  await page.route("**/api/fno/snapshot**", (route) => route.fulfill({ json: mockGapSnapshot(n++) }));
+  await page.clock.install({ time: new Date("2026-11-11T13:50:00+05:30") });
+  await page.goto("/app/fno", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="spot-note"]', { timeout: 30_000 });
+  const read = () =>
+    page.evaluate(() => {
+      const txt = (sel: string) => (document.querySelector(sel) as HTMLElement).innerText;
+      return {
+        spotInput: (document.querySelector("#fno-spot") as HTMLInputElement).value,
+        note: txt('[data-testid="spot-note"]'),
+        shown: ["Result", "In plain words", "What you keep", "Strike comparison", "Profit grid", "Greeks"].map((l) => (document.querySelector(`[aria-label="${l}"]`) as HTMLElement | null)?.innerText ?? "").join("\n"),
+        keep: txt('[aria-label="What you keep"]'),
+      };
+    });
+  const tick = async () => {
+    await page.clock.runFor(5200);
+    await page.waitForTimeout(300);
+  };
+
+  // Live (default)
+  let s = await read();
+  expect(s.spotInput).toBe("25200");
+  expect(s.note).toBe("Option prices were quoted when the index was at 25,250.00; the index is now at 25,200.00.");
+  expect(s.keep).toContain("Nifty at 25,200.00");
+  expect(s.shown, "the chain's level is not shown as a spot anywhere in the analysis").not.toContain("25,250.00");
+  await tick();
+  s = await read();
+  expect(s.spotInput).toBe("25210");
+  expect(s.note).toBe("Option prices were quoted when the index was at 25,270.00; the index is now at 25,210.00.");
+  expect(s.keep).toContain("Nifty at 25,210.00");
+
+  // Frozen: the spot and the note both hold while the feed drifts
+  await page.getByTestId("price-mode").getByRole("button", { name: "Frozen" }).click();
+  await page.waitForTimeout(250);
+  const held = await read();
+  await tick();
+  await tick();
+  s = await read();
+  expect(s.spotInput).toBe(held.spotInput);
+  expect(s.note).toBe(held.note);
+  expect(s.keep).toBe(held.keep);
+  await page.getByTestId("update-live").click();
+  await page.waitForTimeout(300);
+  s = await read();
+  expect(s.spotInput).not.toBe(held.spotInput);
+  expect(s.note).not.toBe(held.note);
+  expect(s.note).toContain(`the index is now at ${Number(s.spotInput).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`);
+
+  // a typed spot is what is shown, and the note (about chain prices) goes
+  await page.fill("#fno-spot", "25000");
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId("spot-note")).toHaveCount(0);
+  expect((await read().catch(() => null)) === null).toBe(true); // read() needs the note, which is gone: that is the point
+  expect(await page.inputValue("#fno-spot")).toBe("25000");
+  expect(await page.locator('[aria-label="What you keep"]').innerText()).toContain("Nifty at 25,000.00");
+});

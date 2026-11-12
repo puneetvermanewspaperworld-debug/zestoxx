@@ -47,12 +47,18 @@ export interface FnoSnapshot {
   /** the expiry this chain is for, YYYY-MM-DD */
   expiry: string;
   expiries: string[];
+  /** the index quote's last price: the one spot shown anywhere in the analyzer (the same number as the ticker's) */
   spot: number;
   /**
    * The index's P/E from NSE's daily close (index underlyings only): the close P/E, the same scaled to the live spot, and the
    * median of the stored history. Absent for stocks, a simulated feed, or when nothing is stored.
    */
   indexPE?: IndexPE | null;
+  /**
+   * The option chain's own underlying level, the index as it was when the option prices were quoted. Used inside the pricing
+   * calculations only and never shown as "the spot"; absent or equal to `spot` when there is nothing to reconcile.
+   */
+  chainSpot?: number | null;
   vix: number | null;
   vixPrevClose: number | null;
   /** share of the past year's daily closes at or below today's VIX, 0–100 */
@@ -206,7 +212,8 @@ export function quoteFromSnapshot(snap: FnoSnapshot | null, ctx?: { r: number; q
   if (!snap || snap.source === "simulated") return undefined; // simulated prices are never used as "chain" prices
   const byStrike = new Map(snap.chain.map((r) => [r.strike, r]));
   const freshest = freshestTrade(snap.chain);
-  const sync = ctx ? chainForwardCheck(snap, ctx.r, ctx.q, ctx.dte) : null;
+  // option prices relate to the chain's own underlying level, so the parity check is made against that, not the index quote
+  const sync = ctx ? chainForwardCheck({ spot: snap.chainSpot ?? snap.spot, chain: snap.chain }, ctx.r, ctx.q, ctx.dte) : null;
   const syncNote = sync?.outOfSync
     ? `index level and option prices are out of step by about ${Math.round(Math.abs(sync.gapPoints))} points, so implied volatility reads wrong (most in the money)`
     : null;

@@ -10,7 +10,13 @@ export type ExitStyle = "square" | "expire";
 export type LegType = OptType | "FUT";
 
 export interface Market {
+  /** the index quote's last price: the one spot shown and used for every scenario (a move of x% is from here) */
   spot: number;
+  /**
+   * Chain level minus index quote, in points: option prices were quoted when the index was at `spot + basis`, so options are
+   * priced and their volatility backed out at that level. It never appears on screen. Zero when prices are the model's.
+   */
+  basis?: number;
   /** days to expiry, decimal */
   dte: number;
   /** index volatility (VIX) in percent — the fallback volatility for strikes with no price */
@@ -86,11 +92,15 @@ export const roundDays = (d: number): number => Math.round(d * 100) / 100;
 
 /* ------------------------------------------------------------------ prep ---- */
 
+/** The level the index was at when the option prices were quoted: where options are priced from. Futures and every scenario use `m.spot`. */
+export const pricingSpot = (m: Pick<Market, "spot" | "basis">): number => m.spot + (m.basis ?? 0);
+
 export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): PreparedLeg[] {
   const T0 = m.dte / 365;
   const r = m.r / 100;
   const q = m.q / 100;
   const iv0 = m.iv / 100;
+  const S0 = pricingSpot(m);
   const out: PreparedLeg[] = [];
   for (const L of legs) {
     const qty = Math.max(1, L.lots) * m.lot;
@@ -106,7 +116,7 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
       continue;
     }
     if (!(L.strike > 0)) continue;
-    const model = bsm(L.type, m.spot, L.strike, T0, iv0, r, q).price;
+    const model = bsm(L.type, S0, L.strike, T0, iv0, r, q).price;
     let entry = model;
     let iv = iv0;
     let ivNote: PreparedLeg["ivNote"] = "model";
@@ -119,7 +129,7 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
     if (mkt != null) {
       entry = mkt;
       priceSource = typed ? "typed" : "chain";
-      const imp = impliedVol(L.type, m.spot, L.strike, T0, mkt, r, q);
+      const imp = impliedVol(L.type, S0, L.strike, T0, mkt, r, q);
       if (imp) {
         iv = imp;
         ivNote = "implied";
@@ -127,7 +137,7 @@ export function prepareLegs(legs: LegInput[], m: Market, quote?: QuoteLookup): P
         iv = chain.iv / 100;
         ivNote = "implied";
       } else ivNote = "fallback";
-      if (ivNote !== "implied" || !imp) anchor = entry - bsm(L.type, m.spot, L.strike, T0, iv, r, q).price;
+      if (ivNote !== "implied" || !imp) anchor = entry - bsm(L.type, S0, L.strike, T0, iv, r, q).price;
     }
     out.push({
       id: L.id, side: L.side, type: L.type, strike: L.strike, lots: L.lots, qty, sign, model, entry, priceSource, iv, isOpt: true, ivNote, anchor,
@@ -143,7 +153,7 @@ export function exitPrice(L: PreparedLeg, m: Market, spot: number, days: number,
   const r = m.r / 100;
   const q = m.q / 100;
   if (!L.isOpt) return spot * Math.exp((r - q) * rem);
-  const px = bsm(L.type as OptType, spot, L.strike, rem, Math.max(0.01, (L.iv as number) + dIV / 100), r, q).price;
+  const px = bsm(L.type as OptType, spot + (m.basis ?? 0), L.strike, rem, Math.max(0.01, (L.iv as number) + dIV / 100), r, q).price;
   if (!L.anchor || m.dte <= 0) return px;
   return Math.max(0, px + L.anchor * Math.min(1, Math.max(0, Math.max(0, m.dte - days) / m.dte)));
 }
@@ -402,7 +412,7 @@ export function greeksNow(P: PreparedLeg[], m: Market): { rows: GreekRow[]; net:
   for (const L of P) {
     let row: GreekRow;
     if (L.isOpt) {
-      const g = bsm(L.type as OptType, m.spot, L.strike, T0, L.iv as number, r, q);
+      const g = bsm(L.type as OptType, pricingSpot(m), L.strike, T0, L.iv as number, r, q);
       const k = L.sign * L.qty;
       row = { leg: L, delta: g.delta * k, gamma: g.gamma * k, theta: g.theta * k, vega: g.vega * k };
     } else row = { leg: L, delta: L.sign * L.qty, gamma: 0, theta: 0, vega: 0 };

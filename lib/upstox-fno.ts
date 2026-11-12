@@ -5,6 +5,7 @@ import {
   fetchLastTradeTimes,
   fetchOptionChain,
   fetchOptionExpiries,
+  fetchQuotesBatch,
   fetchVixCloses,
 } from "./upstox";
 import { memoized } from "./upstox-movers";
@@ -55,12 +56,16 @@ export async function liveSnapshot(token: string, underlying: string, expiry: st
   if (!exp) return null;
 
   const feedAsOf = lastUpdate;
-  const [chain, vixQuote, closes] = await Promise.all([
+  const [chain, vixQuote, closes, indexQuote] = await Promise.all([
     fetchOptionChain(token, key, exp),
     fetchIndiaVixQuote(token).catch(() => null),
     memoized("fno:vix-closes", VIX_HISTORY_TTL, () => fetchVixCloses(token)).catch(() => [] as number[]),
+    // the index quote's last price, the same field and endpoint the ticker uses: this is the spot shown everywhere
+    fetchQuotesBatch(token, [key]).catch(() => null),
   ]);
   if (chain.rows.length === 0 || chain.spot <= 0) return null;
+  // The chain carries its own underlying level (the index when the option prices were quoted); it only feeds the pricing maths.
+  const indexLtp = indexQuote?.get(key)?.ltp ?? 0;
 
   // When each option last traded, to tell a stale last price from a live one. Cached a little, since it is one
   // extra request per 100 contracts; an unanswered request just means "unknown".
@@ -75,7 +80,8 @@ export async function liveSnapshot(token: string, underlying: string, expiry: st
     underlying,
     expiry: exp,
     expiries,
-    spot: chain.spot,
+    spot: indexLtp > 0 ? indexLtp : chain.spot,
+    chainSpot: chain.spot,
     vix: vixQuote?.ltp ?? null,
     vixPrevClose: vixQuote?.prevClose ?? null,
     vixPercentile: vixQuote ? percentileOf(vixQuote.ltp, closes) : null,
@@ -101,6 +107,7 @@ export function simulatedSnapshot(underlying: string, expiry: string | null): Fn
     expiry: c.expiry,
     expiries: c.expiries,
     spot: c.spot,
+    chainSpot: c.spot,
     vix: c.vix,
     vixPrevClose: null,
     vixPercentile: null,
