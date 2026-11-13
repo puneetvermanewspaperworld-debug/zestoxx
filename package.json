@@ -15,7 +15,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
-    "test": "tsx --tsconfig tsconfig.json --test lib/*.test.ts lib/fno/*.test.ts lib/fiidii/*.test.ts lib/indexpe/*.test.ts lib/mtf/*.test.ts",
+    "test": "tsx --tsconfig tsconfig.json --test lib/*.test.ts lib/fno/*.test.ts lib/fiidii/*.test.ts lib/indexpe/*.test.ts lib/mtf/*.test.ts lib/mf/*.test.ts",
     "check:holidays": "tsx --tsconfig tsconfig.json scripts/check-nse-holidays.ts",
     "audit:mobile": "tsx --tsconfig tsconfig.json scripts/mobile-audit.ts",
     "test:mobile": "playwright test",
