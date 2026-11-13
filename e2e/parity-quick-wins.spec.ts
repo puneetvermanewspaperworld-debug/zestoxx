@@ -129,3 +129,24 @@ test("4.6 a row whose live chain can't be loaded says so instead of opening anot
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+const futuresRes = (gainers: unknown[]) => ({ source: "live", asOf: "2026-11-11T08:20:00Z", data: { gainers, losers: [], scanned: gainers.length } });
+const fut = (symbol: string, changePct: number, ltp = 1500) => ({ symbol, name: symbol, expiry: "2026-11-25", ltp, change: changePct * 10, changePct, volume: 1000, lot: 100, isIndex: false });
+
+test("20.1 the dashboard has a Futures gainers card from the Movers feed, only futures that are up", async ({ page }) => {
+  await page.clock.install({ time: OPEN });
+  await mockQuotes(page);
+  await page.route("**/api/fiidii", (r) => r.fulfill({ json: { status: "empty", rows: [] } }));
+  await page.route("**/api/fno-movers**", (r) =>
+    r.fulfill({ json: futuresRes([fut("TATASTEEL", 4.21, 168), fut("DOWNCO", -1.5), fut("SBIN", 2.05, 812)]) })
+  );
+  await page.goto("/app/dashboard", { waitUntil: "domcontentloaded" });
+  const card = page.getByTestId("futures-gainers-card");
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("TATASTEEL");
+  await expect(card).toContainText("+4.21%");
+  await expect(card).toContainText("SBIN");
+  await expect(card).not.toContainText("DOWNCO");
+  expect(await card.innerText()).not.toContain("+-");
+  await noSideScroll(page, "dashboard");
+});
