@@ -2,13 +2,14 @@
 
 import React from "react";
 import CandleChart from "@/components/CandleChart";
-import Chip from "@/components/Chip";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { SYMBOLS, SYMBOL_MAP, NEWS } from "@/lib/symbols";
-import { fmt, fmtINR } from "@/lib/helpers";
+import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
+import { fmt, fmtINR, fmtSigned } from "@/lib/helpers";
+import { NEWS_NOT_CONNECTED } from "@/lib/news";
+import { rankMovers } from "@/lib/dashboard-movers";
 
 export default function DashboardView() {
-  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor } =
+  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor, hasFeedQuote } =
     useZestoxx();
 
   const holdingsValue = Object.entries(holdings).reduce(
@@ -19,9 +20,10 @@ export default function DashboardView() {
     (s, [id, h]) => s + ((live[id] ?? h.avgPrice) - h.avgPrice) * h.qty,
     0
   );
-  const movers = SYMBOLS.map((s) => ({ ...s, chg: chgFor(s.id) })).sort((a, b) => b.chg - a.chg);
-  const gainers = movers.slice(0, 3),
-    losers = movers.slice(-3).reverse();
+  // Indian market movers: only symbols with a real quote, only the ones that moved the right way.
+  const { gainers, losers } = rankMovers(
+    SYMBOLS.map((s) => ({ id: s.id, chg: chgFor(s.id), real: hasFeedQuote(s.id), indian: s.type !== "crypto" }))
+  );
   const sym = SYMBOL_MAP[selected];
 
   return (
@@ -77,8 +79,11 @@ export default function DashboardView() {
           </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 font-display text-[13px] font-semibold text-slate-900">Market Movers</h3>
+          <h3 className="mb-2 font-display text-[13px] font-semibold text-slate-900">
+            Market Movers <span className="text-[11px] font-normal text-slate-400">Indian stocks &amp; indices</span>
+          </h3>
           <div className="mb-2 text-[10.5px] uppercase tracking-wide text-emerald-500">Top Gainers</div>
+          {gainers.length === 0 && <div className="py-1 text-[12px] text-slate-400">No gainers right now</div>}
           {gainers.map((g) => (
             <div
               key={g.id}
@@ -89,10 +94,11 @@ export default function DashboardView() {
               className="flex cursor-pointer justify-between py-1 text-[12px] hover:text-blue-600"
             >
               <span>{g.id}</span>
-              <span className="font-mono text-emerald-500">+{g.chg.toFixed(2)}%</span>
+              <span className="font-mono text-emerald-500">{fmtSigned(g.chg, 2, "%")}</span>
             </div>
           ))}
           <div className="mb-2 mt-3 text-[10.5px] uppercase tracking-wide text-rose-500">Top Losers</div>
+          {losers.length === 0 && <div className="py-1 text-[12px] text-slate-400">No losers right now</div>}
           {losers.map((g) => (
             <div
               key={g.id}
@@ -103,7 +109,7 @@ export default function DashboardView() {
               className="flex cursor-pointer justify-between py-1 text-[12px] hover:text-blue-600"
             >
               <span>{g.id}</span>
-              <span className="font-mono text-rose-500">{g.chg.toFixed(2)}%</span>
+              <span className="font-mono text-rose-500">{fmtSigned(g.chg, 2, "%")}</span>
             </div>
           ))}
         </div>
@@ -140,8 +146,7 @@ export default function DashboardView() {
                       "font-mono text-[11px] " + (chg >= 0 ? "text-emerald-500" : "text-rose-500")
                     }
                   >
-                    {chg >= 0 ? "+" : ""}
-                    {chg.toFixed(2)}%
+                    {fmtSigned(chg, 2, "%")}
                   </div>
                 </div>
               );
@@ -158,15 +163,7 @@ export default function DashboardView() {
               More →
             </button>
           </div>
-          {NEWS.slice(0, 3).map((n, i) => (
-            <div key={i} className="mb-2 border-b border-blue-50 pb-2 last:border-0">
-              <div className="text-[12px] leading-snug text-slate-900">{n.h}</div>
-              <div className="mt-1 flex items-center gap-1.5 text-[10.5px] text-slate-400">
-                <Chip tone="gold">{n.tag}</Chip>
-                {n.t}
-              </div>
-            </div>
-          ))}
+          <p className="py-3 text-[12px] text-slate-500">{NEWS_NOT_CONNECTED}</p>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { fmt, fmtIsoDate, istClock } from "@/lib/helpers";
 import { addDaysIso, gtdBounds } from "@/lib/orders";
 import { useIsClient } from "@/lib/useIsClient";
 import type { AssetType, Holdings } from "@/lib/types";
+import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
 
 interface OrderPanelProps {
   symId: string;
@@ -152,13 +153,13 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
           onClick={() => submit("buy")}
           className="flex-1 rounded-md bg-emerald-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
         >
-          Buy
+          {PAPER_BUY}
         </button>
         <button
           onClick={() => submit("sell")}
           className="flex-1 rounded-md bg-rose-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
         >
-          Sell
+          {PAPER_SELL}
         </button>
       </div>
       {msg && (

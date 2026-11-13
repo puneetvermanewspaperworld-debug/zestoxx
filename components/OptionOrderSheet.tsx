@@ -11,6 +11,9 @@ import {
   type ContractQuote,
 } from "@/lib/contract";
 import { contractLabel } from "@/lib/movers";
+import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
+import { quoteNote } from "@/lib/closed-notes";
+import { useMarketStatus } from "@/lib/useMarketStatus";
 import { fmtINR, fmtIsoDate, fmtOi, fmtOiChange } from "@/lib/helpers";
 import { GREEKS, chainStats, type OptionChain, type OptionLeg } from "@/lib/options";
 import { useContractCandles, useContractQuote } from "@/lib/useContractQuote";
@@ -222,6 +225,7 @@ export default function OptionOrderSheet({
   onClose: () => void;
 }) {
   const { cash, holdings, tradeContract } = useZestoxx();
+  const marketOpen = useMarketStatus()?.open ?? null;
   const closeRef = useRef<HTMLButtonElement>(null);
   const [tab, setTab] = useState<Tab>("charts");
   const [lots, setLots] = useState(1);
@@ -384,6 +388,11 @@ export default function OptionOrderSheet({
                   </div>
                 ))}
               </div>
+              {quoteNote(marketOpen, quote) && (
+                <p data-testid="quote-note" className="px-4 pb-2 text-[11px] text-slate-400">
+                  {quoteNote(marketOpen, quote)}
+                </p>
+              )}
 
               {/* depth */}
               <div className="border-t border-slate-200 px-4 py-3">
@@ -482,7 +491,7 @@ export default function OptionOrderSheet({
               disabled={!quote}
               className="flex-1 rounded-md bg-rose-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              Sell
+              {PAPER_SELL}
             </button>
             <button
               type="button"
@@ -490,7 +499,7 @@ export default function OptionOrderSheet({
               disabled={!quote}
               className="flex-1 rounded-md bg-emerald-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
-              Buy
+              {PAPER_BUY}
             </button>
           </div>
           <div aria-live="polite" className="min-h-[18px]">

@@ -25,7 +25,7 @@ import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
 import { aggregateCandles } from "@/lib/history";
 import { computeCustomSeries } from "@/lib/formula";
 import { computePulse } from "@/lib/pulse";
-import { fmt } from "@/lib/helpers";
+import { fmt, fmtSigned } from "@/lib/helpers";
 import type { Candle, Timeframe } from "@/lib/types";
 
 export default function TradeView({ symbol }: { symbol?: string }) {
@@ -70,6 +70,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     onClearDrawings,
     formula,
     setFormula,
+    hasFeedQuote,
   } = useZestoxx();
 
   // Keep the selected symbol in sync with the /app/trade/[symbol] route segment.
@@ -128,10 +129,11 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                   }
                 >
                   {chg >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  {chg >= 0 ? "+" : ""}
-                  {chg.toFixed(2)}%
+                  {fmtSigned(chg, 2, "%")}
                 </span>
+                {hasFeedQuote(selected) && (
                 <span
+                  title={pulse.basis}
                   className={
                     "ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
                     (pulse.label === "Bullish"
@@ -143,6 +145,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                 >
                   <Zap size={10} /> Pulse {pulse.score} · {pulse.label}
                 </span>
+                )}
                 <span
                   className={
                     "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
@@ -405,7 +408,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           <h3 className="mb-2 flex items-center gap-1.5 font-display text-[12.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">
             <Layers size={13} /> Order Book
           </h3>
-          <DepthLadder price={price} type={sym.type} />
+          <DepthLadder symbol={selected} type={sym.type} />
         </div>
       </div>
     </div>

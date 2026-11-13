@@ -1,4 +1,4 @@
-import type { SymbolInfo, NewsItem, AssetType } from "./types";
+import type { SymbolInfo, AssetType } from "./types";
 
 export const SYMBOLS: SymbolInfo[] = [
   { id: "RELIANCE", name: "Reliance Industries", type: "stock", base: 2932.15 },
@@ -29,14 +29,3 @@ export const COINGECKO_IDS: Record<string, string> = {
   ETH: "ethereum",
   SOL: "solana",
 };
-
-export const NEWS: NewsItem[] = [
-  { h: "RBI holds repo rate steady, signals watchful stance on inflation", src: "Market Desk", tag: "NIFTY50", sentiment: "neutral", t: "2h ago" },
-  { h: "IT majors rally as Q2 earnings beat street estimates on deal wins", src: "Bourse Wire", tag: "TCS", sentiment: "bullish", t: "3h ago" },
-  { h: "Bitcoin holds above key support as spot ETF inflows resume", src: "CoinLedger", tag: "BTC", sentiment: "bullish", t: "4h ago" },
-  { h: "Banking stocks under pressure on rising bad-loan provisioning", src: "Market Desk", tag: "BANKNIFTY", sentiment: "bearish", t: "5h ago" },
-  { h: "Auto sales data beats estimates ahead of festive season demand", src: "Sector Watch", tag: "TATAMOTORS", sentiment: "bullish", t: "7h ago" },
-  { h: "FIIs turn net sellers for third straight session on valuation concerns", src: "Bourse Wire", tag: "SENSEX", sentiment: "bearish", t: "9h ago" },
-  { h: "Ethereum network upgrade completes, gas fees drop sharply", src: "CoinLedger", tag: "ETH", sentiment: "bullish", t: "11h ago" },
-  { h: "Reliance retail arm reportedly weighs fresh fundraise for expansion", src: "Deal Street", tag: "RELIANCE", sentiment: "neutral", t: "1d ago" },
-];
