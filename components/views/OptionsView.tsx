@@ -3,6 +3,7 @@
 import DataBadge from "@/components/DataBadge";
 import React, { useState } from "react";
 import OptionsChain from "@/components/OptionsChain";
+import WatchlistOptionsToggle from "@/components/WatchlistOptionsToggle";
 import OptionOrderSheet from "@/components/OptionOrderSheet";
 import OptionsStatsStrip from "@/components/OptionsStatsStrip";
 import { useZestoxx } from "@/components/ZestoxxProvider";
@@ -35,6 +36,7 @@ export default function OptionsView() {
 
   return (
     <div className="space-y-3">
+      <WatchlistOptionsToggle active="options" />
       <div className="rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
           <div>

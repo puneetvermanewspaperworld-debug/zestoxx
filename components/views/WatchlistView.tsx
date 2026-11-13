@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import WatchlistOptionsToggle from "@/components/WatchlistOptionsToggle";
 import { ArrowLeft, Plus, Search, Sparkles, X } from "lucide-react";
 import Watchlist from "@/components/Watchlist";
 import { useZestoxx } from "@/components/ZestoxxProvider";
@@ -456,6 +457,7 @@ export default function WatchlistView() {
 
   return (
     <div className="space-y-3">
+      <WatchlistOptionsToggle active="watchlist" />
       <div className="flex gap-3">
         <IndexCard id="NIFTY50" expiryUnderlying="NIFTY" />
         <IndexCard id="BANKNIFTY" expiryUnderlying="BANKNIFTY" />
