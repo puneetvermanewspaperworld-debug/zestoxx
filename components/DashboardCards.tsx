@@ -1,11 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMovers } from "@/lib/useMovers";
+import { fmtCr } from "@/lib/format-cr";
 import { fmtINR, fmtIsoDate, fmtSigned } from "@/lib/helpers";
-import { futuresGainers } from "@/lib/dashboard-cards";
+import { FII_DII_EMPTY, fiiDiiSummary, futuresGainers } from "@/lib/dashboard-cards";
+import type { FiiDiiDayRow } from "@/lib/fiidii/types";
 import type { FutureMovers } from "@/lib/movers";
+
+const tone = (v: number) => (v >= 0 ? "text-emerald-500" : "text-rose-500");
 
 /** Futures gainers: the top futures that are up, from the same live feed as the Movers page. */
 export function FuturesGainersCard() {
@@ -36,6 +40,57 @@ export function FuturesGainersCard() {
         ))
       ) : (
         <p className="py-3 text-[12px] text-slate-400">{view.text}</p>
+      )}
+    </div>
+  );
+}
+
+/** FII/DII: the latest stored day's net buying or selling, from the stored NSE figures. */
+export function FiiDiiSummaryCard() {
+  const [rows, setRows] = useState<FiiDiiDayRow[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/fiidii")
+      .then((r) => (r.ok ? r.json() : { rows: [] }))
+      .catch(() => ({ rows: [] }))
+      .then((j) => !cancelled && setRows(Array.isArray(j.rows) ? j.rows : []));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const s = fiiDiiSummary(rows);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4" data-testid="fii-dii-card">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-display text-[13px] font-semibold text-slate-900">FII / DII</h3>
+        <Link href="/app/fiidii" className="text-[11.5px] font-medium text-blue-600 hover:underline">
+          Details →
+        </Link>
+      </div>
+      {rows === null ? (
+        <div className="h-[72px] animate-pulse rounded bg-slate-50" aria-busy="true" />
+      ) : s ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                ["FII net", s.cash.fii.net],
+                ["DII net", s.cash.dii.net],
+              ] as const
+            ).map(([label, v]) => (
+              <div key={label}>
+                <div className="text-[10.5px] uppercase tracking-wide text-slate-400">{label}</div>
+                <div className={"mt-0.5 font-mono text-[15px] font-semibold " + tone(v)}>{fmtCr(v)}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10.5px] text-slate-400">
+            Cash market, {fmtIsoDate(s.date)}
+            {s.provisional ? " · provisional" : ""} · NSE
+          </p>
+        </>
+      ) : (
+        <p className="py-3 text-[12px] text-slate-400">{FII_DII_EMPTY}</p>
       )}
     </div>
   );

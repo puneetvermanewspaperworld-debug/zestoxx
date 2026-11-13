@@ -1,7 +1,26 @@
+import { latestCash } from "./fiidii/rollup";
+import type { CashFigures, FiiDiiDayRow } from "./fiidii/types";
 import type { FutureMover, FutureMovers, MoversResponse } from "./movers";
 
+export const FII_DII_EMPTY = "Data not available yet";
 export const FUTURES_EMPTY = "No futures are up right now";
 export const FUTURES_UNAVAILABLE = "Futures data is not available right now";
+
+/* ---------------------------------------------------------- FII/DII card --- */
+
+export interface FiiDiiSummary {
+  /** the trading day the figures are for (YYYY-MM-DD) */
+  date: string;
+  cash: CashFigures;
+  /** NSE's provisional figures, not yet final */
+  provisional: boolean;
+}
+
+/** The newest stored day with cash figures, or null when nothing is stored (the card then says "Data not available yet"). */
+export function fiiDiiSummary(rows: FiiDiiDayRow[] | null | undefined): FiiDiiSummary | null {
+  const day = latestCash(rows ?? []);
+  return day && day.cash ? { date: day.date, cash: day.cash, provisional: day.provisional } : null;
+}
 
 /* ------------------------------------------------------- futures gainers --- */
 
