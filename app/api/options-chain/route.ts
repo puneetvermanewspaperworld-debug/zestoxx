@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import {
   OPTION_UNDERLYINGS,
+  underlyingKey,
   upstoxToken,
   fetchOptionExpiries,
   fetchOptionChain,
   fetchIndiaVix,
 } from "@/lib/upstox";
+import { getUniverse } from "@/lib/upstox-movers";
 import type { OptionChain } from "@/lib/options";
 
 /**
@@ -21,10 +23,14 @@ import type { OptionChain } from "@/lib/options";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const underlying = searchParams.get("underlying") ?? "NIFTY";
-  const key = OPTION_UNDERLYINGS[underlying];
+  const token = upstoxToken();
+  // The fixed underlyings need no lookup; any other F&O stock (a Movers row can be one) is found in the instrument list.
+  let key: string | null = OPTION_UNDERLYINGS[underlying] ?? null;
+  if (!key && token && /^[A-Z0-9&-]{1,20}$/.test(underlying)) {
+    key = underlyingKey(underlying, (await getUniverse().catch(() => null))?.fnoStocks ?? []);
+  }
   if (!key) return NextResponse.json({ error: "unknown underlying" }, { status: 400 });
 
-  const token = upstoxToken();
   if (!token) {
     console.warn("[/api/options-chain] UPSTOX_ANALYTICS_TOKEN is not set — serving unavailable");
     return NextResponse.json({ source: "unavailable" });

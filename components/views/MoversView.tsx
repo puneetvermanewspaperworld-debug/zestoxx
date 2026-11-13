@@ -9,6 +9,7 @@ import { useMovers } from "@/lib/useMovers";
 import DataBadge from "@/components/DataBadge";
 import { moversNote, noChangeFigure } from "@/lib/closed-notes";
 import { useMarketStatus } from "@/lib/useMarketStatus";
+import MoverContractSheet from "@/components/MoverContractSheet";
 import {
   EQUITY_FILTER,
   contractLabel,
@@ -189,7 +190,7 @@ function FutureTable({ rows, open }: { rows: FutureMover[]; open: boolean | null
   );
 }
 
-function OptionTable({ rows, open }: { rows: OptionContract[]; open: boolean | null }) {
+function OptionTable({ rows, open, onOpen }: { rows: OptionContract[]; open: boolean | null; onOpen: (c: OptionContract) => void }) {
   if (rows.length === 0) return <Empty>{NO_TRADES}</Empty>;
   return (
     <div className="overflow-x-auto">
@@ -206,8 +207,16 @@ function OptionTable({ rows, open }: { rows: OptionContract[]; open: boolean | n
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={`${r.symbol}${r.expiry}${r.strike}${r.type}`} className="border-b border-blue-50 hover:bg-slate-50">
-              <td className="px-2 py-2.5 sm:px-3 font-mono text-[12px] font-medium text-slate-900">{contractLabel(r)}</td>
+            <tr
+              key={`${r.symbol}${r.expiry}${r.strike}${r.type}`}
+              onClick={() => onOpen(r)}
+              className="cursor-pointer border-b border-blue-50 hover:bg-slate-50"
+            >
+              <td className="px-2 py-2.5 sm:px-3 font-mono text-[12px] font-medium text-slate-900">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(r); }} aria-label={`Open ${contractLabel(r)}`} className="text-left text-blue-700 hover:underline">
+                  {contractLabel(r)}
+                </button>
+              </td>
               <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{r.ltp.toFixed(2)}</td>
               <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{open === false && noChangeFigure(r) ? "--" : signed(r.change)}</td>
               <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + (r.changePct == null || (open === false && noChangeFigure(r)) ? "text-slate-300" : tone(r.changePct))}>
@@ -249,6 +258,7 @@ export default function MoversView() {
   const [basis, setBasis] = useState<Basis>("volume");
   const [volSeg, setVolSeg] = useState<VolSeg>("volume");
   const [priceSeg, setPriceSeg] = useState<FutSeg>("gainers");
+  const [openContract, setOpenContract] = useState<OptionContract | null>(null);
 
   const query =
     top === "equity"
@@ -305,7 +315,7 @@ export default function MoversView() {
       </Empty>
     );
   } else if ("contracts" in data) {
-    body = <OptionTable rows={optionRows} open={marketOpen} />;
+    body = <OptionTable rows={optionRows} open={marketOpen} onOpen={setOpenContract} />;
     footnote = `Ranked among the ${data.contracts.length} most-traded ${
       optKind === "OPTIDX" ? "index" : "stock"
     } option contracts in the nearest expiry (${data.underlyings.length} underlyings, ${data.scanned.toLocaleString("en-IN")} contracts scanned). Change is vs the previous close.`;
@@ -440,6 +450,7 @@ export default function MoversView() {
         <div className="mt-3 border-t border-slate-100">{body}</div>
         {footnote && <p className="border-t border-slate-100 px-4 py-2.5 text-[10.5px] text-slate-400">{footnote}</p>}
       </div>
+      {openContract && <MoverContractSheet contract={openContract} onClose={() => setOpenContract(null)} />}
     </div>
   );
 }

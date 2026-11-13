@@ -51,3 +51,59 @@ test("2.1 the Watchlist page has a Watchlist | Options toggle that switches to /
   await expect(page).toHaveURL(/\/app\/options$/);
   await expect(page.getByRole("navigation", { name: "Watchlist or Options" }).getByRole("link", { name: "Options" })).toHaveAttribute("aria-current", "page");
 });
+
+const optionMovers = {
+  source: "live",
+  asOf: "2026-11-11T08:20:00Z",
+  data: {
+    contracts: [
+      { symbol: "NIFTY", expiry: "2026-11-17", strike: 25250, type: "CE", ltp: 120.5, change: 5.5, changePct: 4.78, volume: 900000, value: 7.0e9, lot: 65 },
+      { symbol: "NIFTY", expiry: "2026-11-17", strike: 25200, type: "PE", ltp: 80.25, change: -4.25, changePct: -5.03, volume: 700000, value: 3.5e9, lot: 65 },
+    ],
+    underlyings: ["NIFTY"],
+    scanned: 100,
+  },
+};
+
+async function openOptionMovers(page: Page) {
+  await page.route("**/api/fno-movers**", (r) => {
+    const view = new URL(r.request().url()).searchParams.get("view");
+    return r.fulfill({ json: view === "options" ? optionMovers : { source: "unavailable" } });
+  });
+  await page.goto("/app/movers", { waitUntil: "domcontentloaded" });
+  await page.getByRole("tab", { name: /^F&O/ }).click();
+  await page.getByRole("tab", { name: /^Options/ }).click();
+}
+
+test("4.6 tapping a Movers option row opens the option sheet for that contract", async ({ page }) => {
+  await page.clock.install({ time: OPEN });
+  await mockQuotes(page);
+  await page.route("**/api/options-chain**", (r) => {
+    expect(new URL(r.request().url()).searchParams.get("underlying")).toBe("NIFTY");
+    return r.fulfill({ json: chain("NIFTY", "2026-11-17") });
+  });
+  await page.route("**/api/option-quote**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await page.route("**/api/option-candles**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await openOptionMovers(page);
+  await expect(page.locator("tr", { hasText: "25200" })).toBeVisible();
+  await noSideScroll(page, "movers");
+  // tap the second row (a put), not the first, so the sheet is proved to follow the row tapped
+  await page.locator("tr", { hasText: "25200" }).locator("td").nth(1).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  const title = dialog.locator("#order-sheet-title");
+  await expect(title).toContainText("25200");
+  await expect(title).toContainText("PE");
+  await expect(dialog.getByRole("button", { name: /^(Paper )?sell$/i }).first()).toBeVisible();
+});
+
+test("4.6 a row whose live chain can't be loaded says so instead of opening another contract", async ({ page }) => {
+  await page.clock.install({ time: OPEN });
+  await mockQuotes(page);
+  await page.route("**/api/options-chain**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await openOptionMovers(page);
+  await page.locator("tr", { hasText: "25250" }).locator("td").nth(1).click();
+  await expect(page.getByTestId("mover-sheet-unavailable")).toContainText("isn't available right now");
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
