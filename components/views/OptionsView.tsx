@@ -10,6 +10,8 @@ import { useZestoxx } from "@/components/ZestoxxProvider";
 import { SYMBOLS } from "@/lib/symbols";
 import { fmt, fmtIsoDate } from "@/lib/helpers";
 import { useOptionChain } from "@/lib/useOptionChain";
+import { atmContract } from "@/lib/sell-shortcut";
+import { PAPER_SELL } from "@/lib/labels";
 
 export default function OptionsView() {
   const { selected, sym, price, setSelected } = useZestoxx();
@@ -28,6 +30,8 @@ export default function OptionsView() {
     expiry: string;
     strike: number;
     type: "CE" | "PE";
+    /** opened from a Paper sell shortcut */
+    sell?: boolean;
   } | null>(null);
   const sheet =
     chain && contract && contract.underlying === chain.underlying && contract.expiry === chain.expiry
@@ -88,6 +92,23 @@ export default function OptionsView() {
           <>
             <div className="border-b border-slate-200 p-4">
               <OptionsStatsStrip chain={chain} />
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:max-w-md">
+                {(["CE", "PE"] as const).map((type) => {
+                  const atm = atmContract(chain, type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      disabled={!atm}
+                      onClick={() => atm && setContract({ underlying: chain.underlying, expiry: chain.expiry, ...atm, sell: true })}
+                      className="rounded-md bg-rose-500 px-2 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    >
+                      {type === "CE" ? `${PAPER_SELL} Call` : `${PAPER_SELL} Put`}
+                      {atm && <span className="block text-[10.5px] font-normal opacity-90">ATM {atm.strike}</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="max-h-[560px] overflow-auto">
               <OptionsChain
@@ -105,6 +126,7 @@ export default function OptionsView() {
           chain={chain}
           strike={sheet.strike}
           type={sheet.type}
+          sellIntent={sheet.sell}
           onPick={(strike, type) => setContract({ ...sheet, strike, type })}
           onClose={() => setContract(null)}
         />

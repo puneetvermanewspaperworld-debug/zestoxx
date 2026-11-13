@@ -52,6 +52,28 @@ test("2.1 the Watchlist page has a Watchlist | Options toggle that switches to /
   await expect(page.getByRole("navigation", { name: "Watchlist or Options" }).getByRole("link", { name: "Options" })).toHaveAttribute("aria-current", "page");
 });
 
+test("17.3 /app/options has Paper sell Call and Paper sell Put buttons that open the order sheet on the ATM strike", async ({ page }) => {
+  await page.clock.install({ time: OPEN });
+  await mockQuotes(page);
+  await page.route("**/api/options-chain**", (r) => r.fulfill({ json: chain("NIFTY50", "2026-11-17") }));
+  await page.route("**/api/option-quote**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await page.route("**/api/option-candles**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await page.goto("/app/options", { waitUntil: "domcontentloaded" });
+  const sellCall = page.getByRole("button", { name: /^Paper sell Call/ });
+  const sellPut = page.getByRole("button", { name: /^Paper sell Put/ });
+  await expect(sellCall).toBeVisible();
+  await expect(sellPut).toBeVisible();
+  await noSideScroll(page, "options");
+  await sellCall.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("#order-sheet-title")).toContainText("25250 CE");
+  await expect(dialog.getByTestId("sell-not-held")).toContainText("short selling isn't supported");
+  await page.keyboard.press("Escape");
+  await sellPut.click();
+  await expect(page.locator("#order-sheet-title")).toContainText("25250 PE");
+});
+
 const optionMovers = {
   source: "live",
   asOf: "2026-11-11T08:20:00Z",
