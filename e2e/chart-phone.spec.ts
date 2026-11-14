@@ -428,3 +428,30 @@ test("on a phone the studies menu is a sheet with 44 px rows; adding RSI gives i
   expect((await page.locator('[data-testid^="legend-remove-"]').last().boundingBox())!.width).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+/* ----------------------------------------------------------------------- fullscreen and landscape -- */
+test("on a phone: fullscreen fills the screen with 44 px controls, and landscape goes fullscreen and either turns the screen or says it cannot", async ({ page }) => {
+  await openPhone(page);
+  for (const id of ["scale-button", "grid-button", "crosshair-magnet-button", "fullscreen-button", "landscape-button"]) {
+    const b = (await page.getByTestId(id).boundingBox())!;
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+    expect(b.width, id).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(390);
+  }
+  const root = page.getByTestId("chart-with-tools");
+  await page.getByTestId("fullscreen-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "1");
+  const r = (await root.boundingBox())!;
+  expect([Math.round(r.x), Math.round(r.y), Math.round(r.width)]).toEqual([0, 0, 390]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await page.getByTestId("fullscreen-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "0");
+  // landscape: fullscreen, and a note where the browser cannot lock the screen's rotation
+  await page.getByTestId("landscape-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "1");
+  await expect(root).toHaveAttribute("data-landscape", "1");
+  await expect.poll(async () => (await page.getByTestId("landscape-note").count()) + (await page.evaluate(() => (screen.orientation?.type ?? "").startsWith("landscape") ? 1 : 0))).toBeGreaterThan(0);
+  await page.getByTestId("landscape-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "0");
+  await expect(root).toHaveAttribute("data-landscape", "0");
+});

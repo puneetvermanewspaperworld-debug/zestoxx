@@ -53,6 +53,12 @@ describe("what the chart remembers on this device", () => {
     assert.doesNotThrow(() => saveSettings(boom, DEFAULT_SETTINGS));
     assert.deepEqual(loadSettings(null), parseSettings(null));
   });
+  it("the price scale, grid and magnet crosshair are checked: anything else gives the default", () => {
+    const d = parseSettings({ scale: "sideways", grid: "yes", magnet: 1 });
+    assert.deepEqual([d.scale, d.grid, d.magnet], ["normal", true, false]);
+    const s = parseSettings({ scale: "percent", grid: false, magnet: true });
+    assert.deepEqual([s.scale, s.grid, s.magnet], ["percent", false, true]);
+  });
   it("brick sizes must be positive numbers; a bad one is dropped", () => {
     assert.deepEqual(parseSettings({ renko: { A: 5, B: -1, C: "x", D: 0, E: NaN } }).renko, { A: 5 });
   });

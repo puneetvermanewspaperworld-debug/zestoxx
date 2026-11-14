@@ -12,6 +12,7 @@ import {
   HistogramSeries,
   LineSeries,
   LineStyle,
+  PriceScaleMode,
   createChart,
   type IChartApi,
   type ISeriesApi,
@@ -22,6 +23,7 @@ import {
 } from "lightweight-charts";
 import { ORDINAL_BASE, displayBars, drawingsAllowed, type ChartType, type DisplayBar } from "@/lib/chart/charttypes";
 import { fmtBarStamp } from "@/lib/chart/readout";
+import type { ScaleMode } from "@/lib/chart/settings";
 import { REQUIRES_VOLUME, computeStudies, outputColor, type Num, type StudyInstance, type StudyOutput, type StudyResult } from "@/lib/chart/studies";
 import { ATTRIBUTION_LINK_TEXT, ATTRIBUTION_NOTICE, TRADINGVIEW_URL } from "@/lib/chart/notice";
 import { defaultView } from "@/lib/chart/view";
@@ -37,6 +39,12 @@ export interface TradeChartProps {
   symbol: string;
   /** names the interval, so that a new one starts on a fresh view */
   timeframe: string;
+  /** how the price axis is scaled: normal, logarithmic, or as per cent from the first visible bar */
+  scale: ScaleMode;
+  /** grid lines */
+  grid: boolean;
+  /** the crosshair sticks to the open, high, low or close of the candle (the library's MagnetOHLC mode) */
+  magnet: boolean;
   /** bars shorter than a day: the axis and the crosshair show the time of day (IST) */
   intraday: boolean;
   type: AssetType;
@@ -249,6 +257,26 @@ export default function TradeChart(p: TradeChartProps) {
       shownKey.current = "";
     };
   }, []);
+
+  // How the chart looks: the price scale, the grid, the crosshair. Changing these never moves the view or reloads the data.
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    chart.applyOptions({
+      rightPriceScale: { mode: p.scale === "log" ? PriceScaleMode.Logarithmic : p.scale === "percent" ? PriceScaleMode.Percentage : PriceScaleMode.Normal },
+      grid: { vertLines: { visible: p.grid }, horzLines: { visible: p.grid } },
+      crosshair: { mode: p.magnet ? CrosshairMode.MagnetOHLC : CrosshairMode.Normal },
+    });
+    const el = box.current;
+    if (el) {
+      el.dataset.scale = p.scale;
+      el.dataset.grid = p.grid ? "1" : "0";
+      el.dataset.magnet = p.magnet ? "1" : "0";
+      const o = chart.options();
+      el.dataset.priceMode = String(o.rightPriceScale.mode);
+      el.dataset.crosshairMode = String(o.crosshair.mode);
+    }
+  }, [p.scale, p.grid, p.magnet]);
 
   const input = useMemo(() => ({ ...p }), [p]);
 

@@ -7,7 +7,7 @@ import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
 import { MAX_STUDIES, nextUid, type ChartSettings } from "@/lib/chart/settings";
 import { STUDY_MAP, defaultParams, nextColor, type StudyResult } from "@/lib/chart/studies";
-import ChartControls, { type FeedInfo } from "./ChartControls";
+import ChartControls, { type FeedInfo, type FullscreenApi } from "./ChartControls";
 import StudyLegend from "./StudyLegend";
 import ChartToolbox, { ChartProperties } from "./ChartToolbox";
 import CrosshairReadout from "./CrosshairReadout";
@@ -27,7 +27,7 @@ import { useLevelAlerts } from "./useLevelAlerts";
 const BASE_PX = { phone: 320, wide: 360 };
 const PANE_PX = 120;
 
-export default function ChartWithTools({ settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
+export default function ChartWithTools({ settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies" | "scale" | "grid" | "magnet"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
   const api = useDrawings(chartProps.symbol);
   const chartType = settings.type;
   const renkoSize = settings.renko[chartProps.symbol] ?? null;
@@ -54,6 +54,79 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
     clear: () => update({ studies: [] }),
     setParams: (uid: number, params: Record<string, number>) => update((prev) => ({ studies: prev.studies.map((s) => (s.uid === uid ? { ...s, params } : s)) })),
   };
+  // Fullscreen: the chart takes the whole screen (a fixed overlay, so it works where the Fullscreen API does not, as on an iPhone), and the
+  // browser's own fullscreen is asked for as well. Landscape: the same, and the screen is asked to turn sideways; where the browser cannot
+  // lock rotation a note says so.
+  const [full, setFull] = useState(false);
+  const [landscape, setLandscape] = useState(false);
+  const [fsNote, setFsNote] = useState<string | null>(null);
+  const apiFull = useRef(false);
+  /** the same element as `root`, for the fullscreen request (kept apart so the scroll-anchoring effect does not touch what the callbacks use) */
+  const stage = useRef<HTMLDivElement | null>(null);
+  const leave = useCallback(async () => {
+    setFull(false);
+    setLandscape(false);
+    setFsNote(null);
+    const was = apiFull.current;
+    apiFull.current = false;
+    try {
+      if (was && document.fullscreenElement) await document.exitFullscreen();
+    } catch {
+      // not in the browser's fullscreen any more
+    }
+    try {
+      screen.orientation?.unlock?.();
+    } catch {
+      // nothing was locked
+    }
+  }, []);
+  const enter = useCallback(async () => {
+    setFull(true);
+    try {
+      await stage.current?.requestFullscreen?.();
+      apiFull.current = true;
+    } catch {
+      // the overlay is already full screen; the browser just would not go further
+    }
+  }, []);
+  const fullscreen: FullscreenApi = {
+    on: full,
+    toggle: () => void (full ? leave() : enter()),
+    landscape,
+    toggleLandscape: () => {
+      if (landscape) {
+        void leave();
+        return;
+      }
+      setLandscape(true);
+      void enter().then(async () => {
+        try {
+          await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("landscape");
+          setFsNote(null);
+        } catch {
+          setFsNote("This browser cannot turn the screen for you. Turn your phone sideways.");
+        }
+      });
+    },
+    note: fsNote,
+  };
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector('[role="dialog"]')) void leave();
+    };
+    // the browser's own fullscreen was left (Escape, a back gesture): so is ours
+    const onChange = () => {
+      if (apiFull.current && !document.fullscreenElement) void leave();
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onChange);
+    };
+  }, [full, leave]);
+
   const onStudies = useCallback((results: StudyResult[], hasVolume: boolean) => setStudyState({ results, hasVolume }), []);
   // each oscillator is a pane of its own: the chart is taller by that much
   const paneCount = studyState.results.filter((r) => r.availability.ok && r.def.placement === "pane").length;
@@ -90,8 +163,17 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
   const cloneBy = useCallback((d: Drawing) => cloneOffset(d, times), [times]);
 
   return (
-    <div ref={root} className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
-      <ChartControls symbol={chartProps.symbol} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} studies={studiesApi} studyRequest={studyRequest} onStudyMenuClosed={() => setStudyRequest(null)} />
+    <div
+      ref={(el) => {
+        root.current = el;
+        stage.current = el;
+      }}
+      className={full ? "fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-white p-2" : "flex flex-col"} data-testid="chart-with-tools"
+      data-tool={api.tool}
+      data-fullscreen={full ? "1" : "0"}
+      data-landscape={landscape ? "1" : "0"}
+    >
+      <ChartControls symbol={chartProps.symbol} fullscreen={fullscreen} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} studies={studiesApi} studyRequest={studyRequest} onStudyMenuClosed={() => setStudyRequest(null)} />
       <StudyLegend results={studyState.results} bars={bars} chart={ctx?.chart ?? null} type={chartProps.type} onEdit={(uid) => setStudyRequest({ uid, n: (studyRequest?.n ?? 0) + 1 })} onRemove={studiesApi.remove} />
       {drawable ? (
         <ChartToolbox api={api} />
@@ -109,13 +191,16 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
         </p>
       )}
       <div
-        className={"h-[var(--chart-h)] md:h-[var(--chart-h-wide)]" + (feed.status === "loading" ? " opacity-60" : "")}
+        className={(full ? "min-h-[240px] flex-1" : "h-[var(--chart-h)] md:h-[var(--chart-h-wide)]") + (feed.status === "loading" ? " opacity-60" : "")}
         style={{ "--chart-h": `${BASE_PX.phone + paneCount * PANE_PX}px`, "--chart-h-wide": `${BASE_PX.wide + paneCount * PANE_PX}px` } as React.CSSProperties}
         aria-busy={feed.status === "loading"}
       >
         <TradeChart
           {...chartProps}
           studies={settings.studies}
+          scale={settings.scale}
+          grid={settings.grid}
+          magnet={settings.magnet}
           onStudies={onStudies}
           chartType={chartType}
           renkoSize={renkoSize}

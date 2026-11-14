@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, CandlestickChart, ChevronDown, LineChart, Mountain, RefreshCw, TrendingUp, Waves } from "lucide-react";
+import { BarChart3, CandlestickChart, ChevronDown, Crosshair, Grid3x3, LineChart, Maximize2, Minimize2, Mountain, RefreshCw, Smartphone, TrendingUp, Waves } from "lucide-react";
 import { CHART_TYPES, MAX_BRICKS, chartTypeInfo, suggestBrickSize, toRenko, type ChartType } from "@/lib/chart/charttypes";
 import { INTERVALS, RANGES, intervalInfo, pickInterval, pickRange, type IntervalId, type RangeId, type Selection } from "@/lib/chart/intervals";
 import type { TimedCandle } from "@/lib/chart/series";
-import type { ChartSettings } from "@/lib/chart/settings";
+import type { ChartSettings, ScaleMode } from "@/lib/chart/settings";
 import Sheet, { Badge, controlBtn, rowClass } from "./Sheet";
 import StudiesMenu, { type StudiesApi } from "./StudiesMenu";
 import type { SettingsUpdate } from "./useChartSettings";
@@ -38,8 +38,20 @@ export interface FeedInfo {
   reload: () => void;
 }
 
+/** The chart's fullscreen and landscape state, owned by the chart wrapper. */
+export interface FullscreenApi {
+  on: boolean;
+  toggle: () => void;
+  /** phones: fullscreen and ask for landscape */
+  landscape: boolean;
+  toggleLandscape: () => void;
+  /** a message when the screen could not be turned (this browser cannot lock rotation) */
+  note: string | null;
+}
+
 export interface ChartControlsProps {
   symbol: string;
+  fullscreen: FullscreenApi;
   feed: FeedInfo;
   settings: ChartSettings;
   update: SettingsUpdate;
@@ -61,6 +73,7 @@ export default function ChartControls(p: ChartControlsProps) {
         <TypeMenu {...p} />
         <IntervalMenu {...p} />
         <StudiesMenu api={p.studies} openFor={p.studyRequest} onClosed={p.onStudyMenuClosed} />
+        <ViewControls {...p} />
         {p.feed.indian && (
           <span data-testid="tz-note" className="text-[10.5px] text-slate-400">
             Times in IST
@@ -69,7 +82,68 @@ export default function ChartControls(p: ChartControlsProps) {
       </div>
       {p.feed.showRanges && <RangeRow {...p} />}
       <FeedStatus {...p} />
+      {p.fullscreen.note && (
+        <p role="status" data-testid="landscape-note" className="text-[11.5px] text-slate-500">
+          {p.fullscreen.note}
+        </p>
+      )}
     </div>
+  );
+}
+
+const SCALE_LABEL: Record<ScaleMode, string> = { normal: "Linear", log: "Log", percent: "%" };
+
+/** The price scale (linear, log, per cent), the grid, the magnet crosshair, fullscreen, and landscape on a phone. */
+function ViewControls({ settings, update, fullscreen }: ChartControlsProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Price scale: ${SCALE_LABEL[settings.scale]}`} data-testid="scale-button" className={controlBtn(settings.scale !== "normal")}>
+        <span className="font-mono">{SCALE_LABEL[settings.scale]}</span>
+        <ChevronDown size={14} aria-hidden />
+      </button>
+      <button type="button" aria-pressed={settings.grid} aria-label="Grid" title="Grid lines" onClick={() => update({ grid: !settings.grid })} data-testid="grid-button" className={controlBtn(settings.grid)}>
+        <Grid3x3 size={18} aria-hidden />
+      </button>
+      <button type="button" aria-pressed={settings.magnet} aria-label="Magnet crosshair" title="Magnet crosshair: sticks to the open, high, low or close of the candle" onClick={() => update({ magnet: !settings.magnet })} data-testid="crosshair-magnet-button" className={controlBtn(settings.magnet)}>
+        <Crosshair size={18} aria-hidden />
+      </button>
+      <button type="button" aria-pressed={fullscreen.on} aria-label={fullscreen.on ? "Exit fullscreen" : "Fullscreen"} onClick={fullscreen.toggle} data-testid="fullscreen-button" className={controlBtn(fullscreen.on)}>
+        {fullscreen.on ? <Minimize2 size={18} aria-hidden /> : <Maximize2 size={18} aria-hidden />}
+      </button>
+      <button type="button" aria-pressed={fullscreen.landscape} aria-label="Landscape" title="Landscape: fullscreen, turned sideways" onClick={fullscreen.toggleLandscape} data-testid="landscape-button" className={controlBtn(fullscreen.landscape) + " md:hidden"}>
+        <Smartphone size={18} aria-hidden className="-rotate-90" />
+      </button>
+      {open && (
+        <Sheet title="Price scale" onClose={() => setOpen(false)} testId="scale-sheet">
+          <div role="radiogroup" aria-label="Price scale">
+            {(
+              [
+                ["normal", "Linear", "Equal price steps"],
+                ["log", "Logarithmic", "Equal per cent steps: better across big moves"],
+                ["percent", "Per cent", "Moves as a per cent of the first bar in view"],
+              ] as const
+            ).map(([id, label, hint]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={settings.scale === id}
+                data-testid={`scale-${id}`}
+                onClick={() => {
+                  update({ scale: id });
+                  setOpen(false);
+                }}
+                className={rowClass(settings.scale === id)}
+              >
+                <span className="w-28 font-medium">{label}</span>
+                <span className="flex-1 text-[11.5px] text-slate-400">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 
