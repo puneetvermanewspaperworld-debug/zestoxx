@@ -38,7 +38,7 @@ test("News page and dashboard card say news is not connected, with no headlines"
 test("Pulse page says what the scores are based on, and lists no score for a symbol without a real quote", async ({ page }) => {
   await quotes(page, { TCS: { price: 4200, prevClose: 4100 } });
   await page.goto("/app/pulse", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText(/Based on: Price momentum/)).toBeVisible();
+  await expect(page.getByText(/Pulse scores are based on price momentum/)).toBeVisible();
   await expect(page.getByText(/News is not part of the score/)).toBeVisible();
   await expect(page.getByText(/No live quote yet, so no score:/)).toBeVisible();
 });
@@ -165,4 +165,35 @@ test("no page scrolls sideways at 360px", async ({ page }) => {
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(over, path).toBeLessThanOrEqual(0);
   }
+});
+
+test("Trade page badge: Live data while the market is open, Last close once it is shut, never Live data while shut", async ({ page }) => {
+  await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await page.clock.install({ time: OPEN });
+  await quotes(page, { RELIANCE: { price: 1500, prevClose: 1490 } });
+  await page.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("data-badge")).toHaveText("Live data");
+
+  const shut = await page.context().newPage();
+  await shut.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await shut.clock.install({ time: SHUT });
+  await quotes(shut, { RELIANCE: { price: 1500, prevClose: 1490 } });
+  await shut.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await expect(shut.getByTestId("data-badge")).toHaveText("Last close");
+  await expect(shut.getByText("Live data")).toHaveCount(0);
+});
+
+test("Trade page badge: crypto is Live data even while the Indian market is shut", async ({ page }) => {
+  await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unsupported" } }));
+  await page.clock.install({ time: SHUT });
+  await quotes(page, {});
+  await page.goto("/app/trade/BTC", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("data-badge")).toHaveText("Live data");
+});
+
+test("News page: the sentence has its lead-in", async ({ page }) => {
+  await quotes(page, {});
+  await page.goto("/app/news", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Pulse scores are based on price momentum (day change) and RSI positioning.")).toBeVisible();
+  await expect(page.getByText(/^Price momentum \(day change\)/)).toHaveCount(0);
 });

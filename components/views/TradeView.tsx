@@ -25,6 +25,8 @@ import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
 import { aggregateCandles } from "@/lib/history";
 import { computeCustomSeries } from "@/lib/formula";
 import { computePulse } from "@/lib/pulse";
+import { dataBadge } from "@/lib/data-badge";
+import { useMarketStatus } from "@/lib/useMarketStatus";
 import { fmt, fmtSigned } from "@/lib/helpers";
 import type { Candle, Timeframe } from "@/lib/types";
 
@@ -87,6 +89,8 @@ export default function TradeView({ symbol }: { symbol?: string }) {
   const visible = applyTimeframe(histories[selected], timeframe);
   const symOrders = orderLog.filter((o) => o.symbol === selected).slice(0, 6);
   const pulse = computePulse(selected, live, histories, prevCloseFor(selected));
+  const marketOpen = useMarketStatus()?.open ?? null;
+  const badge = dataBadge(liveSource[selected], marketOpen, sym.type);
   const compareCandles = compareWith ? applyTimeframe(histories[compareWith], timeframe) : null;
   const { series: customSeries, error: formulaError } = useMemo(
     () => computeCustomSeries(visible, formula),
@@ -146,22 +150,18 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                   <Zap size={10} /> Pulse {pulse.score} · {pulse.label}
                 </span>
                 )}
-                <span
-                  className={
-                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                    (liveSource[selected] === "live"
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "bg-slate-100 text-slate-500")
-                  }
-                >
+                {badge && (
                   <span
+                    data-testid="data-badge"
                     className={
-                      "h-1.5 w-1.5 rounded-full " +
-                      (liveSource[selected] === "live" ? "bg-emerald-500" : "bg-slate-400")
+                      "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
+                      (badge.tone === "live" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")
                     }
-                  />
-                  {liveSource[selected] === "live" ? "Live data" : "Simulated"}
-                </span>
+                  >
+                    <span className={"h-1.5 w-1.5 rounded-full " + (badge.tone === "live" ? "bg-emerald-500" : "bg-slate-400")} />
+                    {badge.label}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">

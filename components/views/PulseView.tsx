@@ -24,7 +24,7 @@ export default function PulseView() {
         <p className="mt-1 text-[12px] text-slate-500">
           One composite score per symbol, worked out from live price data only.
         </p>
-        <p className="mt-1 text-[11.5px] text-slate-400">Based on: {PULSE_BASIS}</p>
+        <p className="mt-1 text-[11.5px] text-slate-400">{PULSE_BASIS}</p>
       </div>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((r) => {

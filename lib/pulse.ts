@@ -2,7 +2,8 @@ import type { Candle, PulseResult } from "./types";
 import { rsiSeries } from "./indicators";
 
 /** What every Pulse score is built from, shown wherever a score is. There is no news in it: no news source is connected. */
-export const PULSE_BASIS = "Price momentum (day change) and RSI positioning. News is not part of the score because no news source is connected.";
+export const PULSE_BASIS =
+  "Pulse scores are based on price momentum (day change) and RSI positioning. News is not part of the score because no news source is connected.";
 
 export const PULSE_WEIGHTS = { momentum: 0.625, rsi: 0.375 } as const;
 
