@@ -1,32 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Copy, Eye, EyeOff, Lock, LockOpen, Magnet, MousePointer2, Minus, MoveUpRight, Pin, Redo2, Rows2, Ruler, Square, Trash2, TrendingUp, Type, Undo2 } from "lucide-react";
-import { COLORS, DASHES, TOOLS, WIDTHS, type Dash, type Drawing, type ToolId, type Width } from "@/lib/chart/drawings";
+import { Copy, Eye, EyeOff, Lock, LockOpen, Trash2 } from "lucide-react";
+import { COLORS, DASHES, WIDTHS, type Dash, type Drawing, type Width } from "@/lib/chart/drawings";
 import type { DrawingsApi } from "./useDrawings";
-
-/** Our own icons from the lucide set (ISC licence); none of TradingView's. */
-const ICON: Record<ToolId, React.ComponentType<{ size?: number; "aria-hidden"?: boolean }>> = {
-  select: MousePointer2,
-  hline: Minus,
-  trend: TrendingUp,
-  ray: MoveUpRight,
-  rect: Square,
-  channel: Rows2,
-  text: Type,
-  measure: Ruler,
-};
-
-const HINT: Record<ToolId, string> = {
-  select: "Tap a drawing to select it.",
-  hline: "Tap the chart where the level should go.",
-  trend: "Tap two points on the chart.",
-  ray: "Tap two points on the chart; the ray runs on from the second.",
-  rect: "Tap two opposite corners of the range.",
-  channel: "Tap two points for the line; drag the middle handle to set the channel's width.",
-  text: "Tap where the note should go, then type it.",
-  measure: "Drag from one point to another, or tap two points.",
-};
 
 const btn = (on = false, danger = false) =>
   "flex min-h-[40px] min-w-[40px] items-center justify-center gap-1 rounded-md border px-2 text-[11.5px] font-medium transition-colors disabled:opacity-40 " +
@@ -59,32 +36,7 @@ export default function ChartToolbox({ api, cloneBy }: { api: DrawingsApi; clone
 
   return (
     <div className="mb-2 space-y-2 border-b border-blue-50 pb-2.5" data-testid="chart-toolbox">
-      <div role="toolbar" aria-label="Drawing tools" className="flex flex-wrap gap-1">
-        {TOOLS.map((t) => {
-          const Icon = ICON[t.id];
-          return (
-            <button key={t.id} type="button" title={t.label} aria-label={t.label} aria-pressed={api.tool === t.id} data-testid={`tool-${t.id}`} onClick={() => api.setTool(api.tool === t.id && t.id !== "select" ? "select" : t.id)} className={btn(api.tool === t.id)}>
-              <Icon size={16} aria-hidden />
-              <span className="hidden lg:inline">{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
       <div role="toolbar" aria-label="Drawing actions" className="flex flex-wrap items-center gap-1">
-        <button type="button" aria-label="Undo" title="Undo" disabled={!api.canUndo} onClick={api.undo} data-testid="undo" className={btn()}>
-          <Undo2 size={16} aria-hidden />
-        </button>
-        <button type="button" aria-label="Redo" title="Redo" disabled={!api.canRedo} onClick={api.redo} data-testid="redo" className={btn()}>
-          <Redo2 size={16} aria-hidden />
-        </button>
-        <button type="button" aria-label="Magnet" aria-pressed={api.magnet} title="Snap to a candle's open, high, low or close" onClick={api.toggleMagnet} data-testid="magnet" className={btn(api.magnet)}>
-          <Magnet size={16} aria-hidden /> <span className="hidden sm:inline">Magnet</span>
-        </button>
-        <button type="button" aria-label="Stay in drawing mode" aria-pressed={api.stay} title="Keep the tool after each drawing" onClick={api.toggleStay} data-testid="stay" className={btn(api.stay)}>
-          <Pin size={16} aria-hidden /> <span className="hidden sm:inline">Stay in mode</span>
-        </button>
-        <span className="mx-1 hidden h-6 w-px bg-slate-200 sm:inline-block" />
         <button type="button" aria-label={api.hidden ? "Show all drawings" : "Hide all drawings"} aria-pressed={api.hidden} onClick={api.toggleHidden} data-testid="hide-all" className={btn(api.hidden)}>
           {api.hidden ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />} <span className="hidden sm:inline">{api.hidden ? "Show all" : "Hide all"}</span>
         </button>
@@ -99,11 +51,6 @@ export default function ChartToolbox({ api, cloneBy }: { api: DrawingsApi; clone
         </span>
       </div>
 
-      {api.tool !== "select" && (
-        <p data-testid="tool-hint" className="text-[11px] text-slate-500">
-          {HINT[api.tool]}
-        </p>
-      )}
 
       {selected && <Properties key={`${selected.id}|${selected.kind === "text" ? selected.text : ""}|${selected.kind === "hline" ? selected.price : ""}`} d={selected} api={api} cloneBy={cloneBy} />}
     </div>

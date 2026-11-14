@@ -122,7 +122,16 @@ export default function TradeChart(p: TradeChartProps) {
       if (r) el.dataset.view = JSON.stringify({ from: Math.round(r.from * 10) / 10, to: Math.round(r.to * 10) / 10 });
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
-    const ro = new ResizeObserver(applyPending);
+    // keep the floating quick-tool bar (about 56 px at the top of the plot) clear of the candles, so every price on screen can be tapped
+    const reserveTop = () => {
+      const h = el.clientHeight;
+      if (h > 0) chart.priceScale("right").applyOptions({ scaleMargins: { top: Math.min(0.3, Math.max(0.08, 60 / h)), bottom: 0.08 } });
+    };
+    const ro = new ResizeObserver(() => {
+      reserveTop();
+      applyPending();
+    });
+    reserveTop();
     ro.observe(el);
     applyPendingRef.current = applyPending;
     return () => {

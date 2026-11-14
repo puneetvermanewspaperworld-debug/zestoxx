@@ -25,10 +25,10 @@ test("horizontal level: tap to place, a price you can edit, stored by price", as
   await page.getByTestId("level-price").blur();
   await expect.poll(async () => (await stored(page))[0].price).toBe(1450.5);
   await expect(page.getByTestId("drawing-layer")).toHaveAttribute("data-levels", "[1450.5]");
-  // a higher tap is a higher price
-  await placeAt(page, "hline", [[260, close + 20]]);
+  // a lower tap is a lower price (the top of the plot is kept for the floating quick-tool bar, so test below the first level)
+  await placeAt(page, "hline", [[260, close - 20]]);
   const two = await waitStored(page, 2);
-  expect(two[1].price!).toBeGreaterThan(close + 10);
+  expect(two[1].price!).toBeLessThan(close - 10);
 });
 
 test("trendline, ray, range box, parallel channel and text note are each placed and stored by (time, price)", async ({ page }) => {

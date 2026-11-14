@@ -121,7 +121,8 @@ export default function DrawingLayer(p: DrawingLayerProps) {
   // A tool in hand: the page must not scroll under the finger. With Measure, one-finger drags are the tool's, not a pan.
   useEffect(() => {
     const el = chart.chartElement();
-    el.style.touchAction = tool === "select" ? "" : "none";
+    // idle: a vertical swipe scrolls the page and a horizontal drag is the chart's; with a tool in hand the finger belongs to the chart
+    el.style.touchAction = tool === "select" ? "pan-y" : "none";
     chart.applyOptions({
       handleScroll: tool === "measure" ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     });
@@ -281,16 +282,19 @@ export default function DrawingLayer(p: DrawingLayerProps) {
       else finish(L.tool as DrawingKind, next);
     };
 
-    el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    el.addEventListener("pointercancel", onCancel);
-    el.addEventListener("pointerleave", () => setHover(null));
+    // Capture phase: the chart handles touches itself and may stop them from bubbling, but it cannot stop what we see on the way down.
+    const onLeave = () => setHover(null);
+    el.addEventListener("pointerdown", onDown, true);
+    el.addEventListener("pointermove", onMove, true);
+    el.addEventListener("pointerup", onUp, true);
+    el.addEventListener("pointercancel", onCancel, true);
+    el.addEventListener("pointerleave", onLeave);
     return () => {
-      el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      el.removeEventListener("pointercancel", onCancel);
+      el.removeEventListener("pointerdown", onDown, true);
+      el.removeEventListener("pointermove", onMove, true);
+      el.removeEventListener("pointerup", onUp, true);
+      el.removeEventListener("pointercancel", onCancel, true);
+      el.removeEventListener("pointerleave", onLeave);
     };
   }, [chart, local, toAnchor, finish, setPending, setHover, setMeasured]);
 
@@ -412,8 +416,8 @@ export default function DrawingLayer(p: DrawingLayerProps) {
   const scaleAttr = JSON.stringify({ x0: chart.timeScale().logicalToCoordinate(0 as Logical), x100: chart.timeScale().logicalToCoordinate(100 as Logical), y1: series.priceToCoordinate(1), y1000: series.priceToCoordinate(1000) });
   if (w <= 0 || h <= 0) return null;
   return (
-    <div className="pointer-events-none absolute left-0 top-0 z-10" style={{ width: w, height: h }} data-testid="drawing-layer" data-scale={scaleAttr} data-levels={JSON.stringify(shown.filter((d) => d.kind === "hline").map((d) => (d as Extract<Drawing, { kind: "hline" }>).price))}>
-      <svg width={w} height={h} className="absolute left-0 top-0 overflow-hidden" data-drawings={shown.length}>
+    <div className="pointer-events-none absolute left-0 top-0 z-10" style={{ width: w, height: h, touchAction: "none" }} data-testid="drawing-layer" data-scale={scaleAttr} data-levels={JSON.stringify(shown.filter((d) => d.kind === "hline").map((d) => (d as Extract<Drawing, { kind: "hline" }>).price))}>
+      <svg width={w} height={h} className="absolute left-0 top-0 overflow-hidden" style={{ touchAction: "none" }} data-drawings={shown.length}>
         {shown.map((d) => {
           const s = shapeOf(d, vp);
           return s ? body(d, s) : null;

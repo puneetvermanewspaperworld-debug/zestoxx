@@ -5,6 +5,7 @@ import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
 import ChartToolbox from "./ChartToolbox";
+import { QuickBar, ToolRail } from "./ChartOverlays";
 import DrawingLayer from "./DrawingLayer";
 import TradeChart, { type TradeChartProps } from "./TradeChart";
 import { useDrawings } from "./useDrawings";
@@ -19,6 +20,8 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
   const [ctx, setCtx] = useState<{ chart: IChartApi; series: ISeriesApi<"Candlestick"> } | null>(null);
   const [bars, setBars] = useState<TimedCandle[]>([]);
   const lot = useIndexLot(chartProps.symbol, chartProps.type);
+  // the tool rail starts open on a wide screen and collapsed on a phone, where it would cover too much of the chart
+  const [railOpen, setRailOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 640);
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
 
   const onBars = useCallback((b: TimedCandle[]) => setBars(b), []);
@@ -34,7 +37,10 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
           onChart={onChart}
           onBars={onBars}
           layer={
-            ctx && api.loaded ? (
+            <>
+              <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} />
+              <QuickBar api={api} />
+              {ctx && api.loaded ? (
               <DrawingLayer
                 chart={ctx.chart}
                 series={ctx.series}
@@ -52,7 +58,8 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
                 onCommitLive={api.commitLive}
                 onUpdate={api.update}
               />
-            ) : null
+              ) : null}
+            </>
           }
         />
       </div>
