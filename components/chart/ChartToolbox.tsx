@@ -6,7 +6,7 @@ import { COLORS, DASHES, WIDTHS, type Dash, type Drawing, type Width } from "@/l
 import type { DrawingsApi } from "./useDrawings";
 
 const btn = (on = false, danger = false) =>
-  "flex min-h-[40px] min-w-[40px] items-center justify-center gap-1 rounded-md border px-2 text-[11.5px] font-medium transition-colors disabled:opacity-40 " +
+  "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-md border px-2 text-[11.5px] font-medium transition-colors disabled:opacity-40 " +
   (on ? "border-blue-300 bg-blue-50 text-blue-700" : danger ? "border-slate-200 text-slate-500 hover:text-rose-500" : "border-slate-200 text-slate-600 hover:text-slate-900");
 
 export default function ChartToolbox({ api, cloneBy }: { api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number } }) {
@@ -76,7 +76,9 @@ function Properties({ d, api, cloneBy }: { d: Drawing; api: DrawingsApi; cloneBy
     <div role="group" aria-label="Selected drawing" data-testid="properties" className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2">
       <div role="group" aria-label="Colour" className="flex gap-1">
         {COLORS.map((c) => (
-          <button key={c} type="button" aria-label={`Colour ${c}`} aria-pressed={d.color === c} data-testid={`colour-${c.slice(1)}`} onClick={() => api.update(d.id, { color: c })} className={"h-8 w-8 rounded-full border-2 " + (d.color === c ? "border-slate-900" : "border-white")} style={{ background: c }} />
+          <button key={c} type="button" aria-label={`Colour ${c}`} aria-pressed={d.color === c} data-testid={`colour-${c.slice(1)}`} onClick={() => api.update(d.id, { color: c })} className="flex h-11 w-11 items-center justify-center rounded-full">
+            <span className={"block h-7 w-7 rounded-full border-2 " + (d.color === c ? "border-slate-900" : "border-white")} style={{ background: c }} />
+          </button>
         ))}
       </div>
       <div role="group" aria-label="Line width" className="flex gap-1">
@@ -106,14 +108,14 @@ function Properties({ d, api, cloneBy }: { d: Drawing; api: DrawingsApi; cloneBy
             onChange={(e) => setPrice(e.target.value)}
             onBlur={commitPrice}
             onKeyDown={(e) => e.key === "Enter" && (e.currentTarget.blur(), undefined)}
-            className="w-28 rounded-md border border-slate-200 bg-white px-2 py-2 font-mono text-[12px] outline-none focus:border-blue-400"
+            className="w-28 min-h-[44px] rounded-md border border-slate-200 bg-white px-2 font-mono text-[12px] outline-none focus:border-blue-400"
           />
         </label>
       )}
       {d.kind === "text" && (
         <label className="flex items-center gap-1 text-[11.5px] text-slate-600">
           Text
-          <input data-testid="note-text" value={text} maxLength={120} disabled={d.locked} onChange={(e) => setText(e.target.value)} onBlur={commitText} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget.blur(), undefined)} className="w-40 rounded-md border border-slate-200 bg-white px-2 py-2 text-[12px] outline-none focus:border-blue-400" />
+          <input data-testid="note-text" value={text} maxLength={120} disabled={d.locked} onChange={(e) => setText(e.target.value)} onBlur={commitText} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget.blur(), undefined)} className="w-40 min-h-[44px] rounded-md border border-slate-200 bg-white px-2 text-[12px] outline-none focus:border-blue-400" />
         </label>
       )}
       {d.kind === "rect" && (
