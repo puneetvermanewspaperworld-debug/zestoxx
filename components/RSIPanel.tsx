@@ -5,7 +5,8 @@ import { rsiSeries } from "@/lib/indicators";
 import { useElementWidth } from "@/lib/useElementWidth";
 import type { Candle } from "@/lib/types";
 
-export default function RSIPanel({ candles }: { candles: Candle[] }) {
+/** `values` are RSI values already worked out on the full history (one per candle); without them the visible candles alone are used. */
+export default function RSIPanel({ candles, values }: { candles: Candle[]; values?: (number | null)[] }) {
   const [boxRef, measured] = useElementWidth<HTMLDivElement>(900);
   const compact = measured < 640;
   const width = compact ? measured : 900,
@@ -14,7 +15,7 @@ export default function RSIPanel({ candles }: { candles: Candle[] }) {
     padR = compact ? 66 : 58,
     padT = 10,
     padB = 10;
-  const series = rsiSeries(candles, 14);
+  const series = values && values.length === candles.length ? values : rsiSeries(candles, 14);
   const chartW = width - padL - padR,
     chartH = height - padT - padB;
   const n = candles.length,

@@ -11,6 +11,7 @@ import {
   type ContractQuote,
 } from "@/lib/contract";
 import { contractLabel } from "@/lib/movers";
+import DataBadge from "@/components/DataBadge";
 import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
 import { quoteNote } from "@/lib/closed-notes";
 import { useMarketStatus } from "@/lib/useMarketStatus";
@@ -305,15 +306,14 @@ export default function OptionOrderSheet({
                 <h3 id="order-sheet-title" className="font-display text-[15px] font-semibold text-slate-900">
                   {label}
                 </h3>
-                <span
-                  className={
-                    "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                    (isLive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")
-                  }
-                >
-                  <span className={"h-1.5 w-1.5 rounded-full " + (isLive ? "bg-emerald-500" : "bg-slate-400")} />
-                  {loading ? "Loading" : isLive ? "Live data" : "Simulated"}
-                </span>
+                {loading ? (
+                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                    Loading
+                  </span>
+                ) : (
+                  <DataBadge source={isLive ? "live" : "sim"} className="mt-1" />
+                )}
               </div>
               <button
                 ref={closeRef}

@@ -24,9 +24,9 @@ import { useZestoxx } from "@/components/ZestoxxProvider";
 import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
 import { aggregateCandles } from "@/lib/history";
 import { computeCustomSeries } from "@/lib/formula";
-import { computePulse } from "@/lib/pulse";
-import { dataBadge } from "@/lib/data-badge";
-import { useMarketStatus } from "@/lib/useMarketStatus";
+import { PULSE_BASIS, pulseFor } from "@/lib/pulse";
+import { rsiSeries } from "@/lib/indicators";
+import DataBadge from "@/components/DataBadge";
 import { fmt, fmtSigned } from "@/lib/helpers";
 import type { Candle, Timeframe } from "@/lib/types";
 
@@ -73,6 +73,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     formula,
     setFormula,
     hasFeedQuote,
+    hasRealHistory,
   } = useZestoxx();
 
   // Keep the selected symbol in sync with the /app/trade/[symbol] route segment.
@@ -88,9 +89,18 @@ export default function TradeView({ symbol }: { symbol?: string }) {
   };
   const visible = applyTimeframe(histories[selected], timeframe);
   const symOrders = orderLog.filter((o) => o.symbol === selected).slice(0, 6);
-  const pulse = computePulse(selected, live, histories, prevCloseFor(selected));
-  const marketOpen = useMarketStatus()?.open ?? null;
-  const badge = dataBadge(liveSource[selected], marketOpen, sym.type);
+  const pulseState = pulseFor({
+    symId: selected,
+    live,
+    histories,
+    prevClose: prevCloseFor(selected),
+    hasQuote: hasFeedQuote(selected),
+    hasRealHistory: hasRealHistory(selected),
+  });
+  // RSI is worked out on the whole history and then cut to what is on screen: Wilder's smoothing needs the earlier bars.
+  const frame = { D: { size: 1, keep: 30 }, W: { size: 5, keep: 26 }, M: { size: 21, keep: 14 } }[timeframe];
+  const fullFrame = frame.size === 1 ? histories[selected] : aggregateCandles(histories[selected], frame.size);
+  const rsiVisible = rsiSeries(fullFrame, 14).slice(-frame.keep);
   const compareCandles = compareWith ? applyTimeframe(histories[compareWith], timeframe) : null;
   const { series: customSeries, error: formulaError } = useMemo(
     () => computeCustomSeries(visible, formula),
@@ -135,33 +145,24 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                   {chg >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                   {fmtSigned(chg, 2, "%")}
                 </span>
-                {hasFeedQuote(selected) && (
                 <span
-                  title={pulse.basis}
+                  data-testid="pulse-pill"
+                  title={pulseState.state === "ok" ? pulseState.result.basis : PULSE_BASIS}
                   className={
                     "ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                    (pulse.label === "Bullish"
-                      ? "bg-emerald-50 text-emerald-500"
-                      : pulse.label === "Bearish"
-                        ? "bg-rose-50 text-rose-500"
-                        : "bg-blue-50 text-slate-500")
+                    (pulseState.state !== "ok"
+                      ? "bg-slate-100 text-slate-500"
+                      : pulseState.result.label === "Bullish"
+                        ? "bg-emerald-50 text-emerald-500"
+                        : pulseState.result.label === "Bearish"
+                          ? "bg-rose-50 text-rose-500"
+                          : "bg-blue-50 text-slate-500")
                   }
                 >
-                  <Zap size={10} /> Pulse {pulse.score} · {pulse.label}
+                  <Zap size={10} />{" "}
+                  {pulseState.state === "ok" ? `Pulse ${pulseState.result.score} · ${pulseState.result.label}` : `Pulse · ${pulseState.text}`}
                 </span>
-                )}
-                {badge && (
-                  <span
-                    data-testid="data-badge"
-                    className={
-                      "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                      (badge.tone === "live" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")
-                    }
-                  >
-                    <span className={"h-1.5 w-1.5 rounded-full " + (badge.tone === "live" ? "bg-emerald-500" : "bg-slate-400")} />
-                    {badge.label}
-                  </span>
-                )}
+                <DataBadge source={liveSource[selected]} type={sym.type} />
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -334,7 +335,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           )}
           {showRSI && (
             <div className="mt-1 h-[90px] border-t border-blue-50 pt-1 md:h-[80px]">
-              <RSIPanel candles={visible} />
+              <RSIPanel candles={visible} values={rsiVisible} />
             </div>
           )}
         </div>

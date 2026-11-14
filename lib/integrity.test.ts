@@ -79,7 +79,10 @@ describe("movers and trade page use real data only", () => {
     assert.doesNotMatch(src, /slice\(-3\)/);
     assert.match(src, /hasFeedQuote/);
   });
-  it("the Pulse pill on the trade page only appears for a symbol with a real quote", () => {
-    assert.match(read("components/views/TradeView.tsx"), /hasFeedQuote\(selected\) &&/);
+  it("the Pulse pill on the trade page goes through pulseFor: a score only with a real quote and real history", () => {
+    const src = fs.readFileSync("components/views/TradeView.tsx", "utf8");
+    assert.match(src, /pulseFor\(/);
+    assert.match(src, /hasFeedQuote\(selected\)/);
+    assert.match(src, /hasRealHistory\(selected\)/);
   });
 });

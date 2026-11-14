@@ -23,10 +23,18 @@ describe("Trade page data badge", () => {
     for (const open of [true, false, null]) assert.deepEqual(dataBadge("sim", open, "stock"), { label: "Simulated", tone: "sim" });
     assert.deepEqual(dataBadge(undefined, true, "stock"), { label: "Simulated", tone: "sim" });
   });
-  it("the Trade page uses it, with no hard-coded Live data label left", () => {
-    const src = fs.readFileSync("components/views/TradeView.tsx", "utf8");
-    assert.match(src, /dataBadge\(/);
-    assert.doesNotMatch(src, /"Live data"/);
+  it("every page that shows a data source uses the shared badge, with no hard-coded Live data label", () => {
+    for (const f of [
+      "components/views/TradeView.tsx",
+      "components/views/MoversView.tsx",
+      "components/OptionOrderSheet.tsx",
+      "components/views/OptionsView.tsx",
+      "components/views/BuildupView.tsx",
+    ]) {
+      const src = fs.readFileSync(f, "utf8");
+      assert.match(src, /<DataBadge /, f);
+      assert.doesNotMatch(src, /"Live data"/, f);
+    }
   });
 });
 

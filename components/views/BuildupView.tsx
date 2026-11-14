@@ -1,5 +1,6 @@
 "use client";
 
+import DataBadge from "@/components/DataBadge";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CircleHelp, X } from "lucide-react";
 import OptionsStatsStrip from "@/components/OptionsStatsStrip";
@@ -371,19 +372,7 @@ export default function BuildupView() {
             <h2 className="font-display text-[16px] font-semibold text-slate-900">Long / Short Buildup</h2>
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
               <span>Where option positioning is being added or unwound.</span>
-              {chain && (
-                <span
-                  className={
-                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                    (chain.source === "live" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")
-                  }
-                >
-                  <span
-                    className={"h-1.5 w-1.5 rounded-full " + (chain.source === "live" ? "bg-emerald-500" : "bg-slate-400")}
-                  />
-                  {chain.source === "live" ? "Live data" : "Simulated"}
-                </span>
-              )}
+              {chain && <DataBadge source={chain.source === "live" ? "live" : "sim"} />}
             </p>
           </div>
           <button
