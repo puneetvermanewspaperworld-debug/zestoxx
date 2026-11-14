@@ -28,6 +28,7 @@ export function aggregateCandles(candles: Candle[], groupSize: number): Candle[]
     const chunk = candles.slice(i, i + groupSize);
     if (chunk.length === 0) continue;
     out.push({
+      ...(chunk[0].t !== undefined ? { t: chunk[0].t } : {}),
       open: chunk[0].open,
       close: chunk[chunk.length - 1].close,
       high: Math.max(...chunk.map((c) => c.high)),

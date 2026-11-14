@@ -37,7 +37,6 @@ import type {
   OpenOrder,
   PriceAlert,
   Toast,
-  Drawing,
   LiveSource,
   Timeframe,
   SymbolInfo,
@@ -106,11 +105,6 @@ interface ZestoxxContextValue {
   toasts: Toast[];
   dismissToast: (id: number) => void;
   alertPrefill: string | null;
-  drawMode: string;
-  setDrawMode: React.Dispatch<React.SetStateAction<string>>;
-  drawings: Drawing[];
-  onAddDrawing: (d: Drawing) => void;
-  onClearDrawings: () => void;
   formula: string;
   setFormula: React.Dispatch<React.SetStateAction<string>>;
   sym: SymbolInfo;
@@ -213,8 +207,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [alertPrefill, setAlertPrefill] = useState<string | null>(null);
-  const [drawMode, setDrawMode] = useState("none");
-  const [drawingsBySymbol, setDrawingsBySymbol] = useState<Record<string, Drawing[]>>({});
   const [formula, setFormula] = useState("");
   const [liveSource, setLiveSource] = useState<LiveSource>({});
   const [realHistory, setRealHistory] = useState<Record<string, boolean>>({});
@@ -224,20 +216,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const feedSettled = useRef(false);
   // Symbols that already have a live quote (price + previous close arrive as one unit).
   const quotedRef = useRef<Set<string>>(new Set());
-
-  const onAddDrawing = useCallback(
-    (d: Drawing) => {
-      setDrawingsBySymbol((prev) => ({
-        ...prev,
-        [selectedRef.current]: [...(prev[selectedRef.current] || []), d],
-      }));
-      setDrawMode("none");
-    },
-    []
-  );
-  const onClearDrawings = useCallback(() => {
-    setDrawingsBySymbol((prev) => ({ ...prev, [selectedRef.current]: [] }));
-  }, []);
 
   const setActiveView = useCallback(
     (v: ViewId) => {
@@ -366,13 +344,15 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const applyHistory = (data: Record<string, number[][]>) => {
+    /** `tzOffsetMs`: how far ahead of UTC the feed's calendar day is (IST, 5.5 h, for Indian symbols); a bar's `t` is its calendar day at 00:00 UTC. */
+    const applyHistory = (data: Record<string, number[][]>, tzOffsetMs = 0) => {
       const ids = Object.keys(data).filter((id) => Array.isArray(data[id]) && data[id].length >= 10);
       if (cancelled || ids.length === 0) return;
       setHistories((prev) => {
         const next = { ...prev };
         ids.forEach((id) => {
           next[id] = data[id].map((c) => ({
+            t: Math.floor((c[0] + tzOffsetMs) / 86_400_000) * 86_400,
             open: c[1],
             high: c[2],
             low: c[3],
@@ -414,7 +394,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           const data = (await res.json()) as Record<string, number[][]>;
           // CoinGecko sends 4-hour bars; everything downstream (the chart's D timeframe, Pulse's RSI) is daily. UTC day boundaries.
           if (asset === "crypto-ohlc") for (const id of Object.keys(data)) if (Array.isArray(data[id])) data[id] = resampleToDaily(data[id]);
-          applyHistory(data);
+          applyHistory(data, asset === "crypto-ohlc" ? 0 : 19_800_000);
         } catch {
           // that family stays simulated
         }
@@ -877,11 +857,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     toasts,
     dismissToast,
     alertPrefill,
-    drawMode,
-    setDrawMode,
-    drawings: drawingsBySymbol[selected] || [],
-    onAddDrawing,
-    onClearDrawings,
     formula,
     setFormula,
     sym,
