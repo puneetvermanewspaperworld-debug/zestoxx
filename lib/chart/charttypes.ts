@@ -1,4 +1,5 @@
 import type { Candle } from "../types";
+import type { TimedCandle } from "./series";
 
 /**
  * The chart types of the Trade page and the conversions behind the aggregated ones. Pure: bars in, bars out, no chart library.
@@ -151,3 +152,53 @@ export function toLineBreak(bars: readonly Candle[], lines = 3): Brick[] {
 /** Time used for bricks as far as the chart library is concerned: one day apart, in order. The chart shows each brick's real time instead (see the formatter in TradeChart). */
 export const ORDINAL_BASE = 946_684_800; // 1 Jan 2000
 export const ordinalTime = (k: number): number => ORDINAL_BASE + k * 86_400;
+
+/* ------------------------------------------------------------------------------------ brick size -- */
+
+/** A number rounded to two significant digits (0.0137 -> 0.014, 12.4 -> 12, 1234 -> 1200). */
+const twoSignificant = (x: number): number => (x > 0 ? Number(x.toPrecision(2)) : 0);
+
+/**
+ * A starting brick size for Renko: the average true range (14 bars, Wilder's smoothing) of the bars it is chosen on, rounded to two
+ * significant digits. It is only a suggestion offered once, when the user picks Renko; the size they confirm is stored and never
+ * changes when the data does. null when there are too few bars to work an ATR out.
+ */
+export function suggestBrickSize(bars: readonly Candle[], period = 14): number | null {
+  if (bars.length < period) return null;
+  let atr = 0;
+  for (let i = 0; i < bars.length; i++) {
+    const b = bars[i];
+    const tr = i === 0 ? b.high - b.low : Math.max(b.high - b.low, Math.abs(b.high - bars[i - 1].close), Math.abs(b.low - bars[i - 1].close));
+    if (i < period) atr += tr / period;
+    else if (i === period) atr = (atr * (period - 1) + tr) / period;
+    else atr = (atr * (period - 1) + tr) / period;
+  }
+  const size = twoSignificant(atr);
+  return size > 0 ? size : null;
+}
+
+/* --------------------------------------------------------------------------- what the chart plots -- */
+
+
+/** A bar as the chart plots it. `realT` is the real time of the bar of the data it comes from, when `t` is only the chart library's place for it (bricks). */
+export interface DisplayBar extends TimedCandle {
+  realT?: number;
+}
+
+/**
+ * The bars a chart type plots, from the real bars. Candle, hollow, bar, line, area and baseline plot them as they are; Heikin Ashi plots
+ * the converted bars at the same times; Renko and Line Break plot bricks, whose time as far as the chart library is concerned is their
+ * position (ordinalTime) and whose real time is `realT`. `size` is the confirmed Renko brick size (null until chosen: no bricks).
+ */
+export function displayBars(type: ChartType, bars: readonly TimedCandle[], size: number | null): DisplayBar[] {
+  switch (type) {
+    case "ha":
+      return toHeikinAshi(bars);
+    case "renko":
+      return size ? toRenko(bars, size).map((b, k) => ({ ...b, t: ordinalTime(k), realT: b.t })) : [];
+    case "linebreak":
+      return toLineBreak(bars, 3).map((b, k) => ({ ...b, t: ordinalTime(k), realT: b.t }));
+    default:
+      return [...bars];
+  }
+}

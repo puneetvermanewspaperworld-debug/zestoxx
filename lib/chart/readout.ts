@@ -1,5 +1,7 @@
 import type { TimedCandle } from "./series";
 
+type ReadoutBar = TimedCandle & { realT?: number };
+
 /** What the crosshair readout shows for one bar. */
 export interface Readout {
   date: string;
@@ -22,7 +24,7 @@ export function fmtBarDate(t: number): string {
 }
 
 /** The bar whose time is `time`, found by bisection, or null when there is none (the crosshair is off the data). */
-export function readoutFor(bars: readonly TimedCandle[], time: number): Readout | null {
+export function readoutFor(bars: readonly ReadoutBar[], time: number): Readout | null {
   let lo = 0;
   let hi = bars.length - 1;
   while (lo <= hi) {
@@ -31,7 +33,7 @@ export function readoutFor(bars: readonly TimedCandle[], time: number): Readout 
       const b = bars[mid];
       const prev = mid > 0 ? bars[mid - 1].close : null;
       return {
-        date: fmtBarDate(b.t),
+        date: fmtBarDate(b.realT ?? b.t),
         open: b.open,
         high: b.high,
         low: b.low,

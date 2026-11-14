@@ -361,3 +361,21 @@ test("on a phone a Fibonacci retracement is two taps", async ({ page }) => {
   expect(d.kind).toBe("fib");
   await expect(page.getByTestId("fib-label")).toHaveCount(7);
 });
+
+/* ------------------------------------------------------------------------------------- chart types -- */
+test("on a phone the chart type menu is a bottom sheet with 44 px rows, and a pick sticks", async ({ page }) => {
+  await openPhone(page);
+  await page.getByTestId("chart-type-button").tap();
+  const sheet = page.getByTestId("chart-type-sheet");
+  await expect(sheet).toBeVisible();
+  for (const id of ["candle", "hollow", "bar", "line", "area", "baseline", "ha", "renko", "linebreak"]) {
+    await page.getByTestId(`type-${id}`).scrollIntoViewIfNeeded();
+    const b = (await page.getByTestId(`type-${id}`).boundingBox())!;
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(390);
+  }
+  await page.getByTestId("type-ha").tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByTestId("trade-chart")).toHaveAttribute("data-chart-type", "ha");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});

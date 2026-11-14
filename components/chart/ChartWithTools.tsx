@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
+import { drawingsAllowed, type DisplayBar } from "@/lib/chart/charttypes";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
+import ChartControls from "./ChartControls";
 import ChartToolbox, { ChartProperties } from "./ChartToolbox";
 import CrosshairReadout from "./CrosshairReadout";
 import { QuickBar, ToolRail } from "./ChartOverlays";
 import DrawingLayer from "./DrawingLayer";
 import TradeChart, { type TradeChartProps } from "./TradeChart";
+import { useChartSettings } from "./useChartSettings";
 import { useDrawings } from "./useDrawings";
 import { useIndexLot } from "./useIndexLot";
 import { useLevelAlerts } from "./useLevelAlerts";
@@ -17,10 +20,17 @@ import { useLevelAlerts } from "./useLevelAlerts";
  * The Trade page's chart with its drawing tools: the chart, the drawing layer over it, and the toolbox. Drawings belong to the symbol
  * and are kept in this browser (see lib/chart/storage.ts).
  */
-export default function ChartWithTools({ heightClass, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "layer"> & { heightClass: string }) {
+export default function ChartWithTools({ heightClass, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "layer" | "chartType" | "renkoSize"> & { heightClass: string }) {
   const api = useDrawings(chartProps.symbol);
-  const [ctx, setCtx] = useState<{ chart: IChartApi; series: ISeriesApi<"Candlestick"> } | null>(null);
-  const [bars, setBars] = useState<TimedCandle[]>([]);
+  const [settings, update] = useChartSettings();
+  const chartType = settings.type;
+  const renkoSize = settings.renko[chartProps.symbol] ?? null;
+  const drawable = drawingsAllowed(chartType);
+  const [ctx, setCtx] = useState<{ chart: IChartApi; series: ISeriesApi<SeriesType> } | null>(null);
+  /** the bars as plotted (Heikin Ashi, bricks...) and the real bars they come from */
+  const [bars, setBars] = useState<DisplayBar[]>([]);
+  const [realBars, setRealBars] = useState<TimedCandle[]>([]);
+  const [sizingRequest, setSizingRequest] = useState(0);
   const lot = useIndexLot(chartProps.symbol, chartProps.type);
   const { alerted, viewFor } = useLevelAlerts(chartProps.symbol, api.committed, api.loaded);
   // the tool rail starts open on a wide screen and collapsed on a phone, where it would cover too much of the chart
@@ -46,24 +56,44 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
     };
   }, []);
 
-  const onBars = useCallback((b: TimedCandle[]) => setBars(b), []);
-  const onChart = useCallback((chart: IChartApi | null, series: ISeriesApi<"Candlestick"> | null) => setCtx(chart && series ? { chart, series } : null), []);
+  const onBars = useCallback((b: DisplayBar[], real: TimedCandle[]) => {
+    setBars(b);
+    setRealBars(real);
+  }, []);
+  const onChart = useCallback((chart: IChartApi | null, series: ISeriesApi<SeriesType> | null) => setCtx(chart && series ? { chart, series } : null), []);
   const cloneBy = useCallback((d: Drawing) => cloneOffset(d, times), [times]);
 
   return (
     <div ref={root} className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
-      <ChartToolbox api={api} />
+      <ChartControls symbol={chartProps.symbol} settings={settings} update={update} bars={realBars} sizingRequest={sizingRequest} />
+      {drawable ? (
+        <ChartToolbox api={api} />
+      ) : (
+        <p data-testid="drawings-off-note" className="mb-2 rounded-lg bg-slate-50 px-3 py-2 text-[11.5px] text-slate-500">
+          The drawing tools are off on {chartType === "renko" ? "Renko" : "Line Break"} charts: bricks are not drawn on a time axis. Switch to another chart type to draw.
+        </p>
+      )}
+      {chartType === "renko" && renkoSize === null && (
+        <p data-testid="renko-needs-size" className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11.5px] text-amber-800">
+          Renko needs a brick size for {chartProps.symbol}.
+          <button type="button" onClick={() => setSizingRequest((n) => n + 1)} className="min-h-[44px] rounded-lg border border-amber-300 bg-white px-3 font-medium">
+            Set brick size
+          </button>
+        </p>
+      )}
       <div className={heightClass}>
         <TradeChart
           {...chartProps}
+          chartType={chartType}
+          renkoSize={renkoSize}
           onChart={onChart}
           onBars={onBars}
           layer={
             <>
-              <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} />
-              <QuickBar api={api} />
+              {drawable && <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} />}
+              {drawable && <QuickBar api={api} />}
               {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} /> : null}
-              {ctx && api.loaded ? (
+              {drawable && ctx && api.loaded ? (
               <DrawingLayer
                 chart={ctx.chart}
                 series={ctx.series}

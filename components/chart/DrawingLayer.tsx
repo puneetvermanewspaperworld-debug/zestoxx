@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type Logical } from "lightweight-charts";
+import { LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type Logical, type SeriesType } from "lightweight-charts";
 import { anchorToPixel, makeViewport, pixelToAnchor, type Viewport } from "@/lib/chart/coords";
 import { createDrawing, dragHandle, fibLabel, moveDrawing, pointsNeeded, rangeLabel, type Anchor, type Dash, type Drawing, type DrawingKind, type ToolId } from "@/lib/chart/drawings";
 import { HANDLE_RADIUS, MOUSE_TOLERANCE, TOUCH_TOLERANCE, hitTest, shapeOf, type Shape } from "@/lib/chart/hit";
@@ -23,7 +23,7 @@ import type { AssetType } from "@/lib/types";
  */
 export interface DrawingLayerProps {
   chart: IChartApi;
-  series: ISeriesApi<"Candlestick">;
+  series: ISeriesApi<SeriesType>;
   bars: TimedCandle[];
   drawings: Drawing[];
   selectedId: string | null;
