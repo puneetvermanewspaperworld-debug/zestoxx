@@ -630,3 +630,34 @@ export function searchStudies(query: string): StudyDef[] {
     return words.every((w) => hay.includes(w));
   });
 }
+
+/* ---------------------------------------------------------------------------- a list of studies -- */
+
+export interface StudyResult {
+  instance: StudyInstance;
+  def: StudyDef;
+  availability: Availability;
+  /** the values, one per bar, for each output; empty when the study is not available */
+  values: Record<string, Num[]>;
+}
+
+/** Every study in the list worked out on these bars, with whether it can be shown. An unavailable study is not computed. Unknown ids are skipped. */
+export function computeStudies(instances: readonly StudyInstance[], bars: readonly Candle[], ctx: StudyContext): StudyResult[] {
+  const out: StudyResult[] = [];
+  for (const instance of instances) {
+    const def = STUDY_MAP[instance.id];
+    if (!def) continue;
+    const availability = studyAvailability(def, ctx);
+    out.push({ instance, def, availability, values: availability.ok ? computeStudy(def, bars, instance.params) : {} });
+  }
+  return out;
+}
+
+/** The colour a study output is drawn in: single-line studies take their instance's colour (so two moving averages differ), the others their own. */
+export const outputColor = (inst: StudyInstance, def: StudyDef, o: StudyOutput): string => (def.outputs.length === 1 && o.kind === "line" && inst.color ? inst.color : o.color);
+
+/** The first colour of the palette not already used by a single-line study in the list. */
+export function nextColor(instances: readonly StudyInstance[]): string {
+  const used = new Set(instances.map((i) => i.color));
+  return INSTANCE_COLORS.find((c) => !used.has(c)) ?? INSTANCE_COLORS[instances.length % INSTANCE_COLORS.length];
+}

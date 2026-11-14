@@ -128,12 +128,12 @@ test("the choice is remembered on this device", async ({ page }) => {
   await plotted(page, candleRows("RELIANCE", "1h", "3M").length);
 });
 
-test("an index has no volume on any interval: it says 'Volume not available' and plots none", async ({ page }) => {
+test("an index has no volume on any interval: it says 'Requires volume' and plots none", async ({ page }) => {
   await openTrade(page, "NIFTY50");
   await pickInterval(page, "15m");
   await plotted(page, candleRows("NIFTY50", "15m", "5D").length);
   expect((await series(page)).volume).toBe(0);
-  await expect(page.getByTestId("volume-note")).toHaveText("Volume not available");
+  await expect(page.getByTestId("volume-note")).toHaveText("Requires volume");
 });
 
 test("a stock's intraday bars carry their real volume", async ({ page }) => {

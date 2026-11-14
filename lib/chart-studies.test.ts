@@ -283,3 +283,40 @@ describe("the study search", () => {
     assert.deepEqual(searchStudies("zzzz"), []);
   });
 });
+
+import { computeStudies, nextColor, outputColor, type StudyInstance } from "./chart/studies";
+
+describe("a list of studies on some bars", () => {
+  const series = Array.from({ length: 80 }, (_, i): Candle => ({ t: 86_400 * (100 + Math.floor(i / 6)) + (i % 6) * 900, open: 100 + Math.sin(i / 5), high: 101 + Math.sin(i / 5), low: 99 + Math.sin(i / 5), close: 100.3 + Math.sin(i / 5), volume: i % 7 === 0 ? 0 : 400 + i }));
+  const list: StudyInstance[] = [
+    { uid: 1, id: "sma", params: { n: 10 } },
+    { uid: 2, id: "sma", params: { n: 30 } },
+    { uid: 3, id: "rsi", params: { n: 14 } },
+    { uid: 4, id: "vwap", params: {} },
+    { uid: 5, id: "volume", params: {} },
+    { uid: 6, id: "nope", params: {} },
+  ];
+  it("works each one out with its own parameters, two of the same kind apart, and skips an unknown id", () => {
+    const r = computeStudies(list, series, { hasVolume: true, intraday: true });
+    assert.deepEqual(r.map((x) => x.instance.uid), [1, 2, 3, 4, 5]);
+    assert.equal(r[0].values.sma.filter((v) => v !== null).length, 80 - 9);
+    assert.equal(r[1].values.sma.filter((v) => v !== null).length, 80 - 29);
+    assert.ok(r.every((x) => x.availability.ok));
+  });
+  it("on daily bars VWAP is unavailable and is not computed; without volume the volume studies say 'Requires volume'", () => {
+    const daily = computeStudies(list, series, { hasVolume: true, intraday: false });
+    assert.deepEqual(daily.find((x) => x.def.id === "vwap")!.availability, { ok: false, reason: INTRADAY_ONLY });
+    assert.deepEqual(daily.find((x) => x.def.id === "vwap")!.values, {});
+    const index = computeStudies(list, series, { hasVolume: false, intraday: true });
+    for (const id of ["vwap", "volume"]) assert.deepEqual(index.find((x) => x.def.id === id)!.availability, { ok: false, reason: REQUIRES_VOLUME });
+    assert.ok(index.find((x) => x.def.id === "rsi")!.availability.ok);
+  });
+  it("single-line studies take their instance's colour, the others their own", () => {
+    assert.equal(outputColor({ uid: 1, id: "sma", params: {}, color: "#123456" }, STUDY_MAP.sma, STUDY_MAP.sma.outputs[0]), "#123456");
+    assert.equal(outputColor({ uid: 1, id: "bb", params: {}, color: "#123456" }, STUDY_MAP.bb, STUDY_MAP.bb.outputs[0]), STUDY_MAP.bb.outputs[0].color);
+    assert.equal(outputColor({ uid: 1, id: "sma", params: {} }, STUDY_MAP.sma, STUDY_MAP.sma.outputs[0]), STUDY_MAP.sma.outputs[0].color);
+  });
+  it("the next colour is the first one not in use", () => {
+    assert.notEqual(nextColor([]), nextColor([{ uid: 1, id: "sma", params: {}, color: nextColor([]) }]));
+  });
+});

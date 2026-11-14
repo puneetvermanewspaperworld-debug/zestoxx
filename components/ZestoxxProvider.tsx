@@ -38,7 +38,6 @@ import type {
   PriceAlert,
   Toast,
   LiveSource,
-  Timeframe,
   SymbolInfo,
 } from "@/lib/types";
 
@@ -86,18 +85,6 @@ interface ZestoxxContextValue {
   holdings: Holdings;
   orderLog: OrderLogEntry[];
   openOrders: OpenOrder[];
-  timeframe: Timeframe;
-  setTimeframe: React.Dispatch<React.SetStateAction<Timeframe>>;
-  showMA: boolean;
-  setShowMA: React.Dispatch<React.SetStateAction<boolean>>;
-  showVolume: boolean;
-  setShowVolume: React.Dispatch<React.SetStateAction<boolean>>;
-  showRSI: boolean;
-  setShowRSI: React.Dispatch<React.SetStateAction<boolean>>;
-  showBB: boolean;
-  setShowBB: React.Dispatch<React.SetStateAction<boolean>>;
-  showEMA: boolean;
-  setShowEMA: React.Dispatch<React.SetStateAction<boolean>>;
   compareWith: string | null;
   setCompareWith: React.Dispatch<React.SetStateAction<string | null>>;
   alerts: PriceAlert[];
@@ -197,12 +184,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [sips, setSips] = useState<SipPlan[]>([]);
   const [orderLog, setOrderLog] = useState<OrderLogEntry[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
-  const [timeframe, setTimeframe] = useState<Timeframe>("D");
-  const [showMA, setShowMA] = useState(true);
-  const [showVolume, setShowVolume] = useState(true);
-  const [showRSI, setShowRSI] = useState(false);
-  const [showBB, setShowBB] = useState(false);
-  const [showEMA, setShowEMA] = useState(false);
   const [compareWith, setCompareWith] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -838,18 +819,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     holdings,
     orderLog,
     openOrders,
-    timeframe,
-    setTimeframe,
-    showMA,
-    setShowMA,
-    showVolume,
-    setShowVolume,
-    showRSI,
-    setShowRSI,
-    showBB,
-    setShowBB,
-    showEMA,
-    setShowEMA,
     compareWith,
     setCompareWith,
     alerts,

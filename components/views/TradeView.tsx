@@ -21,7 +21,6 @@ import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
 import { aggregateCandles } from "@/lib/history";
 import { computeCustomSeries } from "@/lib/formula";
 import { PULSE_BASIS, pulseFor } from "@/lib/pulse";
-import { rsiSeries } from "@/lib/indicators";
 import DataBadge from "@/components/DataBadge";
 import { fmt, fmtSigned } from "@/lib/helpers";
 import { useChartSettings } from "@/components/chart/useChartSettings";
@@ -49,16 +48,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     histories,
     live,
     liveSource,
-    showMA,
-    setShowMA,
-    showVolume,
-    setShowVolume,
-    showRSI,
-    setShowRSI,
-    showBB,
-    setShowBB,
-    showEMA,
-    setShowEMA,
     compareWith,
     setCompareWith,
     cash,
@@ -110,7 +99,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
   const frame = { D: { size: 1, keep: 30 }, W: { size: 5, keep: 26 }, M: { size: 21, keep: 14 } }[legacyTimeframe];
   const frameOf = (candles: Candle[]) => (frame.size === 1 ? candles : aggregateCandles(candles, frame.size));
   const fullFrame = showFeed ? feed.bars : frameOf(histories[selected]);
-  const rsiFull = rsiSeries(fullFrame, 14);
   const compareFull = compareWith && !showFeed ? frameOf(histories[compareWith]) : null;
   const feedInfo: FeedInfo = { selection, explicit, intervals: availability, showRanges: dataKind === "live", indian: sym.type !== "crypto", status: feed.status, error: feed.error, reload: feed.reload };
   const { series: customSeries, error: formulaError } = useMemo(
@@ -177,53 +165,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex flex-wrap gap-1 rounded-md border border-slate-200 p-0.5">
-                <button
-                  onClick={() => setShowMA((v) => !v)}
-                  className={
-                    "rounded px-2 py-1 text-[11px] font-medium " +
-                    (showMA ? "bg-blue-50 text-blue-600" : "text-slate-400")
-                  }
-                >
-                  MA
-                </button>
-                <button
-                  onClick={() => setShowEMA((v) => !v)}
-                  className={
-                    "rounded px-2 py-1 text-[11px] font-medium " +
-                    (showEMA ? "bg-blue-50 text-blue-600" : "text-slate-400")
-                  }
-                >
-                  EMA
-                </button>
-                <button
-                  onClick={() => setShowBB((v) => !v)}
-                  className={
-                    "rounded px-2 py-1 text-[11px] font-medium " +
-                    (showBB ? "bg-blue-50 text-blue-600" : "text-slate-400")
-                  }
-                >
-                  BB
-                </button>
-                <button
-                  onClick={() => setShowVolume((v) => !v)}
-                  className={
-                    "rounded px-2 py-1 text-[11px] font-medium " +
-                    (showVolume ? "bg-blue-50 text-blue-600" : "text-slate-400")
-                  }
-                >
-                  Vol
-                </button>
-                <button
-                  onClick={() => setShowRSI((v) => !v)}
-                  className={
-                    "rounded px-2 py-1 text-[11px] font-medium " +
-                    (showRSI ? "bg-blue-50 text-blue-600" : "text-slate-400")
-                  }
-                >
-                  RSI
-                </button>
-              </div>
               <select
                 value={compareWith || ""}
                 onChange={(e) => setCompareWith(e.target.value || null)}
@@ -267,7 +208,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           {formulaError && <div className="mb-2 text-[11px] text-rose-500">{formulaError}</div>}
 
           <ChartWithTools
-            heightClass={showRSI ? "h-[440px] md:h-[480px]" : "h-[320px] md:h-[360px]"}
               symbol={selected}
               timeframe={showFeed ? `${selection.interval}|${selection.range}` : legacyTimeframe}
               intraday={intraday}
@@ -277,12 +217,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
               type={sym.type}
               candles={fullFrame}
               keep={showFeed ? Math.max(1, feed.bars.length) : frame.keep}
-              showMA={showMA}
-              showEMA={showEMA}
-              showBB={showBB}
-              showVolume={showVolume}
-              showRSI={showRSI}
-              rsi={rsiFull}
               compare={compareFull}
               custom={customSeries}
           />

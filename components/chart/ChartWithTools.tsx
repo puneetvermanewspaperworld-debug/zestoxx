@@ -5,8 +5,10 @@ import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
 import { drawingsAllowed, type DisplayBar } from "@/lib/chart/charttypes";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
-import type { ChartSettings } from "@/lib/chart/settings";
+import { MAX_STUDIES, nextUid, type ChartSettings } from "@/lib/chart/settings";
+import { STUDY_MAP, defaultParams, nextColor, type StudyResult } from "@/lib/chart/studies";
 import ChartControls, { type FeedInfo } from "./ChartControls";
+import StudyLegend from "./StudyLegend";
 import ChartToolbox, { ChartProperties } from "./ChartToolbox";
 import CrosshairReadout from "./CrosshairReadout";
 import { QuickBar, ToolRail } from "./ChartOverlays";
@@ -21,7 +23,11 @@ import { useLevelAlerts } from "./useLevelAlerts";
  * The Trade page's chart with its drawing tools: the chart, the drawing layer over it, and the toolbox. Drawings belong to the symbol
  * and are kept in this browser (see lib/chart/storage.ts).
  */
-export default function ChartWithTools({ heightClass, settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "layer" | "chartType" | "renkoSize"> & { heightClass: string; settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
+/** Heights of the chart in pixels, on a phone and on a wide screen, before any oscillator pane: each pane adds PANE_PX. */
+const BASE_PX = { phone: 320, wide: 360 };
+const PANE_PX = 120;
+
+export default function ChartWithTools({ settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
   const api = useDrawings(chartProps.symbol);
   const chartType = settings.type;
   const renkoSize = settings.renko[chartProps.symbol] ?? null;
@@ -31,6 +37,26 @@ export default function ChartWithTools({ heightClass, settings, update, feed, ..
   const [bars, setBars] = useState<DisplayBar[]>([]);
   const [realBars, setRealBars] = useState<TimedCandle[]>([]);
   const [sizingRequest, setSizingRequest] = useState(0);
+  const [studyState, setStudyState] = useState<{ results: StudyResult[]; hasVolume: boolean }>({ results: [], hasVolume: true });
+  const [studyRequest, setStudyRequest] = useState<{ uid: number; n: number } | null>(null);
+  const studiesApi = {
+    studies: settings.studies,
+    results: studyState.results,
+    context: { hasVolume: studyState.hasVolume, intraday: chartProps.intraday },
+    add: (id: string) =>
+      update((prev) => {
+        const def = STUDY_MAP[id];
+        if (!def || prev.studies.length >= MAX_STUDIES) return {};
+        const single = def.outputs.length === 1 && def.outputs[0].kind === "line";
+        return { studies: [...prev.studies, { uid: nextUid(prev.studies), id, params: defaultParams(def), ...(single ? { color: nextColor(prev.studies) } : {}) }] };
+      }),
+    remove: (uid: number) => update((prev) => ({ studies: prev.studies.filter((s) => s.uid !== uid) })),
+    clear: () => update({ studies: [] }),
+    setParams: (uid: number, params: Record<string, number>) => update((prev) => ({ studies: prev.studies.map((s) => (s.uid === uid ? { ...s, params } : s)) })),
+  };
+  const onStudies = useCallback((results: StudyResult[], hasVolume: boolean) => setStudyState({ results, hasVolume }), []);
+  // each oscillator is a pane of its own: the chart is taller by that much
+  const paneCount = studyState.results.filter((r) => r.availability.ok && r.def.placement === "pane").length;
   const lot = useIndexLot(chartProps.symbol, chartProps.type);
   const { alerted, viewFor } = useLevelAlerts(chartProps.symbol, api.committed, api.loaded);
   // the tool rail starts open on a wide screen and collapsed on a phone, where it would cover too much of the chart
@@ -65,7 +91,8 @@ export default function ChartWithTools({ heightClass, settings, update, feed, ..
 
   return (
     <div ref={root} className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
-      <ChartControls symbol={chartProps.symbol} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} />
+      <ChartControls symbol={chartProps.symbol} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} studies={studiesApi} studyRequest={studyRequest} onStudyMenuClosed={() => setStudyRequest(null)} />
+      <StudyLegend results={studyState.results} bars={bars} chart={ctx?.chart ?? null} type={chartProps.type} onEdit={(uid) => setStudyRequest({ uid, n: (studyRequest?.n ?? 0) + 1 })} onRemove={studiesApi.remove} />
       {drawable ? (
         <ChartToolbox api={api} />
       ) : (
@@ -81,9 +108,15 @@ export default function ChartWithTools({ heightClass, settings, update, feed, ..
           </button>
         </p>
       )}
-      <div className={heightClass + (feed.status === "loading" ? " opacity-60" : "")} aria-busy={feed.status === "loading"}>
+      <div
+        className={"h-[var(--chart-h)] md:h-[var(--chart-h-wide)]" + (feed.status === "loading" ? " opacity-60" : "")}
+        style={{ "--chart-h": `${BASE_PX.phone + paneCount * PANE_PX}px`, "--chart-h-wide": `${BASE_PX.wide + paneCount * PANE_PX}px` } as React.CSSProperties}
+        aria-busy={feed.status === "loading"}
+      >
         <TradeChart
           {...chartProps}
+          studies={settings.studies}
+          onStudies={onStudies}
           chartType={chartType}
           renkoSize={renkoSize}
           onChart={onChart}

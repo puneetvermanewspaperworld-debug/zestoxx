@@ -52,9 +52,6 @@ async function mock(page: Page, live = true) {
 interface Summary {
   bars: number;
   volume: number;
-  ma10: number;
-  ma30: number;
-  ema20: number;
   bb: number;
   custom: number;
   compare: number;
@@ -78,7 +75,23 @@ async function open(page: Page, symbol = "RELIANCE", live = true) {
   return errors;
 }
 
-const toggle = (page: Page, name: string) => page.getByRole("button", { name, exact: true }).click();
+/** each study as plotted: its id, panes, how many values each output has, and the last one */
+interface PlottedStudy {
+  uid: number;
+  id: string;
+  available: boolean;
+  reason: string | null;
+  pane: number | null;
+  values: Record<string, number>;
+  last: Record<string, number | null>;
+}
+const plotted = async (page: Page): Promise<PlottedStudy[]> => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-studies")) ?? "[]");
+const addStudy = async (page: Page, id: string) => {
+  await page.getByTestId("studies-button").click();
+  await page.getByTestId(`add-${id}`).click();
+  await page.keyboard.press("Escape");
+};
+const removeStudy = (page: Page, uid: number) => page.getByTestId(`legend-remove-${uid}`).click();
 
 test("a real chart is drawn, with the real history and the live price on the last bar", async ({ page }) => {
   const errors = await open(page);
@@ -105,23 +118,29 @@ test("it opens on the latest bars (about 30), also after the real history replac
 test("every indicator of the old chart is plotted and can be switched on and off", async ({ page }) => {
   await open(page);
   // moving averages are on by default: MA10 starts on bar 10, MA30 on bar 30
-  let s = await summary(page);
-  expect([s.ma10, s.ma30, s.ema20, s.bb, s.rsi]).toEqual([262, 242, 0, 0, 0]);
+  const s = await summary(page);
+  let st = await plotted(page);
+  expect(st.map((x) => [x.id, x.values.sma ?? x.values.volume])).toEqual([["sma", 262], ["sma", 242], ["volume", 271]]);
   expect(s.volume).toBe(271);
-  await toggle(page, "EMA");
-  await toggle(page, "BB");
-  await toggle(page, "RSI");
-  await expect.poll(async () => (await summary(page)).rsi).toBe(271 - 14); // Wilder's RSI(14) starts on the 15th bar
-  s = await summary(page);
-  expect([s.ema20, s.bb]).toEqual([271 - 19, 271 - 19]);
-  expect(s.lastRsi).toBeGreaterThan(0);
-  expect(s.lastRsi).toBeLessThan(100);
-  await toggle(page, "MA");
-  await expect.poll(async () => (await summary(page)).ma10).toBe(0);
-  await toggle(page, "Vol");
+  await addStudy(page, "ema");
+  await addStudy(page, "bb");
+  await addStudy(page, "rsi");
+  await expect.poll(async () => (await plotted(page)).length).toBe(6);
+  st = await plotted(page);
+  const by = (id: string) => st.find((x) => x.id === id)!;
+  expect(by("rsi").values.rsi).toBe(271 - 14); // Wilder's RSI(14) starts on the 15th bar
+  expect(by("ema").values.ema).toBe(271 - 19);
+  expect(by("bb").values.upper).toBe(271 - 19);
+  expect(by("rsi").pane).toBe(1); // in a pane of its own
+  expect(by("rsi").last.rsi).toBeGreaterThan(0);
+  expect(by("rsi").last.rsi).toBeLessThan(100);
+  await removeStudy(page, 1);
+  await removeStudy(page, 2);
+  await expect.poll(async () => (await plotted(page)).filter((x) => x.id === "sma").length).toBe(0);
+  await removeStudy(page, 3);
   await expect.poll(async () => (await summary(page)).volume).toBe(0);
-  await toggle(page, "RSI");
-  await expect.poll(async () => (await summary(page)).rsi).toBe(0);
+  await removeStudy(page, by("rsi").uid);
+  await expect.poll(async () => (await plotted(page)).some((x) => x.id === "rsi")).toBe(false);
 });
 
 test("on the app's own daily series (no live feed) weekly and monthly aggregate the daily bars", async ({ page }) => {
@@ -153,19 +172,19 @@ test("compare and the custom formula are plotted", async ({ page }) => {
 
 test("crypto: no volume bars (its volume is not real), and the chart says so", async ({ page }) => {
   await open(page, "BTC");
-  await expect(page.getByTestId("volume-note")).toHaveText("Volume not available");
+  await expect(page.getByTestId("volume-note")).toHaveText("Requires volume");
   expect((await summary(page)).volume).toBe(0);
   // 30 days of 4-hour bars are cut to daily bars
   const s = await summary(page);
   expect(s.bars).toBeGreaterThanOrEqual(30);
   expect(s.bars).toBeLessThanOrEqual(32);
-  await toggle(page, "Vol");
+  await removeStudy(page, 3); // take the Volume study off: nothing left to explain
   await expect(page.getByTestId("volume-note")).toHaveCount(0);
 });
 
 test("an index has no volume either: the chart says so", async ({ page }) => {
   await open(page, "NIFTY50");
-  await expect(page.getByTestId("volume-note")).toHaveText("Volume not available");
+  await expect(page.getByTestId("volume-note")).toHaveText("Requires volume");
   expect((await summary(page)).volume).toBe(0);
 });
 
@@ -189,7 +208,7 @@ test("attribution: a small TradingView Lightweight Charts link and the notice, a
 test("fits at 360px: no sideways scroll", async ({ page }) => {
   await open(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
-  await toggle(page, "RSI");
+  await addStudy(page, "rsi");
   await settle(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   await page.getByTestId("trade-chart").screenshot({ path: "test-results/trade-chart-360.png" });

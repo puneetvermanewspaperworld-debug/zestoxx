@@ -37,6 +37,11 @@ export default function Sheet({ title, onClose, children, testId }: { title: str
 export const rowClass = (on = false) =>
   "flex min-h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] transition-colors " + (on ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50");
 
+/** A 44 px button of the chart's control row. */
+export const controlBtn = (on = false) =>
+  "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors " +
+  (on ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:text-slate-900");
+
 export function Badge({ children }: { children: React.ReactNode }) {
   return <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">{children}</span>;
 }

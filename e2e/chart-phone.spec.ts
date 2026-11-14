@@ -407,3 +407,24 @@ test("on a phone the interval sheet and the range buttons are 44 px targets, and
   await expect(page.getByTestId("interval-button")).toHaveText(/1h/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+/* ---------------------------------------------------------------------------------------- studies -- */
+test("on a phone the studies menu is a sheet with 44 px rows; adding RSI gives it a pane and a legend chip, nothing overflows", async ({ page }) => {
+  await openPhone(page);
+  await page.getByTestId("studies-button").tap();
+  const sheet = page.getByTestId("studies-sheet");
+  await expect(sheet).toBeVisible();
+  const box = (await sheet.locator("> div").last().boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await page.getByTestId("studies-search").fill("rsi");
+  const row = page.getByTestId("add-rsi");
+  expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await row.tap();
+  await page.getByTestId("sheet-close").tap();
+  await expect(sheet).toHaveCount(0);
+  await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-studies")) ?? "[]").some((s: { id: string; pane: number }) => s.id === "rsi" && s.pane === 1)).toBe(true);
+  const chip = page.locator('[data-testid^="legend-edit-"]').last();
+  expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await page.locator('[data-testid^="legend-remove-"]').last().boundingBox())!.width).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});

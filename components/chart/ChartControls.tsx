@@ -6,7 +6,8 @@ import { CHART_TYPES, MAX_BRICKS, chartTypeInfo, suggestBrickSize, toRenko, type
 import { INTERVALS, RANGES, intervalInfo, pickInterval, pickRange, type IntervalId, type RangeId, type Selection } from "@/lib/chart/intervals";
 import type { TimedCandle } from "@/lib/chart/series";
 import type { ChartSettings } from "@/lib/chart/settings";
-import Sheet, { Badge, rowClass } from "./Sheet";
+import Sheet, { Badge, controlBtn, rowClass } from "./Sheet";
+import StudiesMenu, { type StudiesApi } from "./StudiesMenu";
 import type { SettingsUpdate } from "./useChartSettings";
 
 const TYPE_ICON: Record<ChartType, React.ComponentType<{ size?: number; "aria-hidden"?: boolean }>> = {
@@ -20,10 +21,6 @@ const TYPE_ICON: Record<ChartType, React.ComponentType<{ size?: number; "aria-hi
   renko: BarChart3,
   linebreak: TrendingUp,
 };
-
-export const controlBtn = (on = false) =>
-  "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors " +
-  (on ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:text-slate-900");
 
 /** What the interval and range controls need to know about the data. */
 export interface FeedInfo {
@@ -50,6 +47,10 @@ export interface ChartControlsProps {
   bars: TimedCandle[];
   /** open the type menu straight on the brick size (set from outside when Renko has no size yet) */
   sizingRequest: number;
+  studies: StudiesApi;
+  /** open the Studies menu on this study's parameters (asked for by the legend) */
+  studyRequest: { uid: number; n: number } | null;
+  onStudyMenuClosed: () => void;
 }
 
 /** The row of chart controls above the chart. */
@@ -59,6 +60,7 @@ export default function ChartControls(p: ChartControlsProps) {
       <div role="toolbar" aria-label="Chart controls" className="flex flex-wrap items-center gap-1.5">
         <TypeMenu {...p} />
         <IntervalMenu {...p} />
+        <StudiesMenu api={p.studies} openFor={p.studyRequest} onClosed={p.onStudyMenuClosed} />
         {p.feed.indian && (
           <span data-testid="tz-note" className="text-[10.5px] text-slate-400">
             Times in IST

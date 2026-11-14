@@ -22,9 +22,10 @@ import {
 } from "lightweight-charts";
 import { ORDINAL_BASE, displayBars, drawingsAllowed, type ChartType, type DisplayBar } from "@/lib/chart/charttypes";
 import { fmtBarStamp } from "@/lib/chart/readout";
+import { REQUIRES_VOLUME, computeStudies, outputColor, type Num, type StudyInstance, type StudyOutput, type StudyResult } from "@/lib/chart/studies";
 import { ATTRIBUTION_LINK_TEXT, ATTRIBUTION_NOTICE, TRADINGVIEW_URL } from "@/lib/chart/notice";
 import { defaultView } from "@/lib/chart/view";
-import { VOLUME_NOT_AVAILABLE, buildChartSeries, volumeAvailable, withTimes, type LinePoint, type TimedCandle } from "@/lib/chart/series";
+import { buildChartSeries, volumeAvailable, withTimes, type LinePoint, type TimedCandle } from "@/lib/chart/series";
 import type { AssetType, Candle } from "@/lib/types";
 
 /**
@@ -46,34 +47,26 @@ export interface TradeChartProps {
   /** the whole history for the timeframe, oldest first; the chart opens on its last `keep` bars and can be panned back */
   candles: Candle[];
   keep: number;
-  showMA: boolean;
-  showEMA: boolean;
-  showBB: boolean;
-  showVolume: boolean;
-  showRSI: boolean;
-  rsi: (number | null)[] | null;
+  /** the studies on the chart: overlays on the price, and a native pane for each oscillator */
+  studies: StudyInstance[];
   compare: Candle[] | null;
   custom: (number | null)[] | null;
   /** called with the chart once it exists (and null when it is torn down) */
   onChart?: (chart: IChartApi | null, series: ISeriesApi<SeriesType> | null) => void;
   /** called with the bars as charted and the real bars they come from (each with its time) whenever the data is fed */
   onBars?: (bars: DisplayBar[], real: TimedCandle[]) => void;
+  /** called with every study worked out on the bars as plotted (and whether it can be shown), whenever they change */
+  onStudies?: (results: StudyResult[], hasVolume: boolean) => void;
   /** drawn inside the chart's box, over the plot (the drawing layer) */
   layer?: React.ReactNode;
 }
 
-const COLORS = { up: "#34D399", down: "#F87171", ma10: "#D4A94E", ma30: "#6FA8DC", ema: "#B87FE0", bb: "#6FA8DC", custom: "#22D3EE", compare: "#F0A84E", rsi: "#B87FE0" };
+const COLORS = { up: "#34D399", down: "#F87171", custom: "#22D3EE", compare: "#F0A84E" };
 
-type LineName = "ma10" | "ma30" | "ema20" | "bbUpper" | "bbLower" | "custom" | "compare" | "rsi";
-const LINE_STYLE: Record<LineName, { color: string; lineWidth: 1 | 2; lineStyle?: LineStyle; pane?: number }> = {
-  ma10: { color: COLORS.ma10, lineWidth: 2 },
-  ma30: { color: COLORS.ma30, lineWidth: 2 },
-  ema20: { color: COLORS.ema, lineWidth: 2 },
-  bbUpper: { color: COLORS.bb, lineWidth: 1, lineStyle: LineStyle.Dashed },
-  bbLower: { color: COLORS.bb, lineWidth: 1, lineStyle: LineStyle.Dashed },
+type LineName = "custom" | "compare";
+const LINE_STYLE: Record<LineName, { color: string; lineWidth: 1 | 2; lineStyle?: LineStyle }> = {
   custom: { color: COLORS.custom, lineWidth: 2 },
   compare: { color: COLORS.compare, lineWidth: 1, lineStyle: LineStyle.Dotted },
-  rsi: { color: COLORS.rsi, lineWidth: 2, pane: 1 },
 };
 
 /** the chart types whose main series takes open, high, low and close */
@@ -118,6 +111,18 @@ function createMain(chart: IChartApi, type: ChartType): ISeriesApi<SeriesType> {
   }
 }
 
+/** A study output as chart data: a value where there is one, a gap (a point with no value) where there is none, so a line is never joined across a gap. */
+function studyPoints(o: StudyOutput, values: readonly Num[], times: readonly UTCTimestamp[], bars: readonly TimedCandle[]) {
+  return values.map((v, i) => {
+    if (v === null || !Number.isFinite(v)) return { time: times[i] };
+    if (o.kind === "line") return { time: times[i], value: v };
+    // histograms: volume takes the candle's direction; the others their sign, or whether they rose from the bar before
+    const prev = i > 0 ? values[i - 1] : null;
+    const up = o.key === "volume" ? bars[i].close >= bars[i].open : o.hist === "change" ? (prev === null ? v >= 0 : v >= prev) : v >= 0;
+    return { time: times[i], value: v, color: o.key === "volume" ? `${up ? COLORS.up : COLORS.down}66` : up ? COLORS.up : COLORS.down };
+  });
+}
+
 const toLine = (pts: LinePoint[]): LineData<UTCTimestamp>[] => pts.map((p) => ({ time: p.time as UTCTimestamp, value: p.value }));
 
 export default function TradeChart(p: TradeChartProps) {
@@ -129,7 +134,13 @@ export default function TradeChart(p: TradeChartProps) {
   /** for Renko and Line Break: the real time of each brick, by position, so the axis and the crosshair can show it */
   const labels = useRef<number[] | null>(null);
   const intradayRef = useRef(false);
-  const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  /** the series of the studies, by study and output (`uid:key`) */
+  const studySeries = useRef(new Map<string, ISeriesApi<SeriesType>>());
+  /** how many panes the chart had when their sizes were last set (so a pane the user resized is not reset by a tick) */
+  const paneCount = useRef(1);
+  const onStudies = useRef(p.onStudies);
+  const studiesReported = useRef("");
+  const hasVolumeRef = useRef(false);
   const lines = useRef<Partial<Record<LineName, ISeriesApi<SeriesType>>>>({});
   const shownKey = useRef("");
   /** the range to show once the chart has a size: setting it on a chart that is still 0 wide is lost */
@@ -145,6 +156,7 @@ export default function TradeChart(p: TradeChartProps) {
   useEffect(() => {
     onChart.current = p.onChart;
     onBars.current = p.onBars;
+    onStudies.current = p.onStudies;
     keepRef.current = p.keep;
   });
 
@@ -172,8 +184,6 @@ export default function TradeChart(p: TradeChartProps) {
     chart.priceScale("right").applyOptions({ autoScale: true });
     chart.timeScale().setVisibleLogicalRange(defaultView(barCount.current, keepRef.current));
   }, []);
-
-  const volumeOk = volumeAvailable(p.candles, p.type);
 
   // Create the chart once.
   useEffect(() => {
@@ -232,7 +242,9 @@ export default function TradeChart(p: TradeChartProps) {
       candleRef.current = null;
       mainType.current = "";
       labels.current = null;
-      volumeRef.current = null;
+      studySeries.current = new Map();
+      paneCount.current = 1;
+      studiesReported.current = "";
       lines.current = {};
       shownKey.current = "";
     };
@@ -264,15 +276,14 @@ export default function TradeChart(p: TradeChartProps) {
     const s = buildChartSeries({
       candles: timed,
       type: input.type,
-      showMA: input.showMA,
-      showEMA: input.showEMA,
-      showBB: input.showBB,
-      showVolume: input.showVolume,
+      showMA: false,
+      showEMA: false,
+      showBB: false,
+      showVolume: false,
       compare,
       // line inputs are one value per bar; if a bar was dropped for a non-increasing time they no longer line up, and are not plotted
       custom: input.custom && !rebuilt && input.custom.length === timed.length ? input.custom : null,
-      // the page worked RSI out on the same bars, one value each
-      rsi: input.showRSI && !rebuilt && input.rsi && input.rsi.length === timed.length ? input.rsi : null,
+      rsi: null,
     });
     barCount.current = s.candles.length;
     if (MAIN_OHLC.includes(input.chartType)) candleSeries.setData(s.candles.map((c) => ({ ...c, time: c.time as UTCTimestamp })) as never);
@@ -282,21 +293,8 @@ export default function TradeChart(p: TradeChartProps) {
       candleSeries.setData(s.candles.map((c) => ({ time: c.time as UTCTimestamp, value: c.close })) as never);
     }
 
-    // volume
-    if (s.volume) {
-      if (!volumeRef.current) {
-        const v = chart.addSeries(HistogramSeries, { priceFormat: { type: "volume" }, priceScaleId: "vol", lastValueVisible: false, priceLineVisible: false });
-        v.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-        volumeRef.current = v;
-      }
-      volumeRef.current.setData(s.volume.map((v) => ({ time: v.time as UTCTimestamp, value: v.value, color: v.up ? `${COLORS.up}66` : `${COLORS.down}66` })));
-    } else if (volumeRef.current) {
-      chart.removeSeries(volumeRef.current);
-      volumeRef.current = null;
-    }
-
-    // lines
-    const want: Record<LineName, LinePoint[] | null> = { ma10: s.ma10, ma30: s.ma30, ema20: s.ema20, bbUpper: s.bbUpper, bbLower: s.bbLower, custom: s.custom, compare: s.compare, rsi: s.rsi };
+    // compare and the custom formula
+    const want: Record<LineName, LinePoint[] | null> = { custom: s.custom, compare: s.compare };
     (Object.keys(want) as LineName[]).forEach((name) => {
       const pts = want[name];
       const existing = lines.current[name];
@@ -310,20 +308,67 @@ export default function TradeChart(p: TradeChartProps) {
       let series = existing as ISeriesApi<"Line"> | undefined;
       if (!series) {
         const st = LINE_STYLE[name];
-        series = chart.addSeries(
-          LineSeries,
-          { color: st.color, lineWidth: st.lineWidth, lineStyle: st.lineStyle ?? LineStyle.Solid, priceLineVisible: false, lastValueVisible: name === "rsi", crosshairMarkerVisible: false },
-          st.pane ?? 0
-        );
-        if (name === "rsi") {
-          series.createPriceLine({ price: 70, color: "#cbd5e1", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "" });
-          series.createPriceLine({ price: 30, color: "#cbd5e1", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "" });
-          chart.panes()[1]?.setHeight(110);
-        }
+        series = chart.addSeries(LineSeries, { color: st.color, lineWidth: st.lineWidth, lineStyle: st.lineStyle ?? LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
         lines.current[name] = series;
       }
       series.setData(toLine(pts));
     });
+
+    // the studies: overlays on the price, a native pane (Lightweight Charts' own) for each oscillator
+    const hasVolume = volumeAvailable(timed, input.type);
+    hasVolumeRef.current = hasVolume;
+    const results = computeStudies(input.studies, timed, { hasVolume, intraday: input.intraday && !rebuilt });
+    const times = timed.map((b) => b.t as UTCTimestamp);
+    const wantKeys = new Set<string>();
+    for (const r of results) if (r.availability.ok) r.def.outputs.forEach((o) => wantKeys.add(`${r.instance.uid}:${o.key}`));
+    // take away what is no longer wanted first, so that pane numbers are right before anything is added or moved
+    for (const [k, s] of studySeries.current) {
+      if (!wantKeys.has(k)) {
+        try {
+          chart.removeSeries(s);
+        } catch {
+          // already gone
+        }
+        studySeries.current.delete(k);
+      }
+    }
+    let pane = 0;
+    for (const r of results) {
+      if (!r.availability.ok) continue;
+      const paneIndex = r.def.placement === "pane" ? ++pane : 0;
+      r.def.outputs.forEach((o, oi) => {
+        const k = `${r.instance.uid}:${o.key}`;
+        const values = r.values[o.key] ?? [];
+        const color = outputColor(r.instance, r.def, o);
+        const isVolume = r.def.id === "volume";
+        const common = { lastValueVisible: paneIndex > 0 && o.kind === "line", priceLineVisible: false } as const;
+        const rangeOpt = r.def.range ? { autoscaleInfoProvider: () => ({ priceRange: { minValue: (r.def.range as [number, number])[0], maxValue: (r.def.range as [number, number])[1] } }) } : {};
+        let s = studySeries.current.get(k);
+        if (!s) {
+          s =
+            o.kind === "histogram"
+              ? chart.addSeries(HistogramSeries, { ...common, color, ...(isVolume ? { priceFormat: { type: "volume" }, priceScaleId: "vol", lastValueVisible: false } : {}), ...rangeOpt }, paneIndex)
+              : chart.addSeries(LineSeries, { ...common, color, lineWidth: o.width ?? 1, lineStyle: o.dashed ? LineStyle.Dashed : LineStyle.Solid, crosshairMarkerVisible: false, ...rangeOpt }, paneIndex);
+          if (isVolume) s.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+          if (oi === 0) for (const level of r.def.levels ?? []) s.createPriceLine({ price: level, color: "#cbd5e1", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "" });
+          studySeries.current.set(k, s);
+        } else {
+          s.applyOptions({ color, ...(o.kind === "line" ? { lineWidth: o.width ?? 1 } : {}) } as never);
+          if (s.getPane().paneIndex() !== paneIndex) s.moveToPane(paneIndex);
+        }
+        s.setData(studyPoints(o, values, times, timed) as never);
+      });
+    }
+    const paneN = chart.panes().length;
+    if (paneN !== paneCount.current) {
+      paneCount.current = paneN;
+      chart.panes().forEach((pn, i) => pn.setStretchFactor(i === 0 ? 3 : 1));
+    }
+    const studiesKey = `${input.studies.map((x) => `${x.uid}:${x.id}:${JSON.stringify(x.params)}`).join(",")}|${hasVolume}|${input.intraday}|${print}`;
+    if (studiesKey !== studiesReported.current) {
+      studiesReported.current = studiesKey;
+      onStudies.current?.(results, hasVolume);
+    }
 
     // the view
     // a different dataset (another symbol or timeframe, or the real history replacing the starting series: its first bar differs) resets the view;
@@ -339,24 +384,29 @@ export default function TradeChart(p: TradeChartProps) {
     // a summary for tests and for anyone reading the page source: what is plotted
     const el = box.current;
     if (el) {
-      const last = <T extends { value: number }>(a: T[] | null) => (a && a.length ? a[a.length - 1].value : null);
+      const lastOf = (a: Num[] | undefined): number | null => (a && a.length ? a[a.length - 1] : null);
       el.dataset.chartType = input.chartType;
       el.dataset.intraday = input.intraday ? "1" : "0";
       el.dataset.series = JSON.stringify({
         chartType: input.chartType,
         bars: s.candles.length,
-        volume: s.volume ? s.volume.length : 0,
-        ma10: s.ma10?.length ?? 0,
-        ma30: s.ma30?.length ?? 0,
-        ema20: s.ema20?.length ?? 0,
-        bb: s.bbUpper?.length ?? 0,
+        volume: results.find((r) => r.def.id === "volume" && r.availability.ok)?.values.volume?.length ?? 0,
         custom: s.custom?.length ?? 0,
         compare: s.compare?.length ?? 0,
-        rsi: s.rsi?.length ?? 0,
         lastClose: s.candles.length ? s.candles[s.candles.length - 1].close : null,
-        lastMa10: last(s.ma10),
-        lastRsi: last(s.rsi),
       });
+      // each study as plotted: its panes, how many values each output has, and the last one
+      el.dataset.studies = JSON.stringify(
+        results.map((r) => ({
+          uid: r.instance.uid,
+          id: r.def.id,
+          available: r.availability.ok,
+          reason: r.availability.ok ? null : r.availability.reason,
+          pane: r.availability.ok ? studySeries.current.get(`${r.instance.uid}:${r.def.outputs[0].key}`)?.getPane().paneIndex() ?? null : null,
+          values: Object.fromEntries(r.def.outputs.map((o) => [o.key, (r.values[o.key] ?? []).filter((v) => v !== null).length])),
+          last: Object.fromEntries(r.def.outputs.map((o) => [o.key, lastOf(r.values[o.key])])),
+        }))
+      );
     }
   }, [input]);
 
@@ -375,9 +425,9 @@ export default function TradeChart(p: TradeChartProps) {
         >
           <RotateCcw size={16} aria-hidden />
         </button>
-        {p.showVolume && !volumeOk && (
+        {p.studies.some((x) => x.id === "volume") && !volumeAvailable(p.candles, p.type) && (
           <span data-testid="volume-note" className="pointer-events-none absolute bottom-1.5 left-2 rounded bg-white/80 px-1.5 py-0.5 text-[10.5px] text-slate-400">
-            {VOLUME_NOT_AVAILABLE}
+            {REQUIRES_VOLUME}
           </span>
         )}
       </div>
