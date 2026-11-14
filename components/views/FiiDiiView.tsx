@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Landmark } from "lucide-react";
 import FlowChart from "@/components/fiidii/FlowChart";
 import { fmtCr } from "@/lib/format-cr";
 import { fmtIsoDate } from "@/lib/helpers";
+import { NIFTY_NOTE, fmtNiftyPct, niftyChanges, type IndexClose } from "@/lib/fiidii/nifty";
 import { HISTORY_TARGET, cashDayCount, flowRows, futuresRows, latestCash, latestFutures, longPct } from "@/lib/fiidii/rollup";
 import type { Entity, FiiDiiDayRow, Interval } from "@/lib/fiidii/types";
 
@@ -16,6 +17,7 @@ import type { Entity, FiiDiiDayRow, Interval } from "@/lib/fiidii/types";
 // +₹3,401 Cr / −₹475 Cr — the sign goes before the rupee sign.
 const cr = (v: number) => fmtCr(v);
 const tone = (v: number) => (v >= 0 ? "text-emerald-500" : "text-rose-500");
+const niftyTone = (v: number | null) => (v === null || Math.abs(v) < 0.005 ? "text-slate-400" : v > 0 ? "text-emerald-600" : "text-rose-500");
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 const contracts = (n: number) => n.toLocaleString("en-IN");
 
@@ -66,7 +68,7 @@ function LongShortBar({ long, short, label }: { long: number; short: number; lab
   );
 }
 
-type Loaded = { state: "loading" } | { state: "done"; rows: FiiDiiDayRow[] };
+type Loaded = { state: "loading" } | { state: "done"; rows: FiiDiiDayRow[]; nifty: IndexClose[] };
 
 export default function FiiDiiView() {
   const [data, setData] = useState<Loaded>({ state: "loading" });
@@ -78,8 +80,8 @@ export default function FiiDiiView() {
     fetch("/api/fiidii")
       .then((r) => (r.ok ? r.json() : { rows: [] }))
       .catch(() => ({ rows: [] }))
-      .then((j: { rows?: FiiDiiDayRow[] }) => {
-        if (!cancelled) setData({ state: "done", rows: Array.isArray(j.rows) ? j.rows : [] });
+      .then((j: { rows?: FiiDiiDayRow[]; nifty?: IndexClose[] }) => {
+        if (!cancelled) setData({ state: "done", rows: Array.isArray(j.rows) ? j.rows : [], nifty: Array.isArray(j.nifty) ? j.nifty : [] });
       });
     return () => {
       cancelled = true;
@@ -89,6 +91,9 @@ export default function FiiDiiView() {
   const days = useMemo(() => (data.state === "done" ? data.rows : []), [data]);
   const rows = useMemo(() => flowRows(days, period, entity), [days, period, entity]);
   const fut = useMemo(() => futuresRows(days, period), [days, period]);
+  // Nifty % only for daily rows: each FII/DII day against the previous trading day, from stored closes; null (shown "--") where a close is not stored.
+  const showNifty = period === "daily";
+  const nifty = useMemo(() => (data.state === "done" && showNifty ? niftyChanges(rows.map((r) => r.key), data.nifty) : new Map<string, number | null>()), [data, rows, showNifty]);
 
   if (data.state === "loading") {
     return (
@@ -229,6 +234,7 @@ export default function FiiDiiView() {
                   <th className="hidden px-2.5 py-2 text-right font-medium md:table-cell md:px-3">Buy</th>
                   <th className="hidden px-2.5 py-2 text-right font-medium md:table-cell md:px-3">Sell</th>
                   <th className="whitespace-nowrap px-2.5 py-2 text-right font-medium md:px-3">Net amount</th>
+                  {showNifty && <th className="whitespace-nowrap px-2.5 py-2 text-right font-medium md:px-3">Nifty %</th>}
                 </tr>
               </thead>
               <tbody>
@@ -248,9 +254,13 @@ export default function FiiDiiView() {
                       )}
                     </td>
                     {r.missing ? (
-                      <td colSpan={3} className="px-2.5 py-2 text-right text-slate-500 md:px-3">
-                        Data not available
-                      </td>
+                      <>
+                        {/* on a phone only the Net column shows (Buy and Sell are hidden), so one cell; from md up it spans Buy, Sell and Net */}
+                        <td className="px-2.5 py-2 text-right text-slate-500 md:hidden">Data not available</td>
+                        <td colSpan={3} className="hidden px-3 py-2 text-right text-slate-500 md:table-cell">
+                          Data not available
+                        </td>
+                      </>
                     ) : (
                       <>
                         <td className="hidden whitespace-nowrap px-2.5 py-2 text-right font-mono md:table-cell md:px-3">{cr(r.buy).replace(/^\+/, "")}</td>
@@ -258,11 +268,17 @@ export default function FiiDiiView() {
                         <td className={"whitespace-nowrap px-2.5 py-2 text-right font-mono font-medium md:px-3 " + tone(r.net)}>{cr(r.net)}</td>
                       </>
                     )}
+                    {showNifty && (
+                      <td data-testid="nifty-pct" className={"whitespace-nowrap px-2.5 py-2 text-right font-mono md:px-3 " + niftyTone(nifty.get(r.key) ?? null)}>
+                        {fmtNiftyPct(nifty.get(r.key) ?? null)}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {showNifty && <p data-testid="nifty-note" className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">{NIFTY_NOTE}</p>}
         </div>
       ) : null}
 

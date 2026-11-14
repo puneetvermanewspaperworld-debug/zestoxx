@@ -8,6 +8,8 @@ export interface IndexReadStore {
   latest(indexName: string): Promise<IndexDayRow | null>;
   /** every stored P/E for the index (null values left out), newest first, at most `limit` */
   peHistory(indexName: string, limit: number): Promise<number[]>;
+  /** the stored closing levels of the index from `from` to `to` (YYYY-MM-DD, inclusive), oldest first */
+  closes(indexName: string, from: string, to: string): Promise<{ date: string; close: number }[]>;
 }
 
 /** The Postgres-backed store (table IndexValuation). */
@@ -34,5 +36,10 @@ export const prismaIndexStore: IndexIngestStore & IndexReadStore = {
   async peHistory(indexName, limit) {
     const rows = await prisma.indexValuation.findMany({ where: { indexName, pe: { not: null } }, orderBy: { date: "desc" }, take: limit, select: { pe: true } });
     return rows.map((r) => r.pe as number);
+  },
+
+  async closes(indexName, from, to) {
+    const rows = await prisma.indexValuation.findMany({ where: { indexName, date: { gte: from, lte: to } }, orderBy: { date: "asc" }, select: { date: true, close: true } });
+    return rows.map((r) => ({ date: r.date, close: r.close }));
   },
 };
