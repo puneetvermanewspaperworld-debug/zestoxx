@@ -10,7 +10,10 @@ export function timeToLogical(times: readonly number[], time: number): number | 
   const n = times.length;
   if (n === 0 || !Number.isFinite(time)) return null;
   if (n === 1) return (time - times[0]) / DAY;
-  if (time <= times[0]) return (time - times[0]) / (times[1] - times[0]);
+  if (time <= times[0]) {
+    if (Math.floor(time / DAY) === Math.floor(times[0] / DAY)) return 0; // earlier on the first bar's day: that day's first bar
+    return (time - times[0]) / (times[1] - times[0]);
+  }
   if (time >= times[n - 1]) return n - 1 + (time - times[n - 1]) / (times[n - 1] - times[n - 2]);
   let lo = 0;
   let hi = n - 1;
@@ -19,6 +22,11 @@ export function timeToLogical(times: readonly number[], time: number): number | 
     if (times[mid] <= time) lo = mid;
     else hi = mid;
   }
+  // A time earlier on the same calendar day as the next bar, in the overnight gap of an intraday chart (what a drawing made on a daily chart
+  // has: a bar's day, give or take part of a bar), stands for that day: it is placed on the day's first bar, so it lands inside its own
+  // day, not half way back to the day before. On daily and longer charts every bar is at midnight, so this never applies.
+  const nextDay = Math.floor(times[lo + 1] / DAY);
+  if (Math.floor(time / DAY) === nextDay && Math.floor(times[lo] / DAY) < nextDay) return lo + 1;
   return lo + (time - times[lo]) / (times[lo + 1] - times[lo]);
 }
 

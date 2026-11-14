@@ -361,3 +361,97 @@ test("on a phone a Fibonacci retracement is two taps", async ({ page }) => {
   expect(d.kind).toBe("fib");
   await expect(page.getByTestId("fib-label")).toHaveCount(7);
 });
+
+/* ------------------------------------------------------------------------------------- chart types -- */
+test("on a phone the chart type menu is a bottom sheet with 44 px rows, and a pick sticks", async ({ page }) => {
+  await openPhone(page);
+  await page.getByTestId("chart-type-button").tap();
+  const sheet = page.getByTestId("chart-type-sheet");
+  await expect(sheet).toBeVisible();
+  for (const id of ["candle", "hollow", "bar", "line", "area", "baseline", "ha", "renko", "linebreak"]) {
+    await page.getByTestId(`type-${id}`).scrollIntoViewIfNeeded();
+    const b = (await page.getByTestId(`type-${id}`).boundingBox())!;
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(390);
+  }
+  await page.getByTestId("type-ha").tap();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByTestId("trade-chart")).toHaveAttribute("data-chart-type", "ha");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+/* ---------------------------------------------------------------------------------- intervals, ranges -- */
+test("on a phone the interval sheet and the range buttons are 44 px targets, and choosing a range loads it", async ({ page }) => {
+  const seen: string[] = [];
+  await openTrade(page, "RELIANCE", { seen });
+  await show(page);
+  const row = page.getByTestId("range-row");
+  await expect(row).toBeVisible();
+  for (const r of ["1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "All"]) {
+    const b = (await page.getByTestId(`range-${r}`).boundingBox())!;
+    expect(b.height, r).toBeGreaterThanOrEqual(44);
+    expect(b.width, r).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, r).toBeLessThanOrEqual(390);
+  }
+  await page.getByTestId("range-5D").tap();
+  await expect(page.getByTestId("interval-button")).toHaveText(/15m/);
+  await expect.poll(() => seen.some((s) => s.includes("interval=15m") && s.includes("range=5D"))).toBe(true);
+  await page.getByTestId("interval-button").tap();
+  for (const id of ["1m", "5m", "15m", "30m", "1h", "1D", "1W", "1M"]) {
+    const b = (await page.getByTestId(`interval-${id}`).boundingBox())!;
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(390);
+  }
+  await page.getByTestId("interval-1h").tap();
+  await expect(page.getByTestId("interval-sheet")).toHaveCount(0);
+  await expect(page.getByTestId("interval-button")).toHaveText(/1h/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+/* ---------------------------------------------------------------------------------------- studies -- */
+test("on a phone the studies menu is a sheet with 44 px rows; adding RSI gives it a pane and a legend chip, nothing overflows", async ({ page }) => {
+  await openPhone(page);
+  await page.getByTestId("studies-button").tap();
+  const sheet = page.getByTestId("studies-sheet");
+  await expect(sheet).toBeVisible();
+  const box = (await sheet.locator("> div").last().boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await page.getByTestId("studies-search").fill("rsi");
+  const row = page.getByTestId("add-rsi");
+  expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await row.tap();
+  await page.getByTestId("sheet-close").tap();
+  await expect(sheet).toHaveCount(0);
+  await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-studies")) ?? "[]").some((s: { id: string; pane: number }) => s.id === "rsi" && s.pane === 1)).toBe(true);
+  const chip = page.locator('[data-testid^="legend-edit-"]').last();
+  expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await page.locator('[data-testid^="legend-remove-"]').last().boundingBox())!.width).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+/* ----------------------------------------------------------------------- fullscreen and landscape -- */
+test("on a phone: fullscreen fills the screen with 44 px controls, and landscape goes fullscreen and either turns the screen or says it cannot", async ({ page }) => {
+  await openPhone(page);
+  for (const id of ["scale-button", "grid-button", "crosshair-magnet-button", "fullscreen-button", "landscape-button"]) {
+    const b = (await page.getByTestId(id).boundingBox())!;
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+    expect(b.width, id).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(390);
+  }
+  const root = page.getByTestId("chart-with-tools");
+  await page.getByTestId("fullscreen-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "1");
+  const r = (await root.boundingBox())!;
+  expect([Math.round(r.x), Math.round(r.y), Math.round(r.width)]).toEqual([0, 0, 390]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await page.getByTestId("fullscreen-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "0");
+  // landscape: fullscreen, and a note where the browser cannot lock the screen's rotation
+  await page.getByTestId("landscape-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "1");
+  await expect(root).toHaveAttribute("data-landscape", "1");
+  await expect.poll(async () => (await page.getByTestId("landscape-note").count()) + (await page.evaluate(() => (screen.orientation?.type ?? "").startsWith("landscape") ? 1 : 0))).toBeGreaterThan(0);
+  await page.getByTestId("landscape-button").tap();
+  await expect(root).toHaveAttribute("data-fullscreen", "0");
+  await expect(root).toHaveAttribute("data-landscape", "0");
+});

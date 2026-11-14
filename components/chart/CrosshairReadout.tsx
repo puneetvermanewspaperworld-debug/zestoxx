@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
 import { fmtPrice } from "@/lib/chart/price";
 import { readoutFor, type Readout } from "@/lib/chart/readout";
 import type { TimedCandle } from "@/lib/chart/series";
@@ -13,7 +13,7 @@ import type { AssetType } from "@/lib/types";
  * while the finger moves); with a mouse it follows the pointer. The readout sits at the bottom left of the price pane, clear of the
  * tool rail, and takes no touches.
  */
-export default function CrosshairReadout({ chart, series, bars, type }: { chart: IChartApi; series: ISeriesApi<"Candlestick">; bars: TimedCandle[]; type: AssetType }) {
+export default function CrosshairReadout({ chart, series, bars, type, intraday }: { chart: IChartApi; series: ISeriesApi<SeriesType>; bars: TimedCandle[]; type: AssetType; intraday: boolean }) {
   const [shown, setShown] = useState<{ r: Readout; paneH: number } | null>(null);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function CrosshairReadout({ chart, series, bars, type }: { chart:
         setShown(null);
         return;
       }
-      const r = readoutFor(bars, param.time as number);
+      const r = readoutFor(bars, param.time as number, intraday);
       setShown(r ? { r, paneH: chart.panes()[0]?.getHeight() ?? 0 } : null);
     };
     chart.subscribeCrosshairMove(onMove);
@@ -30,7 +30,7 @@ export default function CrosshairReadout({ chart, series, bars, type }: { chart:
       chart.unsubscribeCrosshairMove(onMove);
       setShown(null);
     };
-  }, [chart, series, bars]);
+  }, [chart, series, bars, intraday]);
 
   if (!shown) return null;
   const { r, paneH } = shown;
