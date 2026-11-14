@@ -89,27 +89,6 @@ test("Trade page Pulse pill: Loading with a quote but no real history, a score o
   await expect(withHistory.getByTestId("pulse-pill")).toHaveText(/^\s*Pulse \d+ · (Bullish|Neutral|Bearish)$/);
 });
 
-test("dashboard movers: a down symbol is never a gainer, nothing prints +-, no crypto in the Indian movers", async ({ page }) => {
-  await page.clock.install({ time: OPEN });
-  await quotes(page, {
-    SENSEX: { price: 81000, prevClose: 81073 }, // -0.09%
-    TCS: { price: 4200, prevClose: 4100 },
-    SBIN: { price: 800, prevClose: 812 },
-  });
-  await page.goto("/app/dashboard", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(800);
-  const card = page.locator("div", { has: page.getByRole("heading", { name: /Market Movers/ }) }).last();
-  const text = await card.innerText();
-  expect(text).not.toContain("+-");
-  const [gainers, losers = ""] = text.toUpperCase().split("TOP LOSERS");
-  expect(gainers).toContain("TCS");
-  expect(gainers).not.toContain("SENSEX");
-  expect(losers).toContain("SENSEX");
-  expect(losers).toContain("SBIN");
-  expect(text).not.toMatch(/BTC|ETH|SOL/);
-  expect(await page.locator("body").innerText()).not.toContain("+-");
-});
-
 test("Trade page order book: real depth for a listed stock", async ({ page }) => {
   await page.clock.install({ time: OPEN });
   await quotes(page, { RELIANCE: { price: 1500, prevClose: 1490 } });

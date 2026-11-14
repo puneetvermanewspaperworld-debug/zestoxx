@@ -73,11 +73,11 @@ describe("order buttons say paper", () => {
 });
 
 describe("movers and trade page use real data only", () => {
-  it("the dashboard no longer ranks demo symbols by position in a sorted list", () => {
+  it("the dashboard no longer ranks demo symbols by position in a sorted list: its Market Movers use the all-NSE feed", () => {
     const src = read("components/views/DashboardView.tsx");
-    assert.match(src, /rankMovers/);
-    assert.doesNotMatch(src, /slice\(-3\)/);
-    assert.match(src, /hasFeedQuote/);
+    assert.match(src, /<MarketMoversCard \/>/);
+    assert.doesNotMatch(src, /slice\(-3\)|SYMBOLS\.map|rankMovers/);
+    assert.doesNotMatch(src, /hasFeedQuote/);
   });
   it("the Pulse pill on the trade page goes through pulseFor: a score only with a real quote and real history", () => {
     const src = fs.readFileSync("components/views/TradeView.tsx", "utf8");
