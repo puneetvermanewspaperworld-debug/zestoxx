@@ -3,12 +3,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type Logical } from "lightweight-charts";
 import { anchorToPixel, makeViewport, pixelToAnchor, type Viewport } from "@/lib/chart/coords";
-import { createDrawing, dragHandle, moveDrawing, pointsNeeded, rangeLabel, type Anchor, type Dash, type Drawing, type DrawingKind, type ToolId } from "@/lib/chart/drawings";
+import { createDrawing, dragHandle, fibLabel, moveDrawing, pointsNeeded, rangeLabel, type Anchor, type Dash, type Drawing, type DrawingKind, type ToolId } from "@/lib/chart/drawings";
 import { HANDLE_RADIUS, MOUSE_TOLERANCE, TOUCH_TOLERANCE, hitTest, shapeOf, type Shape } from "@/lib/chart/hit";
 import { measure, measureText } from "@/lib/chart/measure";
+import { fmtPrice } from "@/lib/chart/price";
 import { snapToCandle } from "@/lib/chart/snap";
 import type { TimedCandle } from "@/lib/chart/series";
 import { fmtINR } from "@/lib/helpers";
+import type { AssetType } from "@/lib/types";
 
 /**
  * The drawing layer: an SVG laid over the chart's plot area. Drawings are kept by (time, price); every frame the layer asks the chart
@@ -28,9 +30,13 @@ export interface DrawingLayerProps {
   tool: ToolId;
   magnet: boolean;
   hidden: boolean;
+  /** ids of the horizontal levels that have a price alert: they carry a bell */
+  alerted?: ReadonlySet<string>;
   /** lot size of the index's future, when known (the Measure tool's rupees per lot) */
   lot: number | null;
   isIndex: boolean;
+  /** the symbol's market, for how prices are written */
+  assetType: AssetType;
   onAdd: (d: Drawing) => void;
   onSelect: (id: string | null) => void;
   onLive: (d: Drawing) => void;
@@ -42,6 +48,8 @@ const dashArray = (dash: Dash, w: number) => (dash === "dashed" ? `${w * 4 + 2} 
 const LINE_STYLE: Record<Dash, LineStyle> = { solid: LineStyle.Solid, dashed: LineStyle.Dashed, dotted: LineStyle.Dotted };
 const TAP_MOVE_PX = 10;
 const TAP_MS = 700;
+/** a brush stroke takes a new point each time the finger has moved this far */
+const BRUSH_STEP_PX = 3;
 
 interface Measured {
   a: Anchor;
@@ -57,7 +65,7 @@ interface Interaction {
 type DragMode = { kind: "handle"; handle: string } | { kind: "body" };
 
 export default function DrawingLayer(p: DrawingLayerProps) {
-  const { chart, series, bars, drawings, selectedId, tool, magnet, hidden } = p;
+  const { chart, series, bars, drawings, selectedId, tool, magnet, hidden, alerted } = p;
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
   const [, setTick] = useState(0);
   // What is being placed or measured belongs to one tool: when the tool changes it is simply no longer current, so a new tool starts clean.
@@ -124,7 +132,7 @@ export default function DrawingLayer(p: DrawingLayerProps) {
     // idle: a vertical swipe scrolls the page and a horizontal drag is the chart's; with a tool in hand the finger belongs to the chart
     el.style.touchAction = tool === "select" ? "pan-y" : "none";
     chart.applyOptions({
-      handleScroll: tool === "measure" ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScroll: tool === "measure" || tool === "brush" ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     });
     return () => {
       el.style.touchAction = "";
@@ -142,12 +150,12 @@ export default function DrawingLayer(p: DrawingLayerProps) {
       }
     }
     for (const [id, d] of want) {
-      const opts = { price: d.price, color: d.color, lineWidth: d.width, lineStyle: LINE_STYLE[d.dash], axisLabelVisible: true, title: "" };
+      const opts = { price: d.price, color: d.color, lineWidth: d.width, lineStyle: LINE_STYLE[d.dash], axisLabelVisible: true, title: alerted?.has(id) ? "🔔" : "" };
       const have = lines.current.get(id);
       if (have) have.applyOptions(opts);
       else lines.current.set(id, series.createPriceLine(opts));
     }
-  }, [drawings, hidden, series]);
+  }, [drawings, hidden, series, alerted]);
   useEffect(
     () => () => {
       for (const line of lines.current.values()) {
@@ -191,6 +199,8 @@ export default function DrawingLayer(p: DrawingLayerProps) {
     const pointers = new Set<number>();
     let down: { x: number; y: number; at: number; valid: boolean; type: string } | null = null;
     let mdrag: { a: Anchor; moved: boolean; id: number } | null = null;
+    // a freehand stroke being drawn: the points so far (by time and price) and where the last one was on screen
+    let bdrag: { pts: Anchor[]; last: { x: number; y: number }; id: number } | null = null;
 
     const inPlot = (x: number, y: number) => x >= 0 && y >= 0 && x <= vpRef.current.width && y <= vpRef.current.height;
 
@@ -200,10 +210,26 @@ export default function DrawingLayer(p: DrawingLayerProps) {
       if (pointers.size > 1) {
         if (down) down.valid = false; // a second finger: a pinch or two-finger pan, never a tap
         mdrag = null;
+        if (bdrag) {
+          bdrag = null; // a second finger: a pinch or two-finger pan, never a stroke
+          setPending([]);
+        }
         setMeasured((m) => (m && !m.final ? null : m));
         return;
       }
       down = { x, y, at: performance.now(), valid: e.button === 0 || e.pointerType === "touch", type: e.pointerType };
+      if (live.current.tool === "brush" && inPlot(x, y)) {
+        const a = pixelToAnchor(vpRef.current, x, y);
+        if (a) {
+          bdrag = { pts: [a], last: { x, y }, id: e.pointerId };
+          setPending([a]);
+          try {
+            el.setPointerCapture(e.pointerId);
+          } catch {
+            // not capturable: the stroke still follows while the pointer stays over the chart
+          }
+        }
+      }
       if (live.current.tool === "measure" && inPlot(x, y)) {
         const a = toAnchor(x, y);
         if (a) {
@@ -218,6 +244,17 @@ export default function DrawingLayer(p: DrawingLayerProps) {
     };
     const onMove = (e: PointerEvent) => {
       const { x, y } = local(e);
+      if (bdrag && e.pointerId === bdrag.id && pointers.size === 1) {
+        if (Math.hypot(x - bdrag.last.x, y - bdrag.last.y) >= BRUSH_STEP_PX) {
+          const a = pixelToAnchor(vpRef.current, x, y);
+          if (a) {
+            bdrag.pts.push(a);
+            bdrag.last = { x, y };
+            setPending([...bdrag.pts]);
+          }
+        }
+        return;
+      }
       if (mdrag && e.pointerId === mdrag.id && pointers.size === 1) {
         if (!mdrag.moved && down && Math.hypot(x - down.x, y - down.y) > TAP_MOVE_PX) mdrag.moved = true;
         if (mdrag.moved) {
@@ -232,6 +269,16 @@ export default function DrawingLayer(p: DrawingLayerProps) {
     const onUp = (e: PointerEvent) => {
       pointers.delete(e.pointerId);
       const { x, y } = local(e);
+      if (bdrag && e.pointerId === bdrag.id) {
+        const s = bdrag;
+        bdrag = null;
+        const end = e.type === "pointercancel" ? null : pixelToAnchor(vpRef.current, x, y);
+        if (end && Math.hypot(x - s.last.x, y - s.last.y) >= 1) s.pts.push(end);
+        setPending([]);
+        if (down) down.valid = false;
+        if (e.type !== "pointercancel" && s.pts.length >= 2) finish("brush", s.pts);
+        return;
+      }
       if (mdrag && e.pointerId === mdrag.id) {
         const m = mdrag;
         mdrag = null;
@@ -252,6 +299,10 @@ export default function DrawingLayer(p: DrawingLayerProps) {
       pointers.delete(e.pointerId);
       down = null;
       mdrag = null;
+      if (bdrag) {
+        bdrag = null;
+        setPending([]);
+      }
     };
 
     const tap = (x: number, y: number, pointerType: string) => {
@@ -263,6 +314,7 @@ export default function DrawingLayer(p: DrawingLayerProps) {
         if (d && d.kind === "text" && hit && L.selectedId === hit.id && !d.locked) setEditingId(d.id); // a second tap edits the note
         return;
       }
+      if (L.tool === "brush") return; // a stroke is drawn by dragging; a tap places nothing
       const a = toAnchor(x, y);
       if (!a) return;
       const need = pointsNeeded(L.tool);
@@ -386,6 +438,28 @@ export default function DrawingLayer(p: DrawingLayerProps) {
             )}
           </g>
         );
+      case "fib":
+        return (
+          <g key={d.id} data-drawing={d.id}>
+            {halo}
+            {s.levels?.map((l, i) => (
+              <g key={l.ratio}>
+                <line x1={s.segments[i][0].x} y1={l.y} x2={s.segments[i][1].x} y2={l.y} {...stroke} strokeOpacity={l.ratio === 0 || l.ratio === 1 ? 1 : 0.8} />
+                <text x={s.segments[i][0].x + 4} y={l.y - 3} fontSize={10.5} fill={d.color} fontFamily="ui-monospace, monospace" fontWeight={600} data-testid="fib-label">
+                  {fibLabel(l.ratio)} ({fmtPrice(l.price, p.assetType)})
+                </text>
+              </g>
+            ))}
+            {s.segments.length > 0 && <line x1={s.segments[s.segments.length - 1][0].x} y1={s.segments[s.segments.length - 1][0].y} x2={s.segments[s.segments.length - 1][1].x} y2={s.segments[s.segments.length - 1][1].y} stroke={d.color} strokeWidth={1} strokeDasharray="4 3" />}
+          </g>
+        );
+      case "brush":
+        return (
+          <g key={d.id} data-drawing={d.id}>
+            {sel && s.path && <polyline points={s.path.map((q) => `${q.x},${q.y}`).join(" ")} fill="none" stroke={d.color} strokeOpacity={0.25} strokeWidth={d.width + 6} strokeLinecap="round" strokeLinejoin="round" />}
+            {s.path && <polyline points={s.path.map((q) => `${q.x},${q.y}`).join(" ")} {...stroke} strokeLinejoin="round" data-testid="brush-stroke" />}
+          </g>
+        );
       case "channel":
         return (
           <g key={d.id} data-drawing={d.id}>
@@ -416,15 +490,18 @@ export default function DrawingLayer(p: DrawingLayerProps) {
   const scaleAttr = JSON.stringify({ x0: chart.timeScale().logicalToCoordinate(0 as Logical), x100: chart.timeScale().logicalToCoordinate(100 as Logical), y1: series.priceToCoordinate(1), y1000: series.priceToCoordinate(1000) });
   if (w <= 0 || h <= 0) return null;
   return (
-    <div className="pointer-events-none absolute left-0 top-0 z-10" style={{ width: w, height: h, touchAction: "none" }} data-testid="drawing-layer" data-scale={scaleAttr} data-levels={JSON.stringify(shown.filter((d) => d.kind === "hline").map((d) => (d as Extract<Drawing, { kind: "hline" }>).price))}>
+    <div className="pointer-events-none absolute left-0 top-0 z-10" style={{ width: w, height: h, touchAction: "none" }} data-testid="drawing-layer" data-scale={scaleAttr} data-alerted={JSON.stringify([...(alerted ?? [])])} data-levels={JSON.stringify(shown.filter((d) => d.kind === "hline").map((d) => (d as Extract<Drawing, { kind: "hline" }>).price))}>
       <svg width={w} height={h} className="absolute left-0 top-0 overflow-hidden" style={{ touchAction: "none" }} data-drawings={shown.length}>
         {shown.map((d) => {
           const s = shapeOf(d, vp);
           return s ? body(d, s) : null;
         })}
 
+        {tool === "brush" && pending.length > 1 && (
+          <polyline points={pending.map((a) => px(a)).filter((q): q is { x: number; y: number } => !!q).map((q) => `${q.x},${q.y}`).join(" ")} fill="none" stroke="#f43f5e" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" data-testid="brush-live" />
+        )}
         {rubber && rubber.a && rubber.b && <line x1={rubber.a.x} y1={rubber.a.y} x2={rubber.b.x} y2={rubber.b.y} stroke="#64748b" strokeDasharray="4 3" strokeWidth={1.5} />}
-        {pending.length === 1 &&
+        {pending.length === 1 && tool !== "brush" &&
           (() => {
             const q = px(pending[0]);
             return q ? <circle cx={q.x} cy={q.y} r={5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} /> : null;
@@ -469,9 +546,13 @@ export default function DrawingLayer(p: DrawingLayerProps) {
             {selShape.textBox && (
               <rect x={selShape.textBox.x} y={selShape.textBox.y} width={selShape.textBox.w} height={selShape.textBox.h} fill="transparent" style={{ pointerEvents: "all", touchAction: "none", cursor: "move" }} data-testid="drag-body" onPointerDown={(e) => startDrag(e, { kind: "body" }, selected)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
             )}
-            {selShape.segments.map(([a, b], i) => (
-              <line key={`b${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" strokeWidth={30} strokeLinecap="round" style={{ pointerEvents: "stroke", touchAction: "none", cursor: "move" }} data-testid="drag-body" onPointerDown={(e) => startDrag(e, { kind: "body" }, selected)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
-            ))}
+            {selShape.path ? (
+              <polyline points={selShape.path.map((q) => `${q.x},${q.y}`).join(" ")} fill="none" stroke="transparent" strokeWidth={30} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: "stroke", touchAction: "none", cursor: "move" }} data-testid="drag-body" onPointerDown={(e) => startDrag(e, { kind: "body" }, selected)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
+            ) : (
+              selShape.segments.map(([a, b], i) => (
+                <line key={`b${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="transparent" strokeWidth={30} strokeLinecap="round" style={{ pointerEvents: "stroke", touchAction: "none", cursor: "move" }} data-testid="drag-body" onPointerDown={(e) => startDrag(e, { kind: "body" }, selected)} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
+              ))
+            )}
             {selShape.handles.map((hd) => (
               <g key={hd.id}>
                 <circle cx={hd.x} cy={hd.y} r={6} fill="#fff" stroke={selected.color} strokeWidth={2} pointerEvents="none" />
@@ -496,7 +577,7 @@ export default function DrawingLayer(p: DrawingLayerProps) {
           defaultValue={editing.text}
           maxLength={120}
           className="pointer-events-auto absolute rounded border border-blue-400 bg-white px-1.5 text-[12px] font-semibold outline-none"
-          style={{ left: editShape.textBox.x, top: editShape.textBox.y, height: editShape.textBox.h, width: Math.max(120, editShape.textBox.w), color: editing.color }}
+          style={{ left: editShape.textBox.x, top: editShape.textBox.y + editShape.textBox.h / 2 - 22, height: 44, width: Math.max(140, editShape.textBox.w), color: editing.color }}
           onKeyDown={(e) => {
             e.stopPropagation();
             if (e.key === "Enter") {

@@ -20,7 +20,7 @@ test("horizontal level: tap to place, a price you can edit, stored by price", as
   expect(Object.keys(d).includes("x") || Object.keys(d).includes("y")).toBe(false);
   await expect(page.getByTestId("drawing-layer")).toHaveAttribute("data-levels", JSON.stringify([d.price]));
   // it is selected after placing, with its price in the property bar; editing it moves the level
-  await expect(page.getByTestId("level-price")).toHaveValue(String(d.price));
+  await expect(page.getByTestId("level-price")).toHaveValue((d.price as number).toFixed(2)); // shown to two decimals; the stored price is exact
   await page.getByTestId("level-price").fill("1450.5");
   await page.getByTestId("level-price").blur();
   await expect.poll(async () => (await stored(page))[0].price).toBe(1450.5);
@@ -102,7 +102,7 @@ test("select, drag a handle, and drag the whole drawing; one undo reverses each"
   expect(post.b!.price - pre.b!.price).toBeCloseTo(post.a!.price - pre.a!.price, 6);
   // tapping empty chart deselects; tapping the line selects it again
   const box = await layerBox(page);
-  const empty = at(box, 0.9, 0.9);
+  const empty = at(box, 0.9, 0.6); // clear of the floating buttons
   await page.mouse.click(empty.x, empty.y);
   await expect(page.getByTestId("properties")).toHaveCount(0);
 });

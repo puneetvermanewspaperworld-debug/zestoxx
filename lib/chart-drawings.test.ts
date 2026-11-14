@@ -352,6 +352,8 @@ describe("saving and reloading", () => {
     { ...createDrawing("rect", [a, b], "r")!, midline: true } as Drawing,
     createDrawing("channel", [a, b], "c")!,
     { ...createDrawing("text", [a], "x")!, text: "Resistance" } as Drawing,
+    createDrawing("fib", [a, b], "f")!,
+    createDrawing("brush", [a, { time: D0 + 3 * DAY, price: 105 }, b], "b")!,
   ];
 
   it("every kind of drawing survives a save and a reload exactly", async () => {

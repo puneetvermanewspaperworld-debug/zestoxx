@@ -9,7 +9,7 @@ export interface Anchor {
   price: number;
 }
 
-export type ToolId = "select" | "hline" | "trend" | "ray" | "rect" | "channel" | "text" | "measure";
+export type ToolId = "select" | "hline" | "trend" | "ray" | "rect" | "channel" | "fib" | "brush" | "text" | "measure";
 export type DrawingKind = Exclude<ToolId, "select" | "measure">;
 export type Dash = "solid" | "dashed" | "dotted";
 export type Width = 1 | 2 | 3 | 4;
@@ -28,8 +28,12 @@ export type Ray = Base & { kind: "ray"; a: Anchor; b: Anchor };
 export type Rect = Base & { kind: "rect"; a: Anchor; b: Anchor; midline: boolean };
 /** a parallel channel: a line through a and b, and a parallel one `offset` price units above it (negative: below) */
 export type Channel = Base & { kind: "channel"; a: Anchor; b: Anchor; offset: number };
+/** a Fibonacci retracement: the move from a (its start) to b (its end), with a line at each ratio of the way back from b toward a */
+export type Fib = Base & { kind: "fib"; a: Anchor; b: Anchor };
+/** a freehand stroke: the points the finger passed through, by (time, price) */
+export type Brush = Base & { kind: "brush"; points: Anchor[] };
 export type TextNote = Base & { kind: "text"; at: Anchor; text: string };
-export type Drawing = HLine | Trend | Ray | Rect | Channel | TextNote;
+export type Drawing = HLine | Trend | Ray | Rect | Channel | Fib | Brush | TextNote;
 
 export const COLORS = ["#2563eb", "#10b981", "#f43f5e", "#f59e0b", "#8b5cf6", "#06b6d4", "#475569", "#111827"] as const;
 export const WIDTHS: Width[] = [1, 2, 3, 4];
@@ -43,6 +47,9 @@ export const TOOLS: { id: ToolId; label: string; points: number }[] = [
   { id: "ray", label: "Ray", points: 2 },
   { id: "rect", label: "Range box", points: 2 },
   { id: "channel", label: "Parallel channel", points: 2 },
+  { id: "fib", label: "Fibonacci retracement", points: 2 },
+  /** drawn by dragging, not by tapping points */
+  { id: "brush", label: "Freehand brush", points: 0 },
   { id: "text", label: "Text note", points: 1 },
   { id: "measure", label: "Measure", points: 2 },
 ];
@@ -54,6 +61,8 @@ export const DEFAULT_STYLE: Record<DrawingKind, { color: string; width: Width; d
   ray: { color: COLORS[4], width: 2, dash: "solid" },
   rect: { color: COLORS[1], width: 1, dash: "solid" },
   channel: { color: COLORS[5], width: 2, dash: "solid" },
+  fib: { color: COLORS[4], width: 1, dash: "solid" },
+  brush: { color: COLORS[2], width: 2, dash: "solid" },
   text: { color: COLORS[7], width: 1, dash: "solid" },
 };
 
@@ -77,6 +86,28 @@ export const rangeLabel = (a: Anchor, b: Anchor): string => {
   return `Height ${s.points.toFixed(2)} pts (${s.pct.toFixed(2)}%)`;
 };
 
+/** The retracement ratios, from the end of the move (0) back to its start (1). */
+export const FIB_RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1] as const;
+
+/** The price of a retracement line: `ratio` of the way from b back toward a. 0 is b, 1 is a. */
+export const fibPrice = (a: Anchor, b: Anchor, ratio: number): number => b.price + (a.price - b.price) * ratio;
+
+/** Every line of a retracement, with its ratio and price. */
+export const fibLevels = (a: Anchor, b: Anchor): { ratio: number; price: number }[] => FIB_RATIOS.map((ratio) => ({ ratio, price: fibPrice(a, b, ratio) }));
+
+/** "0", "0.236", "0.5", "1" */
+export const fibLabel = (ratio: number): string => String(ratio);
+
+export const MAX_BRUSH_POINTS = 160;
+
+/** A stroke with at most `max` points: evenly spaced through the stroke, always keeping the first and the last. Never adds a point. */
+export function thinPoints<T>(points: readonly T[], max: number = MAX_BRUSH_POINTS): T[] {
+  if (points.length <= max) return [...points];
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(points[Math.round((i * (points.length - 1)) / (max - 1))]);
+  return out;
+}
+
 /** A default offset for a new channel: 4% of the price the line sits at. */
 export const defaultChannelOffset = (a: Anchor, b: Anchor): number => ((a.price + b.price) / 2) * 0.04;
 
@@ -96,6 +127,10 @@ export function createDrawing(kind: DrawingKind, pts: Anchor[], id: string = new
       return ok(pts[0]) && ok(pts[1]) ? { ...base, kind, a: pts[0], b: pts[1], midline: false } : null;
     case "channel":
       return ok(pts[0]) && ok(pts[1]) ? { ...base, kind, a: pts[0], b: pts[1], offset: defaultChannelOffset(pts[0], pts[1]) } : null;
+    case "fib":
+      return ok(pts[0]) && ok(pts[1]) ? { ...base, kind, a: pts[0], b: pts[1] } : null;
+    case "brush":
+      return pts.length >= 2 && pts.every(ok) ? { ...base, kind, points: thinPoints(pts) } : null;
   }
 }
 
@@ -108,6 +143,8 @@ export function cloneDrawing(d: Drawing, id: string, dTime: number, dPrice: numb
       return { ...c, price: c.price + dPrice };
     case "text":
       return { ...c, at: shift(c.at) };
+    case "brush":
+      return { ...c, points: c.points.map(shift) };
     default:
       return { ...c, a: shift(c.a), b: shift(c.b) };
   }
@@ -121,6 +158,8 @@ export function moveDrawing<T extends Drawing>(d: T, dTime: number, dPrice: numb
       return { ...d, price: d.price + dPrice };
     case "text":
       return { ...d, at: shift(d.at) };
+    case "brush":
+      return { ...d, points: d.points.map(shift) };
     default:
       return { ...d, a: shift((d as Trend).a), b: shift((d as Trend).b) } as T;
   }
@@ -141,7 +180,10 @@ export function dragHandle(d: Drawing, handle: string, to: Anchor): Drawing {
       return d;
     case "trend":
     case "ray":
+    case "fib":
       return handle === "a" ? { ...d, a: to } : handle === "b" ? { ...d, b: to } : d;
+    case "brush":
+      return d; // a stroke has no handles: it is moved as a whole
     case "rect":
       if (handle === "a") return { ...d, a: to };
       if (handle === "b") return { ...d, b: to };
@@ -182,8 +224,15 @@ export function parseDrawings(raw: unknown): Drawing[] {
         if (at && typeof o.text === "string") out.push({ ...base, kind: "text", at, text: o.text.slice(0, 200) });
         break;
       }
+      case "brush": {
+        if (!Array.isArray(o.points) || o.points.length < 2 || o.points.length > 400) break;
+        const pts = o.points.map(anchor);
+        if (pts.every((p): p is Anchor => p !== null)) out.push({ ...base, kind: "brush", points: pts });
+        break;
+      }
       case "trend":
       case "ray":
+      case "fib":
       case "rect":
       case "channel": {
         const a = anchor(o.a);
@@ -204,6 +253,6 @@ export function parseDrawings(raw: unknown): Drawing[] {
 export function cloneOffset(d: Drawing, times: readonly number[]): { dTime: number; dPrice: number } {
   const n = times.length;
   const spacing = n >= 2 ? (times[n - 1] - times[0]) / (n - 1) : 86_400;
-  const ref = d.kind === "hline" ? d.price : d.kind === "text" ? d.at.price : (d.a.price + d.b.price) / 2;
+  const ref = d.kind === "hline" ? d.price : d.kind === "text" ? d.at.price : d.kind === "brush" ? d.points[0].price : (d.a.price + d.b.price) / 2;
   return { dTime: Math.round(spacing * 3), dPrice: -ref * 0.02 };
 }

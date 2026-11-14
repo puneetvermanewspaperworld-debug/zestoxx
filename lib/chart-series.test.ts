@@ -4,6 +4,7 @@ import { bollingerBands, emaSeries, maSeries, rsiSeries } from "./indicators";
 import { computeCustomSeries } from "./formula";
 import { buildHistory } from "./history";
 import { DAY, VOLUME_NOT_AVAILABLE, buildChartSeries, chartBounds, compareValues, isoToSec, toPoints, volumeAvailable, withTimes, type TimedCandle } from "./chart/series";
+import { defaultView, RIGHT_PAD } from "./chart/view";
 import type { Candle, SymbolInfo } from "./types";
 
 /**
@@ -163,5 +164,23 @@ describe("a timed candle is a candle with a time", () => {
   it("type check only", () => {
     const c: TimedCandle = { t: 1, open: 1, high: 1, low: 1, close: 1, volume: 0 };
     assert.equal(c.t, 1);
+  });
+});
+
+describe("defaultView: the range a chart opens on and Reset view returns to", () => {
+  it("ends a little past the newest bar and starts `keep` bars before it", () => {
+    const v = defaultView(271, 130);
+    assert.equal(v.to, 270 + RIGHT_PAD);
+    assert.equal(v.from, 271 - 130 - 0.5);
+  });
+  it("never starts before the first bar, whatever the history length", () => {
+    assert.equal(defaultView(40, 130).from, -0.5);
+    assert.equal(defaultView(0, 130).from, -0.5);
+  });
+  it("shows the newest candle: it is inside the range", () => {
+    for (const [n, keep] of [[271, 130], [60, 60], [500, 22]]) {
+      const v = defaultView(n, keep);
+      assert.ok(v.from <= n - 1 && v.to >= n - 1);
+    }
   });
 });

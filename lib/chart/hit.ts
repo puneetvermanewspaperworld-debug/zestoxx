@@ -1,6 +1,6 @@
 import type { Viewport } from "./coords";
 import type { Drawing, DrawingKind } from "./drawings";
-import { priceOnLine } from "./drawings";
+import { fibLevels, priceOnLine } from "./drawings";
 
 export interface Pt {
   x: number;
@@ -28,6 +28,10 @@ export interface Shape {
   midline?: [Pt, Pt];
   /** the polygon between a channel's two lines */
   fill?: Pt[];
+  /** a Fibonacci retracement's lines: the ratio, its price and where it sits */
+  levels?: { ratio: number; price: number; y: number }[];
+  /** a freehand stroke's points in order */
+  path?: Pt[];
   handles: Handle[];
 }
 
@@ -94,6 +98,37 @@ export function shapeOf(d: Drawing, vp: Viewport): Shape | null {
         // a and b are two opposite corners; c is (a.time, b.price) and d is (b.time, a.price)
         handles: [{ id: "a", ...a }, { id: "b", ...b }, { id: "c", x: a.x, y: b.y }, { id: "d", x: b.x, y: a.y }],
       };
+    }
+    case "fib": {
+      const a = px(d.a);
+      const b = px(d.b);
+      if (!a || !b) return null;
+      // the lines run from the leftmost of the two points to the right edge of the plot, so a narrow swing still reads against today's candles
+      const x0 = Math.min(a.x, b.x);
+      const x1 = Math.max(vp.width, a.x, b.x);
+      const levels: { ratio: number; price: number; y: number }[] = [];
+      for (const l of fibLevels(d.a, d.b)) {
+        const y = vp.priceToY(l.price);
+        if (y !== null) levels.push({ ...l, y });
+      }
+      if (levels.length === 0) return null;
+      return {
+        kind: d.kind,
+        segments: [...levels.map((l): [Pt, Pt] => [{ x: x0, y: l.y }, { x: x1, y: l.y }]), [a, b]],
+        levels,
+        handles: [{ id: "a", ...a }, { id: "b", ...b }],
+      };
+    }
+    case "brush": {
+      const path: Pt[] = [];
+      for (const q of d.points) {
+        const p = px(q);
+        if (p) path.push(p);
+      }
+      if (path.length < 2) return null;
+      const segments: [Pt, Pt][] = [];
+      for (let i = 1; i < path.length; i++) segments.push([path[i - 1], path[i]]);
+      return { kind: d.kind, segments, path, handles: [] };
     }
     case "channel": {
       const a = px(d.a);
