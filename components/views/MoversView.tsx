@@ -6,6 +6,7 @@ import { Flame } from "lucide-react";
 import { fmtINR, fmtIsoDate, fmtOi } from "@/lib/helpers";
 import { SYMBOL_MAP } from "@/lib/symbols";
 import { useMovers } from "@/lib/useMovers";
+import DataBadge from "@/components/DataBadge";
 import { moversNote, noChangeFigure } from "@/lib/closed-notes";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import {
@@ -330,10 +331,7 @@ export default function MoversView() {
             <p className="text-[12px] text-slate-400">What&apos;s moving most across equities, futures and options.</p>
           </div>
           {asOf ? (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10.5px] font-semibold text-emerald-600">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Live data · {asOf} IST
-            </span>
+            <DataBadge source="live" suffix={`${asOf} IST`} />
           ) : (
             !loading &&
             top !== "mf" && (

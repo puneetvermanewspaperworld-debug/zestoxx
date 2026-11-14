@@ -1,5 +1,6 @@
 "use client";
 
+import DataBadge from "@/components/DataBadge";
 import React, { useState } from "react";
 import OptionsChain from "@/components/OptionsChain";
 import OptionOrderSheet from "@/components/OptionOrderSheet";
@@ -42,21 +43,7 @@ export default function OptionsView() {
               <span>
                 {sym.name} · Spot {fmt(chain?.spot ?? price, sym.type)}
               </span>
-              {chain && (
-                <span
-                  className={
-                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                    (chain.source === "live" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500")
-                  }
-                >
-                  <span
-                    className={
-                      "h-1.5 w-1.5 rounded-full " + (chain.source === "live" ? "bg-emerald-500" : "bg-slate-400")
-                    }
-                  />
-                  {chain.source === "live" ? "Live data" : "Simulated"}
-                </span>
-              )}
+              {chain && <DataBadge source={chain.source === "live" ? "live" : "sim"} />}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

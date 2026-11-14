@@ -16,6 +16,7 @@ import { fmt, istClock } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
 import { parseContractId } from "@/lib/contract";
 import { simulateChain } from "@/lib/options";
+import { resampleToDaily } from "@/lib/resample";
 import {
   isRestingOrderExpired,
   isSipExecutable,
@@ -121,6 +122,8 @@ interface ZestoxxContextValue {
   prevCloseFor: (id: string) => number;
   /** True only when this symbol's price and previous close came from a live feed (not the simulation). */
   hasFeedQuote: (id: string) => boolean;
+  /** True only when this symbol's candle history came from a feed. Until then `histories` holds the 250 invented starting bars. */
+  hasRealHistory: (id: string) => boolean;
   setActiveView: (v: ViewId) => void;
   onTrade: (t: TradeInput) => void;
   /** Market paper trade in an option contract (id from makeContractId); qty is in units, not lots. */
@@ -214,6 +217,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [drawingsBySymbol, setDrawingsBySymbol] = useState<Record<string, Drawing[]>>({});
   const [formula, setFormula] = useState("");
   const [liveSource, setLiveSource] = useState<LiveSource>({});
+  const [realHistory, setRealHistory] = useState<Record<string, boolean>>({});
   const hydrated = useRef(false);
   const firedOrders = useRef(new Set<number>());
   /** true once the first market-data pull has answered (or failed): until then `live` is just seed prices */
@@ -395,6 +399,11 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         ids.forEach((id) => (next[id] = "live"));
         return next;
       });
+      setRealHistory((prev) => {
+        const next = { ...prev };
+        ids.forEach((id) => (next[id] = true));
+        return next;
+      });
     };
 
     (async () => {
@@ -402,7 +411,10 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await fetch(`/api/market-data?asset=${asset}`);
           if (!res.ok || cancelled) continue;
-          applyHistory(await res.json());
+          const data = (await res.json()) as Record<string, number[][]>;
+          // CoinGecko sends 4-hour bars; everything downstream (the chart's D timeframe, Pulse's RSI) is daily. UTC day boundaries.
+          if (asset === "crypto-ohlc") for (const id of Object.keys(data)) if (Array.isArray(data[id])) data[id] = resampleToDaily(data[id]);
+          applyHistory(data);
         } catch {
           // that family stays simulated
         }
@@ -819,6 +831,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   );
 
   const hasFeedQuote = useCallback((id: string): boolean => (prevClose[id] ?? 0) > 0, [prevClose]);
+  const hasRealHistory = useCallback((id: string): boolean => realHistory[id] === true, [realHistory]);
 
   /** Day-change % for a symbol: (price − previous close) / previous close. */
   const chgFor = useCallback(
@@ -877,6 +890,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     chgFor,
     prevCloseFor,
     hasFeedQuote,
+    hasRealHistory,
     setActiveView,
     onTrade,
     tradeContract,

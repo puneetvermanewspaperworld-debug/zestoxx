@@ -35,12 +35,58 @@ test("News page and dashboard card say news is not connected, with no headlines"
   await expect(page.getByText("Market Desk")).toHaveCount(0);
 });
 
-test("Pulse page says what the scores are based on, and lists no score for a symbol without a real quote", async ({ page }) => {
-  await quotes(page, { TCS: { price: 4200, prevClose: 4100 } });
+/** n daily bars ending yesterday, wobbling upward: [time, open, high, low, close, volume] */
+const dailyBars = (n: number, start = 4000) =>
+  Array.from({ length: n }, (_, i) => {
+    const c = start + i * 2 + Math.sin(i / 2) * 15;
+    return [Date.UTC(2026, 10, 12) - (n - i) * 86_400_000, c - 3, c + 6, c - 6, c, 1_000_000];
+  });
+/** 4-hour bars like CoinGecko's, for 30 days */
+const fourHourBars = () => Array.from({ length: 180 }, (_, i) => {
+  const c = 90000 + i * 20 + Math.sin(i / 3) * 400;
+  return [Date.UTC(2026, 9, 15, 8) + i * 4 * 3_600_000, c - 50, c + 100, c - 100, c];
+});
+
+test("Pulse page: says what the scores are based on; a score only with a real quote AND real history; otherwise Loading or Not enough price history", async ({ page }) => {
+  await page.clock.install({ time: OPEN });
+  await quotes(page, {
+    TCS: { price: 4200, prevClose: 4100 }, // quote + 120 real bars  -> a score
+    RELIANCE: { price: 1500, prevClose: 1490 }, // quote, no history   -> Loading
+    SBIN: { price: 800, prevClose: 790 }, // quote + 30 bars          -> Not enough price history
+  });
+  await page.route("**/api/market-data?asset=equity-ohlc", (r) => r.fulfill({ json: { TCS: dailyBars(120), SBIN: dailyBars(30, 780) } }));
+  await page.route("**/api/market-data?asset=crypto-ohlc", (r) => r.fulfill({ json: { BTC: fourHourBars() } }));
   await page.goto("/app/pulse", { waitUntil: "domcontentloaded" });
-  await expect(page.getByText(/Based on: Price momentum/)).toBeVisible();
+  await expect(page.getByText(/Pulse scores are based on price momentum \(day change\) and RSI positioning\./)).toBeVisible();
   await expect(page.getByText(/News is not part of the score/)).toBeVisible();
-  await expect(page.getByText(/No live quote yet, so no score:/)).toBeVisible();
+  await page.waitForTimeout(800);
+
+  const card = (id: string) => page.getByTestId(`pulse-card-${id}`);
+  await expect(card("TCS").getByTestId("pulse-no-score")).toHaveCount(0);
+  await expect(card("TCS")).toContainText(/RSI \d+/);
+  await expect(card("RELIANCE").getByTestId("pulse-no-score")).toHaveText("Loading");
+  await expect(card("SBIN").getByTestId("pulse-no-score")).toHaveText("Not enough price history");
+  // crypto: 30 days of 4-hour bars become about 30 daily bars, fewer than Wilder's RSI needs
+  await expect(card("BTC").getByTestId("pulse-no-score")).toHaveText("Not enough price history");
+  // no feed at all: Loading, never a score from the invented starting bars
+  await expect(card("NIFTY50").getByTestId("pulse-no-score")).toHaveText("Loading");
+  await expect(card("SENSEX").getByTestId("pulse-no-score")).toHaveText("Loading");
+});
+
+test("Trade page Pulse pill: Loading with a quote but no real history, a score once real history arrives", async ({ page }) => {
+  await page.clock.install({ time: OPEN });
+  await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await quotes(page, { RELIANCE: { price: 1500, prevClose: 1490 } });
+  await page.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("pulse-pill")).toHaveText(/Pulse · Loading/);
+
+  const withHistory = await page.context().newPage();
+  await withHistory.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await withHistory.clock.install({ time: OPEN });
+  await quotes(withHistory, { RELIANCE: { price: 1500, prevClose: 1490 } });
+  await withHistory.route("**/api/market-data?asset=equity-ohlc", (r) => r.fulfill({ json: { RELIANCE: dailyBars(150, 1400) } }));
+  await withHistory.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await expect(withHistory.getByTestId("pulse-pill")).toHaveText(/^\s*Pulse \d+ · (Bullish|Neutral|Bearish)$/);
 });
 
 test("dashboard movers: a down symbol is never a gainer, nothing prints +-, no crypto in the Indian movers", async ({ page }) => {
@@ -164,5 +210,87 @@ test("no page scrolls sideways at 360px", async ({ page }) => {
     await page.waitForTimeout(500);
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(over, path).toBeLessThanOrEqual(0);
+  }
+});
+
+test("Trade page badge: Live data while the market is open, Last close once it is shut, never Live data while shut", async ({ page }) => {
+  await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await page.clock.install({ time: OPEN });
+  await quotes(page, { RELIANCE: { price: 1500, prevClose: 1490 } });
+  await page.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("data-badge")).toHaveText("Live data");
+
+  const shut = await page.context().newPage();
+  await shut.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+  await shut.clock.install({ time: SHUT });
+  await quotes(shut, { RELIANCE: { price: 1500, prevClose: 1490 } });
+  await shut.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await expect(shut.getByTestId("data-badge")).toHaveText("Last close");
+  await expect(shut.getByText("Live data")).toHaveCount(0);
+});
+
+test("Trade page badge: crypto is Live data even while the Indian market is shut", async ({ page }) => {
+  await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unsupported" } }));
+  await page.clock.install({ time: SHUT });
+  await quotes(page, {});
+  await page.goto("/app/trade/BTC", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("data-badge")).toHaveText("Live data");
+});
+
+test("News page: the sentence has its lead-in", async ({ page }) => {
+  await quotes(page, {});
+  await page.goto("/app/news", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Pulse scores are based on price momentum (day change) and RSI positioning.")).toBeVisible();
+  await expect(page.getByText(/^Price momentum \(day change\)/)).toHaveCount(0);
+});
+
+const CHAIN = (() => {
+  const rows = [];
+  for (let k = 24800; k <= 25700; k += 50) {
+    const leg = (up: boolean) => ({ ltp: Math.max(5, up ? 25250 - k + 80 : k - 25250 + 80), prevClose: 80, oi: 100000, prevOi: 90000, volume: 5000, iv: 16, key: `NSE_FO|${up ? 1 : 2}${k}` });
+    rows.push({ strike: k, call: leg(true), put: leg(false) });
+  }
+  return { underlying: "NIFTY50", spot: 25250, expiry: "2026-11-17", expiries: ["2026-11-17"], lotSize: 65, rows, vix: 16, source: "live" };
+})();
+
+for (const [label, time, expected] of [["open", OPEN, "Live data"], ["shut", SHUT, "Last close"]] as const) {
+  test(`badges with the market ${label}: Movers and the options chain say "${expected}"`, async ({ page }) => {
+    await page.clock.install({ time });
+    await quotes(page, { NIFTY50: { price: 25250, prevClose: 25200 } });
+    await page.route("**/api/fno-movers**", (r) => r.fulfill({ json: equityMovers }));
+    await page.route("**/api/options-chain**", (r) => r.fulfill({ json: CHAIN }));
+    await page.route("**/api/option-quote**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+    await page.route("**/api/option-candles**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+
+    // Movers
+    await page.goto("/app/movers", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("tr", { hasText: "TCS" })).toBeVisible();
+    const movers = page.getByTestId("data-badge");
+    await expect(movers).toContainText(expected);
+    if (expected === "Live data") await expect(movers).toContainText("IST");
+    else await expect(movers).not.toContainText("IST");
+
+    // options chain
+    await page.goto("/app/options", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("data-badge").first()).toHaveText(expected);
+    await expect(page.getByText(expected === "Live data" ? "Last close" : "Live data", { exact: true })).toHaveCount(0);
+
+  });
+}
+
+test("option sheet badge: a live contract quote says Last close when the market is shut, Live data when open", async ({ page }) => {
+  const liveQuote = { source: "live", ltp: 80, change: 1, changePct: 1.2, open: 79, high: 82, low: 78, prevClose: 79, bids: [{ qty: 65, price: 79.95, orders: 1 }], asks: [{ qty: 65, price: 80.05, orders: 1 }], totalBuyQty: 65, totalSellQty: 65, volume: 1000, oi: 5000, avgPrice: 80, lowerCircuit: 0, upperCircuit: 0 };
+  for (const [time, expected] of [[OPEN, "Live data"], [SHUT, "Last close"]] as const) {
+    const p = await page.context().newPage();
+    await p.clock.install({ time });
+    await quotes(p, { NIFTY50: { price: 25250, prevClose: 25200 } });
+    await p.route("**/api/options-chain**", (r) => r.fulfill({ json: CHAIN }));
+    await p.route("**/api/option-quote**", (r) => r.fulfill({ json: liveQuote }));
+    await p.route("**/api/option-candles**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+    await p.goto("/app/options", { waitUntil: "domcontentloaded" });
+    await p.locator("table tbody tr").nth(8).locator("button").first().click();
+    await p.waitForSelector("#order-sheet-title");
+    await expect(p.getByRole("dialog").getByTestId("data-badge")).toHaveText(expected);
+    await p.close();
   }
 });
