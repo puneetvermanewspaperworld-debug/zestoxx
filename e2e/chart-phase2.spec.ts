@@ -177,3 +177,109 @@ test("a level at the current price cannot have an alert: it would fire at once",
   await expect(page.getByTestId("level-alert")).toBeDisabled();
   await expect(page.getByTestId("level-alert-note")).toHaveText("The price is at this level now.");
 });
+
+/* ---------------------------------------------------------------- Fibonacci retracement and brush -- */
+const inr = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+test("Fibonacci retracement: two taps, seven labelled lines at the right prices, stored by (time, price)", async ({ page }) => {
+  await openTrade(page);
+  await placeAt(page, "fib", [[255, 1595], [265, 1520]]);
+  const [d] = await waitStored(page, 1);
+  expect(d.kind).toBe("fib");
+  expect(d.a!.time).toBeLessThan(d.b!.time);
+  expect(Object.keys(d).some((k) => k === "x" || k === "y")).toBe(false);
+  const labels = page.getByTestId("fib-label");
+  await expect(labels).toHaveCount(7);
+  const ratios = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+  for (let i = 0; i < ratios.length; i++) {
+    const price = d.b!.price + (d.a!.price - d.b!.price) * ratios[i];
+    await expect(labels.nth(i)).toHaveText(`${ratios[i]} (${inr(price)})`);
+  }
+  await expect(page.getByTestId("handle-a")).toHaveCount(1);
+  await expect(page.getByTestId("handle-b")).toHaveCount(1);
+  await expect(page.getByTestId("properties")).toBeVisible();
+});
+
+test("a Fibonacci retracement is selected by a tap on one of its lines, resized by a handle, and one undo puts it back", async ({ page }) => {
+  await openTrade(page);
+  await placeAt(page, "fib", [[255, 1595], [265, 1520]]);
+  const [before] = await waitStored(page, 1);
+  await page.getByTestId("tool-select").click();
+  const box = await layerBox(page);
+  await page.mouse.click(box.x + 5, box.y + 5); // deselect
+  await expect(page.getByTestId("properties")).toHaveCount(0);
+  const mid = await spot(page, 271, before.b!.price + (before.a!.price - before.b!.price) * 0.5); // the 0.5 line, to the right of both points
+  await page.mouse.click(mid.x, mid.y);
+  await expect(page.getByTestId("properties")).toBeVisible();
+  const hb = await centre(page, "handle-b");
+  await drag(page, hb, { x: hb.x + 30, y: hb.y + 40 });
+  await expect.poll(async () => (await stored(page))[0].b!.price).toBeLessThan(before.b!.price);
+  expect((await stored(page))[0].a).toEqual(before.a);
+  await page.getByTestId("undo").click();
+  await expect.poll(async () => (await stored(page))[0].b).toEqual(before.b);
+});
+
+test("the freehand brush draws what is dragged, as points in (time, price), and the chart does not pan", async ({ page }) => {
+  await openTrade(page);
+  const v0 = await view(page);
+  await page.getByTestId("tool-brush").click();
+  await expect(page.getByTestId("tool-hint")).toContainText("drag");
+  const box = await layerBox(page);
+  const pts = Array.from({ length: 24 }, (_, i) => ({ x: box.x + 120 + i * 8, y: box.y + 120 + Math.sin(i / 3) * 30 }));
+  await page.mouse.move(pts[0].x, pts[0].y);
+  await page.mouse.down();
+  for (const p of pts.slice(1)) await page.mouse.move(p.x, p.y, { steps: 2 });
+  await expect(page.getByTestId("brush-live")).toBeVisible(); // the stroke shows while it is drawn
+  await page.mouse.up();
+  const [d] = await waitStored(page, 1);
+  expect(d.kind).toBe("brush");
+  const points = (d as unknown as { points: { time: number; price: number }[] }).points;
+  expect(points.length).toBeGreaterThan(10);
+  for (let i = 1; i < points.length; i++) expect(points[i].time).toBeGreaterThanOrEqual(points[i - 1].time); // drawn left to right
+  expect(Math.max(...points.map((p) => p.price))).toBeGreaterThan(Math.min(...points.map((p) => p.price))); // it has a shape
+  expect(JSON.stringify(d)).not.toMatch(/"[xy]":/);
+  await expect(page.getByTestId("brush-stroke")).toHaveCount(1);
+  expect(await view(page)).toEqual(v0); // the drag drew; it did not pan the chart
+  await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-tool", "select");
+});
+
+test("a tap with the brush draws nothing; a stroke can be selected, moved whole, and deleted", async ({ page }) => {
+  await openTrade(page);
+  await page.getByTestId("tool-brush").click();
+  const box = await layerBox(page);
+  await page.mouse.click(box.x + 200, box.y + 150);
+  await page.waitForTimeout(300);
+  expect(await stored(page)).toEqual([]);
+  const y = box.y + 150;
+  await page.mouse.move(box.x + 150, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 230, y + 20, { steps: 10 });
+  await page.mouse.move(box.x + 310, y - 10, { steps: 10 });
+  await page.mouse.up();
+  const [d0] = await waitStored(page, 1);
+  const p0 = (d0 as unknown as { points: { time: number; price: number }[] }).points;
+  // select it with a tap on the stroke, then drag its body
+  await expect(page.getByTestId("properties")).toBeVisible(); // a new drawing is selected
+  const body = await centre(page, "drag-body");
+  await drag(page, body, { x: body.x + 50, y: body.y + 30 });
+  await expect.poll(async () => ((await stored(page))[0] as unknown as { points: { time: number }[] }).points[0].time).toBeGreaterThan(p0[0].time);
+  const p1 = ((await stored(page))[0] as unknown as { points: { time: number; price: number }[] }).points;
+  expect(p1.length).toBe(p0.length);
+  const dt = p1[0].time - p0[0].time;
+  const dp = p1[0].price - p0[0].price;
+  for (let i = 0; i < p0.length; i++) {
+    expect(p1[i].time - p0[i].time).toBe(dt); // every point moved by the same amount
+    expect(p1[i].price - p0[i].price).toBeCloseTo(dp, 6);
+  }
+  await page.getByTestId("delete").click();
+  await expect(page.getByTestId("drawing-count")).toHaveText("0 drawings");
+});
+
+test("brush and Fibonacci are on the tool rail as 44 px buttons", async ({ page }) => {
+  await openTrade(page);
+  for (const id of ["fib", "brush"]) {
+    const b = (await page.getByTestId(`tool-${id}`).boundingBox())!;
+    expect(b.width, id).toBeGreaterThanOrEqual(44);
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+  }
+});

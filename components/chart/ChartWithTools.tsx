@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
@@ -27,12 +27,31 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
   const [railOpen, setRailOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 640);
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
 
+  // Opening the property bar below the chart pushes the page content under it down; the browser's scroll anchoring would answer by
+  // scrolling the page to keep that content still, which moves the chart under the finger. Anchoring is turned off on the page's
+  // scroller while the chart is here.
+  const root = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    let n: HTMLElement | null = root.current;
+    while (n) {
+      const s = getComputedStyle(n);
+      if (s.overflowY === "auto" || s.overflowY === "scroll") break;
+      n = n.parentElement;
+    }
+    const scroller = n ?? document.documentElement;
+    const before = scroller.style.overflowAnchor;
+    scroller.style.overflowAnchor = "none";
+    return () => {
+      scroller.style.overflowAnchor = before;
+    };
+  }, []);
+
   const onBars = useCallback((b: TimedCandle[]) => setBars(b), []);
   const onChart = useCallback((chart: IChartApi | null, series: ISeriesApi<"Candlestick"> | null) => setCtx(chart && series ? { chart, series } : null), []);
   const cloneBy = useCallback((d: Drawing) => cloneOffset(d, times), [times]);
 
   return (
-    <div className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
+    <div ref={root} className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
       <ChartToolbox api={api} />
       <div className={heightClass}>
         <TradeChart
@@ -57,6 +76,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
                 alerted={alerted}
                 lot={lot}
                 isIndex={chartProps.type === "index"}
+                assetType={chartProps.type}
                 onAdd={api.add}
                 onSelect={api.select}
                 onLive={api.setLive}

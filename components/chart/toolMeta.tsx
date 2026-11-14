@@ -1,5 +1,5 @@
 import React from "react";
-import { Minus, MousePointer2, MoveUpRight, Rows2, Ruler, Square, TrendingUp, Type } from "lucide-react";
+import { Brush, Layers, Minus, MousePointer2, MoveUpRight, Rows2, Ruler, Square, TrendingUp, Type } from "lucide-react";
 import type { ToolId } from "@/lib/chart/drawings";
 
 /** Our own icons from the lucide set (ISC licence); none of TradingView's. */
@@ -10,6 +10,8 @@ export const TOOL_ICON: Record<ToolId, React.ComponentType<{ size?: number; "ari
   ray: MoveUpRight,
   rect: Square,
   channel: Rows2,
+  fib: Layers,
+  brush: Brush,
   text: Type,
   measure: Ruler,
 };
@@ -21,6 +23,8 @@ export const TOOL_HINT: Record<ToolId, string> = {
   ray: "Tap two points; the ray runs on from the second.",
   rect: "Tap two opposite corners.",
   channel: "Tap two points; drag the middle handle for the width.",
+  fib: "Tap where the move starts, then where it ends.",
+  brush: "Press and drag to draw freehand; lift to finish.",
   text: "Tap where the note goes, then type it.",
   measure: "Drag between two points, or tap two.",
 };

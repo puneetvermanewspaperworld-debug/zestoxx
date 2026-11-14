@@ -323,3 +323,40 @@ test("on a phone: tap a level, tap 'Alert when price crosses', and the level car
   await btn.tap();
   await expect(btn).toHaveAttribute("aria-pressed", "false");
 });
+
+test("on a phone the brush draws a finger drag, the page does not scroll, and a pinch with the brush draws nothing", async ({ page }) => {
+  await openPhone(page);
+  await pickTool(page, "brush");
+  const c = await centreOfChart(page);
+  const top = await scrollTop(page);
+  const v0 = await view(page);
+  // one finger: a wavy stroke
+  const cdp = await cdpFor(page);
+  const touch = (type: "touchStart" | "touchMove" | "touchEnd", p?: { x: number; y: number }) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [] });
+  await touch("touchStart", { x: c.x - 70, y: c.y + 40 });
+  for (let i = 1; i <= 20; i++) {
+    await touch("touchMove", { x: c.x - 70 + i * 7, y: c.y + 40 - Math.sin(i / 3) * 30 - i * 2 });
+    await page.waitForTimeout(12);
+  }
+  await touch("touchEnd");
+  const [d] = await waitStored(page, 1);
+  expect(d.kind).toBe("brush");
+  expect((d as unknown as { points: unknown[] }).points.length).toBeGreaterThan(8);
+  expect(await scrollTop(page)).toBe(top); // the page did not scroll under the finger
+  expect(await view(page)).toEqual(v0); // and the chart did not pan
+  // a pinch with the brush in hand: it zooms the chart, and draws nothing
+  await pickTool(page, "brush");
+  await cdp.send("Input.synthesizePinchGesture", { x: c.x, y: c.y, scaleFactor: 1.7, gestureSourceType: "touch" });
+  await page.waitForTimeout(500);
+  expect((await stored(page)).length).toBe(1);
+});
+
+test("on a phone a Fibonacci retracement is two taps", async ({ page }) => {
+  await openPhone(page);
+  await pickTool(page, "fib");
+  await tapAt(page, 252, 0.4);
+  await tapAt(page, 266, 0.8);
+  const [d] = await waitStored(page, 1);
+  expect(d.kind).toBe("fib");
+  await expect(page.getByTestId("fib-label")).toHaveCount(7);
+});
