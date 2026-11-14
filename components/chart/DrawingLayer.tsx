@@ -577,7 +577,7 @@ export default function DrawingLayer(p: DrawingLayerProps) {
           defaultValue={editing.text}
           maxLength={120}
           className="pointer-events-auto absolute rounded border border-blue-400 bg-white px-1.5 text-[12px] font-semibold outline-none"
-          style={{ left: editShape.textBox.x, top: editShape.textBox.y, height: editShape.textBox.h, width: Math.max(120, editShape.textBox.w), color: editing.color }}
+          style={{ left: editShape.textBox.x, top: editShape.textBox.y + editShape.textBox.h / 2 - 22, height: 44, width: Math.max(140, editShape.textBox.w), color: editing.color }}
           onKeyDown={(e) => {
             e.stopPropagation();
             if (e.key === "Enter") {

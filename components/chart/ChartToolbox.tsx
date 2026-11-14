@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { BellRing, Copy, Eye, EyeOff, Lock, LockOpen, Trash2 } from "lucide-react";
+import { roundPrice } from "@/lib/chart/price";
 import { COLORS, DASHES, WIDTHS, type Dash, type Drawing, type Width } from "@/lib/chart/drawings";
 import type { DrawingsApi } from "./useDrawings";
 import type { LevelAlertView } from "./useLevelAlerts";
@@ -66,12 +67,16 @@ export function ChartProperties({ api, cloneBy, levelAlert }: { api: DrawingsApi
 
 /** Style and actions for the selected drawing. A text or price field is applied when it is left or Enter is pressed: one undo step, not one per key. */
 function Properties({ d, api, cloneBy, levelAlert }: { d: Drawing; api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number }; levelAlert?: LevelAlertView }) {
-  const [price, setPrice] = useState(d.kind === "hline" ? String(d.price) : "");
+  // The field shows the price to two decimals, like the axis. The stored price is exact (a tap lands on a price like 1306.38929519) and
+  // stays exact until the field is edited: leaving it untouched never rounds what is stored.
+  const shownPrice = d.kind === "hline" ? roundPrice(d.price) : "";
+  const [price, setPrice] = useState(shownPrice);
   const [text, setText] = useState(d.kind === "text" ? d.text : "");
   const commitPrice = () => {
+    if (d.kind !== "hline" || price === shownPrice) return; // not edited
     const v = Number(price);
-    if (d.kind === "hline" && Number.isFinite(v) && v > 0 && v !== d.price) api.update(d.id, { price: v } as Partial<Drawing>);
-    else if (d.kind === "hline") setPrice(String(d.price));
+    if (price.trim() !== "" && Number.isFinite(v) && v > 0 && v !== d.price) api.update(d.id, { price: v } as Partial<Drawing>);
+    else setPrice(shownPrice);
   };
   const commitText = () => {
     if (d.kind === "text") {

@@ -315,6 +315,7 @@ test("on a phone: tap a level, tap 'Alert when price crosses', and the level car
   await btn.scrollIntoViewIfNeeded();
   const b = (await btn.boundingBox())!;
   expect(b.height).toBeGreaterThanOrEqual(44);
+  await expect(page.getByTestId("level-price")).toHaveValue(/^[0-9]+[.][0-9]{2}$/); // two decimals, not 1572.97340...
   await btn.tap();
   await expect(btn).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("drawing-layer")).not.toHaveAttribute("data-alerted", "[]");

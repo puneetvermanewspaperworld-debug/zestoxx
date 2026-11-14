@@ -283,3 +283,74 @@ test("brush and Fibonacci are on the tool rail as 44 px buttons", async ({ page 
     expect(b.height, id).toBeGreaterThanOrEqual(44);
   }
 });
+
+/* ------------------------------------------------------------------------------ level price field -- */
+test("a level's price field shows two decimals while the exact price stays stored", async ({ page }) => {
+  await openTrade(page);
+  await placeAt(page, "hline", [[262, 1557.3]]);
+  const [d] = await waitStored(page, 1);
+  const exact = d.price as number;
+  expect(String(exact).replace(/^\d+\.?/, "").length, "a tap lands on a price with many decimals").toBeGreaterThan(2);
+  const field = page.getByTestId("level-price");
+  await expect(field).toHaveValue(exact.toFixed(2));
+  expect((await field.inputValue()).replace(/^\d+\.?/, "").length).toBe(2);
+  // looking at the field, focusing it and leaving it does not round what is stored
+  await field.focus();
+  await field.blur();
+  await page.waitForTimeout(900);
+  expect((await stored(page))[0].price).toBe(exact);
+  await expect(page.getByTestId("drawing-layer")).toHaveAttribute("data-levels", JSON.stringify([exact]));
+  // typing a price stores what was typed
+  await field.fill("1550.255");
+  await field.blur();
+  await expect.poll(async () => (await stored(page))[0].price).toBe(1550.255);
+  await expect(page.getByTestId("level-price")).toHaveValue((1550.255).toFixed(2));
+  // an empty or invalid entry is put back to the shown price and changes nothing
+  await page.getByTestId("level-price").fill("");
+  await page.getByTestId("level-price").blur();
+  await expect(page.getByTestId("level-price")).toHaveValue((1550.255).toFixed(2));
+  await page.waitForTimeout(900);
+  expect((await stored(page))[0].price).toBe(1550.255);
+});
+
+test("an alert made from a level uses the exact price, and the Alerts page shows it to two decimals", async ({ page }) => {
+  await openTrade(page);
+  await placeAt(page, "hline", [[262, 1557.3]]);
+  const [d] = await waitStored(page, 1);
+  await page.getByTestId("level-alert").click();
+  await page.getByRole("link", { name: "Alerts" }).first().click();
+  await page.getByText("Active Alerts").waitFor();
+  await expect(page.getByText(`₹${(d.price as number).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`).first()).toBeVisible();
+});
+
+/* ---------------------------------------------------------------------------------- touch targets -- */
+test("every button and field in the chart area is at least 44 px, whichever kind of drawing is selected", async ({ page }) => {
+  await openTrade(page);
+  const tooSmall = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-testid="chart-with-tools"] button, [data-testid="chart-with-tools"] input, [data-testid="chart-with-tools"] select')]
+        .map((e) => ({ e, r: e.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && r.height > 0 && (r.width < 43.5 || r.height < 43.5))
+        .map(({ e, r }) => `${e.getAttribute("data-testid") ?? e.getAttribute("aria-label") ?? e.tagName} ${Math.round(r.width)}x${Math.round(r.height)}`)
+    );
+  expect(await tooSmall(), "with nothing selected").toEqual([]);
+  await page.getByTestId("stay").click();
+  const kinds: [string, [number, number][]][] = [
+    ["hline", [[262, 1560]]],
+    ["trend", [[252, 1540], [262, 1580]]],
+    ["rect", [[250, 1530], [262, 1570]]],
+    ["channel", [[250, 1530], [262, 1550]]],
+    ["fib", [[252, 1600], [266, 1515]]],
+    ["text", [[256, 1590]]],
+  ];
+  for (const [tool, pts] of kinds) {
+    await placeAt(page, tool, pts);
+    await expect(page.getByTestId("properties")).toBeVisible();
+    // for a note this is while its text is being typed: the field is a target too
+    expect(await tooSmall(), `with a ${tool} selected`).toEqual([]);
+    if (tool === "text") {
+      await expect(page.getByLabel("Note text")).toBeVisible(); // the audit above did see the field
+      await page.keyboard.press("Enter");
+    }
+  }
+});
