@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { hydrated } from "./hydrate";
 
 /**
  * The MTF calculator at 360px, with the live price mocked at the network (no Upstox token needed). The numbers are the worked
@@ -159,7 +160,13 @@ for (const width of [360, 390]) {
 test("MTF is in the navigation", async ({ page }) => {
   await mock(page);
   await page.goto("/app/dashboard", { waitUntil: "domcontentloaded" });
-  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /More/ }).click();
-  await page.getByRole("link", { name: "MTF" }).click();
-  await expect(page).toHaveURL(/\/app\/mtf$/);
+  // The tab bar is part of the server-rendered page and only works once the page has hydrated: a tap before that is lost (it is not
+  // queued), which is what made this test fail now and then on a busy machine. So wait for hydration, then tap once.
+  const more = page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /More/ });
+  await hydrated(more);
+  await more.click();
+  const sheet = page.getByRole("dialog", { name: "All pages" });
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("link", { name: "MTF", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/mtf$/, { timeout: 20_000 });
 });

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hydrated } from "./hydrate";
 import { ROUTES, measure } from "../scripts/mobile-audit";
 import { bsm } from "../lib/fno/pricing";
 
@@ -40,7 +41,10 @@ test("phones get a bottom tab bar with Dashboard, Watchlist, Trade, Pulse and Mo
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav).toBeVisible();
   for (const t of ["Dashboard", "Watchlist", "Trade", "Pulse", "More"]) await expect(nav.getByText(t, { exact: true })).toBeVisible();
-  await nav.getByRole("button", { name: "More" }).click();
+  // a tap before the page has hydrated is lost, so wait for hydration and tap once
+  const more = nav.getByRole("button", { name: "More" });
+  await hydrated(more);
+  await more.click();
   const sheet = page.getByRole("dialog", { name: "All pages" });
   for (const t of ["Markets", "Movers", "F&O Analyzer", "Options", "Buildup", "FII/DII", "News", "Alerts", "Orders", "Portfolio"]) {
     await expect(sheet.getByRole("link", { name: t })).toBeVisible();
