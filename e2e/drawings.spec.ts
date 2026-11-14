@@ -102,7 +102,7 @@ test("select, drag a handle, and drag the whole drawing; one undo reverses each"
   expect(post.b!.price - pre.b!.price).toBeCloseTo(post.a!.price - pre.a!.price, 6);
   // tapping empty chart deselects; tapping the line selects it again
   const box = await layerBox(page);
-  const empty = at(box, 0.9, 0.9);
+  const empty = at(box, 0.9, 0.6); // clear of the floating buttons
   await page.mouse.click(empty.x, empty.y);
   await expect(page.getByTestId("properties")).toHaveCount(0);
 });

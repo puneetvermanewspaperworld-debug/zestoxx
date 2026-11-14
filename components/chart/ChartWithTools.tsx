@@ -4,7 +4,8 @@ import React, { useCallback, useMemo, useState } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
-import ChartToolbox from "./ChartToolbox";
+import ChartToolbox, { ChartProperties } from "./ChartToolbox";
+import CrosshairReadout from "./CrosshairReadout";
 import { QuickBar, ToolRail } from "./ChartOverlays";
 import DrawingLayer from "./DrawingLayer";
 import TradeChart, { type TradeChartProps } from "./TradeChart";
@@ -30,7 +31,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
 
   return (
     <div className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
-      <ChartToolbox api={api} cloneBy={cloneBy} />
+      <ChartToolbox api={api} />
       <div className={heightClass}>
         <TradeChart
           {...chartProps}
@@ -40,6 +41,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
             <>
               <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} />
               <QuickBar api={api} />
+              {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} /> : null}
               {ctx && api.loaded ? (
               <DrawingLayer
                 chart={ctx.chart}
@@ -63,6 +65,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
           }
         />
       </div>
+      <ChartProperties api={api} cloneBy={cloneBy} />
     </div>
   );
 }

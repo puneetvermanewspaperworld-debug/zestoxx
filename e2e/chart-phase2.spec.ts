@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { centre, drag, layerBox, mockMarket, openTrade } from "./chart-helpers";
+import { RELIANCE_BARS, centre, drag, layerBox, mockMarket, openTrade, spot } from "./chart-helpers";
 
 /**
  * Chart tools, phase 2 (desktop): the Reset view button, the crosshair readout, the alert on a horizontal level, the freehand brush
@@ -41,4 +41,52 @@ test("Reset view is a 44 px button, and it is there for crypto as well", async (
   const b = (await page.getByTestId("reset-view").boundingBox())!;
   expect(b.width).toBeGreaterThanOrEqual(44);
   expect(b.height).toBeGreaterThanOrEqual(44);
+});
+
+const px2 = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+test("hovering shows the open, high, low and close of the bar under the pointer, and it goes when the pointer leaves", async ({ page }) => {
+  await openTrade(page);
+  await expect(page.getByTestId("crosshair-readout")).toHaveCount(0);
+  const i = 258;
+  const s = await spot(page, i, 1);
+  const box = await layerBox(page);
+  await page.mouse.move(s.x, box.y + box.height * 0.5, { steps: 4 });
+  const ro = page.getByTestId("crosshair-readout");
+  await expect(ro).toBeVisible();
+  const bar = RELIANCE_BARS[i];
+  await expect(page.getByTestId("ro-open")).toHaveText(px2(bar[1] as number));
+  await expect(page.getByTestId("ro-high")).toHaveText(px2(bar[2] as number));
+  await expect(page.getByTestId("ro-low")).toHaveText(px2(bar[3] as number));
+  await expect(page.getByTestId("ro-close")).toHaveText(px2(bar[4] as number));
+  const prev = RELIANCE_BARS[i - 1][4] as number;
+  const chg = (bar[4] as number) - prev;
+  await expect(page.getByTestId("ro-change")).toContainText(`${chg >= 0 ? "+" : "-"}${Math.abs(chg).toFixed(2)}`);
+  // it takes no touches: the readout does not sit in the way of the chart
+  expect(await ro.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe("none");
+  await page.mouse.move(5, 5);
+  await expect(ro).toHaveCount(0);
+});
+
+test("the readout for crypto is in dollars-style grouping, and a bar that is not there is never invented", async ({ page }) => {
+  await mockMarket(page);
+  await page.goto("/app/trade/BTC", { waitUntil: "domcontentloaded" });
+  await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });
+  await page.getByTestId("drawing-layer").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(600);
+  const box = await layerBox(page);
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 4 });
+  await expect(page.getByTestId("ro-open")).toContainText(/^[0-9]{2},[0-9]{3}.[0-9]{2}$/);
+});
+
+test("selecting a drawing does not move the chart: its properties open below it", async ({ page }) => {
+  await openTrade(page);
+  const before = await layerBox(page);
+  const { placeAt } = await import("./chart-helpers");
+  await placeAt(page, "trend", [[255, 1500], [265, 1530]]);
+  await expect(page.getByTestId("properties")).toBeVisible();
+  const after = await layerBox(page);
+  expect(after.y).toBe(before.y);
+  const props = (await page.getByTestId("properties").boundingBox())!;
+  expect(props.y).toBeGreaterThan(after.y + after.height); // below the plot
 });

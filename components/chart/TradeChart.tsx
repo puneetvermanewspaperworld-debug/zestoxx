@@ -280,10 +280,9 @@ export default function TradeChart(p: TradeChartProps) {
           title="Reset view: jump to the latest candle and re-scale"
           data-testid="reset-view"
           onClick={resetView}
-          className="absolute bottom-9 right-[72px] z-20 flex h-11 min-w-[44px] items-center justify-center gap-1 rounded-full bg-white/95 px-2.5 text-[11.5px] font-medium text-slate-600 shadow ring-1 ring-slate-200 hover:text-slate-900"
+          className="absolute bottom-9 right-[72px] z-20 flex h-11 min-w-[44px] items-center justify-center rounded-full bg-white/95 text-slate-600 shadow ring-1 ring-slate-200 hover:text-slate-900"
         >
           <RotateCcw size={16} aria-hidden />
-          <span className="hidden sm:inline">Reset view</span>
         </button>
         {p.showVolume && !volumeOk && (
           <span data-testid="volume-note" className="pointer-events-none absolute bottom-1.5 left-2 rounded bg-white/80 px-1.5 py-0.5 text-[10.5px] text-slate-400">

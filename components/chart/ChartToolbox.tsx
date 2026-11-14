@@ -9,9 +9,7 @@ const btn = (on = false, danger = false) =>
   "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-md border px-2 text-[11.5px] font-medium transition-colors disabled:opacity-40 " +
   (on ? "border-blue-300 bg-blue-50 text-blue-700" : danger ? "border-slate-200 text-slate-500 hover:text-rose-500" : "border-slate-200 text-slate-600 hover:text-slate-900");
 
-export default function ChartToolbox({ api, cloneBy }: { api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number } }) {
-  const { selected } = api;
-
+export default function ChartToolbox({ api }: { api: DrawingsApi }) {
   // Keys: Delete removes the selected drawing; Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z or Ctrl+Y redoes. Ignored while typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,10 +49,18 @@ export default function ChartToolbox({ api, cloneBy }: { api: DrawingsApi; clone
         </span>
       </div>
 
-
-      {selected && <Properties key={`${selected.id}|${selected.kind === "text" ? selected.text : ""}|${selected.kind === "hline" ? selected.price : ""}`} d={selected} api={api} cloneBy={cloneBy} />}
     </div>
   );
+}
+
+/**
+ * Style and actions for the selected drawing. It sits below the chart, not above it: opening it must never move the chart under
+ * the finger.
+ */
+export function ChartProperties({ api, cloneBy }: { api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number } }) {
+  const { selected } = api;
+  if (!selected) return null;
+  return <Properties key={`${selected.id}|${selected.kind === "text" ? selected.text : ""}|${selected.kind === "hline" ? selected.price : ""}`} d={selected} api={api} cloneBy={cloneBy} />;
 }
 
 /** Style and actions for the selected drawing. A text or price field is applied when it is left or Enter is pressed: one undo step, not one per key. */
