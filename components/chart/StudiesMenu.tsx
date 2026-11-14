@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ChevronDown, FunctionSquare, Plus, Search, Trash2 } from "lucide-react";
+import { PATTERNS, PATTERN_THRESHOLDS } from "@/lib/chart/patterns";
 import { MAX_STUDIES } from "@/lib/chart/settings";
 import { STUDIES, STUDY_MAP, checkParams, searchStudies, studyAvailability, studyTitle, type StudyContext, type StudyInstance, type StudyResult } from "@/lib/chart/studies";
 import Sheet, { Badge, controlBtn, rowClass } from "./Sheet";
@@ -113,13 +114,29 @@ export default function StudiesMenu({ api, openFor, onClosed }: { api: StudiesAp
               return (
                 <button key={def.id} type="button" disabled={off} aria-disabled={off} onClick={() => api.add(def.id)} data-testid={`add-${def.id}`} className={rowClass() + (off ? " opacity-50" : "")}>
                   <Plus size={16} aria-hidden className="shrink-0 text-slate-400" />
-                  <span className="flex-1">{def.name}</span>
+                  <span className="flex-1">
+                    {def.name}
+                    {def.note && <span className="block text-[11px] text-slate-400">{def.note}</span>}
+                  </span>
                   {def.experimental && <Badge>Experimental</Badge>}
                   {!avail.ok ? <span className="text-[11px] text-amber-700">{avail.reason}</span> : <span className="text-[11px] text-slate-400">{def.placement === "pane" ? "own pane" : "on price"}</span>}
                 </button>
               );
             })}
           </section>
+          <details className="mx-3 mb-1 text-[11px] text-slate-500" data-testid="pattern-rules">
+            <summary className="flex min-h-[44px] cursor-pointer items-center">How the candlestick patterns are decided</summary>
+            <p className="pb-2 leading-relaxed">
+              Fixed rules on the shape of a candle (a body of at most {PATTERN_THRESHOLDS.dojiBody * 100}% of its range for a doji; shadows {PATTERN_THRESHOLDS.longShadow}x and {PATTERN_THRESHOLDS.shortShadow}x the body for a hammer or shooting star). No trend filter and no prediction: they describe what a candle looks like. They are not buy or sell signals.
+            </p>
+            <ul className="space-y-0.5 pb-2">
+              {PATTERNS.map((p) => (
+                <li key={p.id}>
+                  <b>{p.label}</b>: {p.rule}
+                </li>
+              ))}
+            </ul>
+          </details>
           <p className="px-3 pb-2 pt-1 text-[11px] leading-relaxed text-slate-400">{STUDIES.length} studies. Volume studies and VWAP need real volume (indices and crypto have none here); VWAP is for intraday charts only.</p>
         </Sheet>
       )}

@@ -57,6 +57,11 @@ export default function StudyLegend({ results, bars, chart, type, onEdit, onRemo
                   {r.availability.reason}
                 </span>
               )}
+              {r.def.note && r.availability.ok && (
+                <span className="text-[10.5px] text-slate-400" data-testid={`legend-note-${r.instance.uid}`}>
+                  educational, not signals
+                </span>
+              )}
               {r.def.experimental && <span className="rounded border border-amber-300 px-1 text-[9.5px] font-semibold uppercase text-amber-700">exp.</span>}
             </button>
             <button type="button" onClick={() => onRemove(r.instance.uid)} data-testid={`legend-remove-${r.instance.uid}`} aria-label={`Remove ${title}`} className="flex h-11 w-11 items-center justify-center rounded-r-lg text-slate-400 hover:text-rose-500">

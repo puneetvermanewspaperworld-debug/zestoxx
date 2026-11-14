@@ -283,3 +283,50 @@ test("on the legend, tapping a study's name opens its parameters", async ({ page
   await expect(page.getByTestId("studies-sheet")).toBeVisible();
   await expect(page.getByTestId("param-2-n")).toHaveValue("30");
 });
+
+/* ------------------------------------------------------------------------ candlestick patterns -- */
+import { detectPatterns, PATTERNS } from "../lib/chart/patterns";
+
+test("candlestick patterns are labelled educational and say how they are decided; they are not offered on Renko or Line Break", async ({ page }) => {
+  await openTrade(page);
+  await openMenu(page);
+  const row = page.getByTestId("add-patterns");
+  await expect(row).toContainText("Candlestick patterns (educational)");
+  await expect(row).toContainText("not buy or sell signals");
+  await expect(row).not.toContainText("Experimental");
+  await page.getByTestId("pattern-rules").locator("summary").click();
+  const rules = page.getByTestId("pattern-rules");
+  await expect(rules).toContainText("10%");
+  await expect(rules).toContainText("No trend filter and no prediction");
+  for (const p of PATTERNS) await expect(rules).toContainText(p.label);
+  await page.keyboard.press("Escape");
+  // not on bricks
+  await page.getByTestId("chart-type-button").click();
+  await page.getByTestId("type-linebreak").click();
+  await openMenu(page);
+  await expect(page.getByTestId("add-patterns")).toBeDisabled();
+  await expect(page.getByTestId("add-patterns")).toContainText("Not for Renko or Line Break");
+});
+
+test("with patterns on, the candles that fit a pattern get a plain labelled mark; the legend says they are not signals", async ({ page }) => {
+  await openTrade(page, "RELIANCE");
+  await pickInterval(page, "15m");
+  await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-series")) ?? "{}").bars).toBeGreaterThan(100);
+  await add(page, "patterns");
+  const p = (await find(page, "patterns"))[0];
+  await expect(page.getByTestId(`legend-note-${p.uid}`)).toContainText("not signals");
+  // the marks are the ones the rules give on the bars the chart plots (the live bar, flat at the price, has no range and no pattern)
+  const rows = candleRows("RELIANCE", "15m", "5D");
+  const bars: Candle[] = rows.map((r) => ({ open: r[1], high: r[2], low: r[3], close: r[4], volume: r[5] }));
+  const expected: Record<string, number> = {};
+  detectPatterns(bars).forEach((id) => {
+    if (id) expected[PATTERNS.find((x) => x.id === id)!.label] = (expected[PATTERNS.find((x) => x.id === id)!.label] ?? 0) + 1;
+  });
+  expect(Object.values(expected).reduce((a, b) => a + b, 0)).toBeGreaterThan(5); // the mock has plenty of dojis
+  await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-markers")) ?? "{}"), { timeout: 15_000 }).toEqual(expected);
+  // only the labels of the list, nothing like a call to act
+  for (const label of Object.keys(JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-markers")) ?? "{}"))) expect(PATTERNS.map((x) => x.label)).toContain(label);
+  // taking the study off takes the marks off
+  await page.getByTestId(`legend-remove-${p.uid}`).click();
+  await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-markers")) ?? "{}")).toEqual({});
+});

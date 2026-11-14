@@ -1,4 +1,5 @@
 import { rsiSeries } from "../indicators";
+import { PATTERNS, PATTERNS_NOTE, detectPatterns } from "./patterns";
 import type { Candle } from "../types";
 
 /**
@@ -163,6 +164,12 @@ export interface StudyDef {
   range?: [number, number];
   needs?: "volume" | "intraday" | "volume+intraday";
   experimental?: boolean;
+  /** marks on the candles instead of a line (candlestick patterns) */
+  marks?: boolean;
+  /** not for charts made of bricks (Renko, Line Break) */
+  notOnBricks?: boolean;
+  /** a line of explanation shown wherever the study appears */
+  note?: string;
   /** extra rule across parameters; a message, or null when fine */
   check?: (p: Record<string, number>) => string | null;
   compute: (bars: readonly Candle[], p: Record<string, number>) => Record<string, Num[]>;
@@ -306,6 +313,19 @@ export const STUDIES: StudyDef[] = [
       });
       return { up, down };
     },
+  },
+  {
+    id: "patterns",
+    short: "Patterns",
+    name: "Candlestick patterns (educational)",
+    placement: "overlay",
+    marks: true,
+    notOnBricks: true,
+    note: PATTERNS_NOTE,
+    params: [],
+    outputs: [],
+    // one number per bar: the position of its pattern in the list (1 for the first), or null
+    compute: (b) => ({ marks: detectPatterns(b).map((id) => (id ? PATTERNS.findIndex((p) => p.id === id) + 1 : null)) }),
   },
   {
     id: "volume",
@@ -603,12 +623,15 @@ export function computeStudy(def: StudyDef, bars: readonly Candle[], params: Rec
 
 export const REQUIRES_VOLUME = "Requires volume";
 export const INTRADAY_ONLY = "Intraday charts only";
+export const NOT_ON_BRICKS = "Not for Renko or Line Break";
 
 export interface StudyContext {
   /** the feed gave real volume for these bars */
   hasVolume: boolean;
   /** the bars are shorter than a day */
   intraday: boolean;
+  /** the chart is made of bricks (Renko, Line Break) */
+  bricks?: boolean;
 }
 export type Availability = { ok: true } | { ok: false; reason: string };
 
@@ -616,6 +639,7 @@ export type Availability = { ok: true } | { ok: false; reason: string };
 export function studyAvailability(def: StudyDef, ctx: StudyContext): Availability {
   const needsVolume = def.needs === "volume" || def.needs === "volume+intraday";
   const needsIntraday = def.needs === "intraday" || def.needs === "volume+intraday";
+  if (def.notOnBricks && ctx.bricks) return { ok: false, reason: NOT_ON_BRICKS };
   if (needsVolume && !ctx.hasVolume) return { ok: false, reason: REQUIRES_VOLUME };
   if (needsIntraday && !ctx.intraday) return { ok: false, reason: INTRADAY_ONLY };
   return { ok: true };

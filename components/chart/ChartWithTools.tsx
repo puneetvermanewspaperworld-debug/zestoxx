@@ -42,7 +42,7 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
   const studiesApi = {
     studies: settings.studies,
     results: studyState.results,
-    context: { hasVolume: studyState.hasVolume, intraday: chartProps.intraday },
+    context: { hasVolume: studyState.hasVolume, intraday: chartProps.intraday, bricks: !drawable },
     add: (id: string) =>
       update((prev) => {
         const def = STUDY_MAP[id];

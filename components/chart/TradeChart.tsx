@@ -14,7 +14,9 @@ import {
   LineStyle,
   PriceScaleMode,
   createChart,
+  createSeriesMarkers,
   type IChartApi,
+  type ISeriesMarkersPluginApi,
   type ISeriesApi,
   type LineData,
   type SeriesType,
@@ -24,6 +26,7 @@ import {
 import { ORDINAL_BASE, displayBars, drawingsAllowed, type ChartType, type DisplayBar } from "@/lib/chart/charttypes";
 import { fmtBarStamp } from "@/lib/chart/readout";
 import type { ScaleMode } from "@/lib/chart/settings";
+import { PATTERNS, patternMarks } from "@/lib/chart/patterns";
 import { REQUIRES_VOLUME, computeStudies, outputColor, type Num, type StudyInstance, type StudyOutput, type StudyResult } from "@/lib/chart/studies";
 import { ATTRIBUTION_LINK_TEXT, ATTRIBUTION_NOTICE, TRADINGVIEW_URL } from "@/lib/chart/notice";
 import { defaultView } from "@/lib/chart/view";
@@ -139,6 +142,8 @@ export default function TradeChart(p: TradeChartProps) {
   /** the main series: candles, bars, a line... whichever the chart type draws */
   const candleRef = useRef<ISeriesApi<SeriesType> | null>(null);
   const mainType = useRef<ChartType | "">("");
+  /** the candlestick pattern marks, on the main series */
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   /** for Renko and Line Break: the real time of each brick, by position, so the axis and the crosshair can show it */
   const labels = useRef<number[] | null>(null);
   const intradayRef = useRef(false);
@@ -180,6 +185,7 @@ export default function TradeChart(p: TradeChartProps) {
     }
     const s = createMain(chart, type);
     candleRef.current = s;
+    markersRef.current = null; // the marks belonged to the old series
     mainType.current = type;
     onChart.current?.(chart, s);
     return s;
@@ -249,6 +255,7 @@ export default function TradeChart(p: TradeChartProps) {
       chartRef.current = null;
       candleRef.current = null;
       mainType.current = "";
+      markersRef.current = null;
       labels.current = null;
       studySeries.current = new Map();
       paneCount.current = 1;
@@ -345,7 +352,7 @@ export default function TradeChart(p: TradeChartProps) {
     // the studies: overlays on the price, a native pane (Lightweight Charts' own) for each oscillator
     const hasVolume = volumeAvailable(timed, input.type);
     hasVolumeRef.current = hasVolume;
-    const results = computeStudies(input.studies, timed, { hasVolume, intraday: input.intraday && !rebuilt });
+    const results = computeStudies(input.studies, timed, { hasVolume, intraday: input.intraday && !rebuilt, bricks: rebuilt });
     const times = timed.map((b) => b.t as UTCTimestamp);
     const wantKeys = new Set<string>();
     for (const r of results) if (r.availability.ok) r.def.outputs.forEach((o) => wantKeys.add(`${r.instance.uid}:${o.key}`));
@@ -387,6 +394,13 @@ export default function TradeChart(p: TradeChartProps) {
         s.setData(studyPoints(o, values, times, timed) as never);
       });
     }
+    // candlestick patterns: plain grey labelled circles on the candles (educational; see lib/chart/patterns.ts)
+    const pat = results.find((r) => r.def.marks && r.availability.ok);
+    const marks = pat ? patternMarks(timed, (pat.values.marks ?? []).map((c) => (c ? PATTERNS[c - 1].id : null))) : [];
+    if (marks.length > 0 || markersRef.current) {
+      if (markersRef.current) markersRef.current.setMarkers(marks as never);
+      else markersRef.current = createSeriesMarkers(candleSeries, marks as never);
+    }
     const paneN = chart.panes().length;
     if (paneN !== paneCount.current) {
       paneCount.current = paneN;
@@ -424,13 +438,14 @@ export default function TradeChart(p: TradeChartProps) {
         lastClose: s.candles.length ? s.candles[s.candles.length - 1].close : null,
       });
       // each study as plotted: its panes, how many values each output has, and the last one
+      el.dataset.markers = JSON.stringify(marks.reduce<Record<string, number>>((acc, m) => ({ ...acc, [m.text]: (acc[m.text] ?? 0) + 1 }), {}));
       el.dataset.studies = JSON.stringify(
         results.map((r) => ({
           uid: r.instance.uid,
           id: r.def.id,
           available: r.availability.ok,
           reason: r.availability.ok ? null : r.availability.reason,
-          pane: r.availability.ok ? studySeries.current.get(`${r.instance.uid}:${r.def.outputs[0].key}`)?.getPane().paneIndex() ?? null : null,
+          pane: r.availability.ok && r.def.outputs[0] ? studySeries.current.get(`${r.instance.uid}:${r.def.outputs[0].key}`)?.getPane().paneIndex() ?? null : null,
           values: Object.fromEntries(r.def.outputs.map((o) => [o.key, (r.values[o.key] ?? []).filter((v) => v !== null).length])),
           last: Object.fromEntries(r.def.outputs.map((o) => [o.key, lastOf(r.values[o.key])])),
         }))
