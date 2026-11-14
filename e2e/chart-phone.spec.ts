@@ -227,6 +227,10 @@ test("the quick bar: undo and redo, delete the selected drawing, done", async ({
 
 test("390 px screenshot with several drawings", async ({ page }) => {
   await openPhone(page);
+  // the controls above the chart take several rows on a phone, which can leave the foot of the plot under the fixed Paper buy / sell bar:
+  // put the plot in the middle of the screen, clear of both bars, before tapping on it
+  await page.evaluate(() => document.querySelector('[data-testid="trade-chart"]')!.scrollIntoView({ block: "center" }));
+  await page.waitForTimeout(400);
   await page.getByTestId("stay").tap(); // stay in drawing mode: switch tools without reopening anything
   await pickTool(page, "hline");
   await tapAt(page, 258, 0.45);
