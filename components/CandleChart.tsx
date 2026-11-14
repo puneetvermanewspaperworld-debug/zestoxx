@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo } from "react";
 import { maSeries, emaSeries, bollingerBands } from "@/lib/indicators";
 import { useElementWidth } from "@/lib/useElementWidth";
-import type { Candle, Drawing } from "@/lib/types";
+import type { Candle } from "@/lib/types";
 
 interface CandleChartProps {
   candles: Candle[];
@@ -13,9 +13,6 @@ interface CandleChartProps {
   showEMA?: boolean;
   compareSeries?: Candle[] | null;
   customSeries?: (number | null)[] | null;
-  drawMode?: string;
-  drawings?: Drawing[];
-  onAddDrawing?: (d: Drawing) => void;
 }
 
 export default function CandleChart({
@@ -26,9 +23,6 @@ export default function CandleChart({
   showEMA,
   compareSeries,
   customSeries,
-  drawMode,
-  drawings,
-  onAddDrawing,
 }: CandleChartProps) {
   // On phones draw at the real width (so text is its true size) and a 260px height; desktop keeps the
   // 900-unit canvas it always had.
@@ -69,7 +63,6 @@ export default function CandleChart({
     candleW = Math.max(2, step * 0.56);
   const xFor = (i: number) => padL + i * step + step / 2;
   const yFor = (v: number) => padT + chartH - ((v - min) / range) * chartH;
-  const priceFor = (y: number) => min + ((padT + chartH - y) / chartH) * range;
   const gridVals = Array.from({ length: 5 }, (_, i) => min + (range * i) / 4);
   const ma10 = showMA ? maSeries(candles, 10) : null;
   const ma30 = showMA ? maSeries(candles, 30) : null;
@@ -94,41 +87,11 @@ export default function CandleChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compareSeries, candles.length, min, range]);
 
-  const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
-  const svgRef = useRef<SVGSVGElement | null>(null);
-
-  const toViewBox = (e: React.MouseEvent) => {
-    const svg = svgRef.current!;
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    return pt.matrixTransform(svg.getScreenCTM()!.inverse());
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (!drawMode || drawMode === "none") return;
-    const loc = toViewBox(e);
-    if (drawMode === "hline") {
-      onAddDrawing?.({ type: "hline", price: priceFor(loc.y) });
-      return;
-    }
-    if (drawMode === "trend") {
-      if (!pending) setPending({ x: loc.x, y: loc.y });
-      else {
-        onAddDrawing?.({ type: "trend", x1: pending.x, y1: pending.y, x2: loc.x, y2: loc.y });
-        setPending(null);
-      }
-    }
-  };
-
   return (
     <div ref={boxRef} className="h-full w-full">
     <svg
-      ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
       className="h-full w-full touch-pan-y"
-      onClick={handleClick}
-      style={{ cursor: drawMode && drawMode !== "none" ? "crosshair" : "default" }}
     >
       {gridVals.map((v, i) => (
         <g key={i}>
@@ -191,33 +154,6 @@ export default function CandleChart({
           })}
         </g>
       )}
-      {(drawings || []).map((d, i) =>
-        d.type === "hline" ? (
-          <g key={i}>
-            <line
-              x1={padL}
-              x2={width - padR + 8}
-              y1={yFor(d.price)}
-              y2={yFor(d.price)}
-              stroke="#D4A94E"
-              strokeWidth="1.2"
-              strokeDasharray="4 3"
-            />
-            <text
-              x={padL + 4}
-              y={yFor(d.price) - 3}
-              fontSize={labelPx}
-              fill="#D4A94E"
-              fontFamily="ui-monospace, monospace"
-            >
-              {d.price.toFixed(2)}
-            </text>
-          </g>
-        ) : (
-          <line key={i} x1={d.x1} y1={d.y1} x2={d.x2} y2={d.y2} stroke="#D4A94E" strokeWidth="1.6" />
-        )
-      )}
-      {pending && <circle cx={pending.x} cy={pending.y} r="3" fill="#D4A94E" />}
     </svg>
     </div>
   );

@@ -199,3 +199,11 @@ export function parseDrawings(raw: unknown): Drawing[] {
   }
   return out;
 }
+
+/** Where a clone lands: three bars to the right and 2% of the drawing's price lower, so it does not sit exactly on the original. */
+export function cloneOffset(d: Drawing, times: readonly number[]): { dTime: number; dPrice: number } {
+  const n = times.length;
+  const spacing = n >= 2 ? (times[n - 1] - times[0]) / (n - 1) : 86_400;
+  const ref = d.kind === "hline" ? d.price : d.kind === "text" ? d.at.price : (d.a.price + d.b.price) / 2;
+  return { dTime: Math.round(spacing * 3), dPrice: -ref * 0.02 };
+}

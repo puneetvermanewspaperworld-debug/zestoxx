@@ -37,7 +37,6 @@ import type {
   OpenOrder,
   PriceAlert,
   Toast,
-  Drawing,
   LiveSource,
   Timeframe,
   SymbolInfo,
@@ -106,11 +105,6 @@ interface ZestoxxContextValue {
   toasts: Toast[];
   dismissToast: (id: number) => void;
   alertPrefill: string | null;
-  drawMode: string;
-  setDrawMode: React.Dispatch<React.SetStateAction<string>>;
-  drawings: Drawing[];
-  onAddDrawing: (d: Drawing) => void;
-  onClearDrawings: () => void;
   formula: string;
   setFormula: React.Dispatch<React.SetStateAction<string>>;
   sym: SymbolInfo;
@@ -213,8 +207,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [alertPrefill, setAlertPrefill] = useState<string | null>(null);
-  const [drawMode, setDrawMode] = useState("none");
-  const [drawingsBySymbol, setDrawingsBySymbol] = useState<Record<string, Drawing[]>>({});
   const [formula, setFormula] = useState("");
   const [liveSource, setLiveSource] = useState<LiveSource>({});
   const [realHistory, setRealHistory] = useState<Record<string, boolean>>({});
@@ -224,20 +216,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const feedSettled = useRef(false);
   // Symbols that already have a live quote (price + previous close arrive as one unit).
   const quotedRef = useRef<Set<string>>(new Set());
-
-  const onAddDrawing = useCallback(
-    (d: Drawing) => {
-      setDrawingsBySymbol((prev) => ({
-        ...prev,
-        [selectedRef.current]: [...(prev[selectedRef.current] || []), d],
-      }));
-      setDrawMode("none");
-    },
-    []
-  );
-  const onClearDrawings = useCallback(() => {
-    setDrawingsBySymbol((prev) => ({ ...prev, [selectedRef.current]: [] }));
-  }, []);
 
   const setActiveView = useCallback(
     (v: ViewId) => {
@@ -879,11 +857,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     toasts,
     dismissToast,
     alertPrefill,
-    drawMode,
-    setDrawMode,
-    drawings: drawingsBySymbol[selected] || [],
-    onAddDrawing,
-    onClearDrawings,
     formula,
     setFormula,
     sym,

@@ -1,0 +1,61 @@
+"use client";
+
+import React, { useCallback, useMemo, useState } from "react";
+import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
+import type { TimedCandle } from "@/lib/chart/series";
+import ChartToolbox from "./ChartToolbox";
+import DrawingLayer from "./DrawingLayer";
+import TradeChart, { type TradeChartProps } from "./TradeChart";
+import { useDrawings } from "./useDrawings";
+import { useIndexLot } from "./useIndexLot";
+
+/**
+ * The Trade page's chart with its drawing tools: the chart, the drawing layer over it, and the toolbox. Drawings belong to the symbol
+ * and are kept in this browser (see lib/chart/storage.ts).
+ */
+export default function ChartWithTools({ heightClass, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "layer"> & { heightClass: string }) {
+  const api = useDrawings(chartProps.symbol);
+  const [ctx, setCtx] = useState<{ chart: IChartApi; series: ISeriesApi<"Candlestick"> } | null>(null);
+  const [bars, setBars] = useState<TimedCandle[]>([]);
+  const lot = useIndexLot(chartProps.symbol, chartProps.type);
+  const times = useMemo(() => bars.map((b) => b.t), [bars]);
+
+  const onBars = useCallback((b: TimedCandle[]) => setBars(b), []);
+  const onChart = useCallback((chart: IChartApi | null, series: ISeriesApi<"Candlestick"> | null) => setCtx(chart && series ? { chart, series } : null), []);
+  const cloneBy = useCallback((d: Drawing) => cloneOffset(d, times), [times]);
+
+  return (
+    <div className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
+      <ChartToolbox api={api} cloneBy={cloneBy} />
+      <div className={heightClass}>
+        <TradeChart
+          {...chartProps}
+          onChart={onChart}
+          onBars={onBars}
+          layer={
+            ctx && api.loaded ? (
+              <DrawingLayer
+                chart={ctx.chart}
+                series={ctx.series}
+                bars={bars}
+                drawings={api.drawings}
+                selectedId={api.selectedId}
+                tool={api.tool}
+                magnet={api.magnet}
+                hidden={api.hidden}
+                lot={lot}
+                isIndex={chartProps.type === "index"}
+                onAdd={api.add}
+                onSelect={api.select}
+                onLive={api.setLive}
+                onCommitLive={api.commitLive}
+                onUpdate={api.update}
+              />
+            ) : null
+          }
+        />
+      </div>
+    </div>
+  );
+}

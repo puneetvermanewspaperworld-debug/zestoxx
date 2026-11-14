@@ -78,10 +78,6 @@ export interface Toast {
   text: string;
 }
 
-export type Drawing =
-  | { type: "hline"; price: number }
-  | { type: "trend"; x1: number; y1: number; x2: number; y2: number };
-
 export type LiveSource = Record<string, "live" | "sim">;
 
 export type Timeframe = "D" | "W" | "M";

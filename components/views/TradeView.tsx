@@ -27,7 +27,7 @@ import { fmt, fmtSigned } from "@/lib/helpers";
 import type { Candle } from "@/lib/types";
 
 // The chart needs the browser (canvas), so it is loaded on the client only.
-const TradeChart = dynamic(() => import("@/components/chart/TradeChart"), {
+const ChartWithTools = dynamic(() => import("@/components/chart/ChartWithTools"), {
   ssr: false,
   loading: () => <div className="h-full w-full animate-pulse rounded bg-slate-50" aria-busy="true" />,
 });
@@ -264,8 +264,8 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           </div>
           {formulaError && <div className="mb-2 text-[11px] text-rose-500">{formulaError}</div>}
 
-          <div className={showRSI ? "h-[440px] md:h-[480px]" : "h-[320px] md:h-[360px]"}>
-            <TradeChart
+          <ChartWithTools
+            heightClass={showRSI ? "h-[440px] md:h-[480px]" : "h-[320px] md:h-[360px]"}
               symbol={selected}
               timeframe={timeframe}
               type={sym.type}
@@ -279,8 +279,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
               rsi={rsiFull}
               compare={compareFull}
               custom={customSeries}
-            />
-          </div>
+          />
           {compareWith && (
             <div className="mt-1 text-[10.5px] text-amber-500">
               ┄┄ dashed amber line = {compareWith} normalized for comparison

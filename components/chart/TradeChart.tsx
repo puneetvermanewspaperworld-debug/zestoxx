@@ -16,7 +16,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { ATTRIBUTION_LINK_TEXT, ATTRIBUTION_NOTICE, TRADINGVIEW_URL } from "@/lib/chart/notice";
-import { VOLUME_NOT_AVAILABLE, buildChartSeries, volumeAvailable, withTimes, type LinePoint } from "@/lib/chart/series";
+import { VOLUME_NOT_AVAILABLE, buildChartSeries, volumeAvailable, withTimes, type LinePoint, type TimedCandle } from "@/lib/chart/series";
 import type { AssetType, Candle } from "@/lib/types";
 
 /**
@@ -41,6 +41,10 @@ export interface TradeChartProps {
   custom: (number | null)[] | null;
   /** called with the chart once it exists (and null when it is torn down) */
   onChart?: (chart: IChartApi | null, series: ISeriesApi<"Candlestick"> | null) => void;
+  /** called with the bars as charted (each with its time) whenever the data is fed */
+  onBars?: (bars: TimedCandle[]) => void;
+  /** drawn inside the chart's box, over the plot (the drawing layer) */
+  layer?: React.ReactNode;
 }
 
 const COLORS = { up: "#34D399", down: "#F87171", ma10: "#D4A94E", ma30: "#6FA8DC", ema: "#B87FE0", bb: "#6FA8DC", custom: "#22D3EE", compare: "#F0A84E", rsi: "#B87FE0" };
@@ -69,9 +73,13 @@ export default function TradeChart(p: TradeChartProps) {
   /** the range to show once the chart has a size: setting it on a chart that is still 0 wide is lost */
   const pendingView = useRef<{ from: number; to: number } | null>(null);
   const applyPendingRef = useRef<(() => void) | null>(null);
+  /** a fingerprint of the bars last reported, so the same bars are never reported twice (reporting re-renders the parent, which re-renders this) */
+  const reported = useRef("");
   const onChart = useRef(p.onChart);
+  const onBars = useRef(p.onBars);
   useEffect(() => {
     onChart.current = p.onChart;
+    onBars.current = p.onBars;
   });
 
   const volumeOk = volumeAvailable(p.candles, p.type);
@@ -142,6 +150,11 @@ export default function TradeChart(p: TradeChartProps) {
     const today = new Date().toISOString().slice(0, 10);
     const timed = withTimes(input.candles, today);
     const compare = input.compare ? withTimes(input.compare, today) : null;
+    const print = `${timed.length}|${timed[0]?.t}|${timed[timed.length - 1]?.t}|${timed[timed.length - 1]?.open}|${timed[timed.length - 1]?.high}|${timed[timed.length - 1]?.low}|${timed[timed.length - 1]?.close}`;
+    if (print !== reported.current) {
+      reported.current = print;
+      onBars.current?.(timed);
+    }
     const s = buildChartSeries({
       candles: timed,
       type: input.type,
@@ -236,6 +249,7 @@ export default function TradeChart(p: TradeChartProps) {
     <div className="flex h-full w-full flex-col">
       <div className="relative min-h-0 flex-1">
         <div ref={box} data-testid="trade-chart" className="h-full w-full" />
+        {p.layer}
         {p.showVolume && !volumeOk && (
           <span data-testid="volume-note" className="pointer-events-none absolute bottom-1.5 left-2 rounded bg-white/80 px-1.5 py-0.5 text-[10.5px] text-slate-400">
             {VOLUME_NOT_AVAILABLE}
