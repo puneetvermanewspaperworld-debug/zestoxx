@@ -3,14 +3,13 @@
 import React from "react";
 import CandleChart from "@/components/CandleChart";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { FiiDiiSummaryCard, FuturesGainersCard } from "@/components/DashboardCards";
-import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
+import { FiiDiiSummaryCard, FuturesGainersCard, MarketMoversCard } from "@/components/DashboardCards";
+import { SYMBOL_MAP } from "@/lib/symbols";
 import { fmt, fmtINR, fmtSigned } from "@/lib/helpers";
 import { NEWS_NOT_CONNECTED } from "@/lib/news";
-import { rankMovers } from "@/lib/dashboard-movers";
 
 export default function DashboardView() {
-  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor, hasFeedQuote } =
+  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor } =
     useZestoxx();
 
   const holdingsValue = Object.entries(holdings).reduce(
@@ -20,10 +19,6 @@ export default function DashboardView() {
   const totalPnl = Object.entries(holdings).reduce(
     (s, [id, h]) => s + ((live[id] ?? h.avgPrice) - h.avgPrice) * h.qty,
     0
-  );
-  // Indian market movers: only symbols with a real quote, only the ones that moved the right way.
-  const { gainers, losers } = rankMovers(
-    SYMBOLS.map((s) => ({ id: s.id, chg: chgFor(s.id), real: hasFeedQuote(s.id), indian: s.type !== "crypto" }))
   );
   const sym = SYMBOL_MAP[selected];
 
@@ -79,41 +74,7 @@ export default function DashboardView() {
             <CandleChart candles={histories[selected].slice(-40)} showMA={false} showVolume={false} />
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 font-display text-[13px] font-semibold text-slate-900">
-            Market Movers <span className="text-[11px] font-normal text-slate-400">Indian stocks &amp; indices</span>
-          </h3>
-          <div className="mb-2 text-[10.5px] uppercase tracking-wide text-emerald-500">Top Gainers</div>
-          {gainers.length === 0 && <div className="py-1 text-[12px] text-slate-400">No gainers right now</div>}
-          {gainers.map((g) => (
-            <div
-              key={g.id}
-              onClick={() => {
-                setSelected(g.id);
-                setActiveView("trade");
-              }}
-              className="flex cursor-pointer justify-between py-1 text-[12px] hover:text-blue-600"
-            >
-              <span>{g.id}</span>
-              <span className="font-mono text-emerald-500">{fmtSigned(g.chg, 2, "%")}</span>
-            </div>
-          ))}
-          <div className="mb-2 mt-3 text-[10.5px] uppercase tracking-wide text-rose-500">Top Losers</div>
-          {losers.length === 0 && <div className="py-1 text-[12px] text-slate-400">No losers right now</div>}
-          {losers.map((g) => (
-            <div
-              key={g.id}
-              onClick={() => {
-                setSelected(g.id);
-                setActiveView("trade");
-              }}
-              className="flex cursor-pointer justify-between py-1 text-[12px] hover:text-blue-600"
-            >
-              <span>{g.id}</span>
-              <span className="font-mono text-rose-500">{fmtSigned(g.chg, 2, "%")}</span>
-            </div>
-          ))}
-        </div>
+        <MarketMoversCard />
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
