@@ -28,16 +28,101 @@ export function fourHourBars() {
 
 export const RELIANCE_BARS = dailyBars(271, 1400);
 
-export async function mockMarket(page: Page, opts: { lot?: number | null } = {}) {
+/** The mocked clock is Wed 11 Nov 2026, 13:50 IST: the market is open and the session is part way through. */
+export const TODAY = "2026-11-11";
+const pad = (n: number) => String(n).padStart(2, "0");
+const istMs = (iso: string, hh: number, mm: number) => Date.parse(`${iso}T${pad(hh)}:${pad(mm)}:00+05:30`);
+
+/** n weekday dates ending on `endIso` (or the weekday before it), oldest first */
+export function weekdays(n: number, endIso: string): string[] {
+  const out: string[] = [];
+  for (let d = Date.parse(`${endIso}T00:00:00Z`); out.length < n; d -= 86_400_000) {
+    const wd = new Date(d).getUTCDay();
+    if (wd !== 0 && wd !== 6) out.unshift(new Date(d).toISOString().slice(0, 10));
+  }
+  return out;
+}
+const BASE: Record<string, number> = { RELIANCE: 1500, TCS: 4200, NIFTY50: 25250 };
+const SESSIONS: Record<string, number> = { "1D": 1, "5D": 5, "1M": 22, "3M": 66, "6M": 126, "1Y": 252, "5Y": 1260, All: 1500 };
+const BAR_SECONDS: Record<string, number> = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600 };
+
+/** What the mocked /api/candles answers: [epoch ms, open, high, low, close, volume], oldest first. Not random: each bar's price follows from its position. Indices carry no volume. */
+export function candleRows(symbol: string, interval: string, range: string): number[][] {
+  const base = BASE[symbol] ?? 1000;
+  const vol = (k: number) => (symbol === "NIFTY50" ? 0 : 1000 + (k % 40) * 10);
+  const ohlc = (k: number) => {
+    const o = base + k * 0.02 + Math.sin(k / 17) * 8;
+    const c = o + Math.cos(k / 5) * 0.3;
+    return [o, Math.max(o, c) + 0.6, Math.min(o, c) - 0.6, c];
+  };
+  const sec = BAR_SECONDS[interval];
+  if (sec) {
+    const rows: number[][] = [];
+    let k = 0;
+    for (const day of weekdays(SESSIONS[range], TODAY)) {
+      for (let s = 0; ; s++) {
+        const ms = istMs(day, 9, 15) + s * sec * 1000;
+        if (ms >= istMs(day, 15, 30) || ms >= OPEN.getTime()) break; // the session in progress has bars only up to now
+        rows.push([ms, ...ohlc(k), vol(k)]);
+        k++;
+      }
+    }
+    return rows;
+  }
+  const daily = dailyBars(SESSIONS[range], base - 100, symbol === "NIFTY50" ? 0 : 1_000_000);
+  if (interval === "1D") return daily;
+  const key = (ms: number) => {
+    const d = new Date(ms + 19_800_000);
+    return interval === "1M" ? `${d.getUTCFullYear()}-${d.getUTCMonth()}` : String(Math.floor((Math.floor((ms + 19_800_000) / 86_400_000) + 3) / 7));
+  };
+  const out: number[][] = [];
+  let last = "";
+  for (const r of daily) {
+    const kk = key(r[0]);
+    if (kk !== last) {
+      out.push([...r]);
+      last = kk;
+    } else {
+      const o = out[out.length - 1];
+      o[2] = Math.max(o[2], r[2]);
+      o[3] = Math.min(o[3], r[3]);
+      o[4] = r[4];
+      o[5] += r[5];
+    }
+  }
+  return out;
+}
+
+export interface MockOpts {
+  lot?: number | null;
+  /** "fail": /api/candles answers 502 */
+  candles?: "ok" | "fail";
+  /** hold each /api/candles answer for this long */
+  candleDelayMs?: number;
+  /** false: no live equity feed (the app falls back to its simulated series) */
+  live?: boolean;
+  /** every /api/candles request seen, as the URL's search params */
+  seen?: string[];
+}
+
+export async function mockMarket(page: Page, opts: MockOpts = {}) {
   await page.clock.install({ time: OPEN });
+  await page.route("**/api/candles**", async (r) => {
+    const u = new URL(r.request().url());
+    opts.seen?.push(u.search);
+    if (opts.candleDelayMs) await new Promise((res) => setTimeout(res, opts.candleDelayMs));
+    if (opts.candles === "fail") return r.fulfill({ status: 502, json: { source: "unavailable", reason: "feed error" } });
+    const symbol = u.searchParams.get("symbol") ?? "RELIANCE";
+    return r.fulfill({ json: { source: "live", symbol, bars: candleRows(symbol, u.searchParams.get("interval") ?? "1D", u.searchParams.get("range") ?? "1Y") } });
+  });
   await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
   await page.route("**/api/option-expiries**", (r) => r.fulfill({ json: opts.lot ? { source: "live", expiries: ["2026-11-17"], lot: opts.lot } : { source: "unavailable" } }));
   await page.route("**/api/market-data?asset=equity", (r) =>
-    r.fulfill({ json: { RELIANCE: { price: 1500, prevClose: 1490 }, TCS: { price: 4200, prevClose: 4100 }, NIFTY50: { price: 25250, prevClose: 25200 } } })
+    r.fulfill({ json: opts.live === false ? {} : { RELIANCE: { price: 1500, prevClose: 1490 }, TCS: { price: 4200, prevClose: 4100 }, NIFTY50: { price: 25250, prevClose: 25200 } } })
   );
   await page.route("**/api/market-data?asset=crypto", (r) => r.fulfill({ json: { BTC: { price: 91500, prevClose: 90500 } } }));
   await page.route("**/api/market-data?asset=equity-ohlc", (r) =>
-    r.fulfill({ json: { RELIANCE: RELIANCE_BARS, TCS: dailyBars(271, 4000), NIFTY50: dailyBars(271, 24500, 0) } })
+    r.fulfill({ json: opts.live === false ? {} : { RELIANCE: RELIANCE_BARS, TCS: dailyBars(271, 4000), NIFTY50: dailyBars(271, 24500, 0) } })
   );
   await page.route("**/api/market-data?asset=crypto-ohlc", (r) => r.fulfill({ json: { BTC: fourHourBars() } }));
 }
@@ -70,7 +155,7 @@ export const waitStored = async (page: Page, n: number, symbol = "RELIANCE") => 
   return stored(page, symbol);
 };
 
-export async function openTrade(page: Page, symbol = "RELIANCE", opts: { lot?: number | null } = {}) {
+export async function openTrade(page: Page, symbol = "RELIANCE", opts: MockOpts = {}) {
   await mockMarket(page, opts);
   await page.goto(`/app/trade/${symbol}`, { waitUntil: "domcontentloaded" });
   await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });

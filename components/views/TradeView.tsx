@@ -24,7 +24,11 @@ import { PULSE_BASIS, pulseFor } from "@/lib/pulse";
 import { rsiSeries } from "@/lib/indicators";
 import DataBadge from "@/components/DataBadge";
 import { fmt, fmtSigned } from "@/lib/helpers";
-import type { Candle } from "@/lib/types";
+import { useChartSettings } from "@/components/chart/useChartSettings";
+import { useCandles } from "@/components/chart/useCandles";
+import type { FeedInfo } from "@/components/chart/ChartControls";
+import { intervalAvailability, isIntraday, selectionFrom, type DataKind } from "@/lib/chart/intervals";
+import type { Candle, Timeframe } from "@/lib/types";
 
 // The chart needs the browser (canvas), so it is loaded on the client only.
 const ChartWithTools = dynamic(() => import("@/components/chart/ChartWithTools"), {
@@ -45,8 +49,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     histories,
     live,
     liveSource,
-    timeframe,
-    setTimeframe,
     showMA,
     setShowMA,
     showVolume,
@@ -90,11 +92,27 @@ export default function TradeView({ symbol }: { symbol?: string }) {
   });
   // The chart gets the whole history for the timeframe (it opens on the last `keep` bars and can be panned back). Indicators, RSI and
   // the custom formula are worked out on all of it: Wilder's smoothing and the EMA need the earlier bars.
-  const frame = { D: { size: 1, keep: 30 }, W: { size: 5, keep: 26 }, M: { size: 21, keep: 14 } }[timeframe];
+  //
+  // Where the candles come from. Until an interval or range is chosen, the usual daily view (the app's own history). Once one is chosen,
+  // live Indian symbols get their candles on demand for that interval and range; crypto and simulated symbols stay on daily, weekly and monthly.
+  const [chartSettings, updateChartSettings] = useChartSettings();
+  const dataKind: DataKind = sym.type === "crypto" ? "crypto" : liveSource[selected] === "live" ? "live" : "simulated";
+  const availability = intervalAvailability(dataKind);
+  const stored = selectionFrom(chartSettings.interval, chartSettings.range);
+  const selection = availability.find((i) => i.id === stored.interval)?.reason ? selectionFrom("1D", null) : stored;
+  const explicit = chartSettings.interval !== null || chartSettings.range !== null;
+  const useFeed = explicit && dataKind === "live";
+  const feed = useCandles({ enabled: useFeed, symbol: selected, selection, price: live[selected] });
+  // until the first candles for a new choice arrive, the usual daily view stays on screen (with the Loading note), not a blank chart
+  const showFeed = useFeed && feed.bars.length > 0;
+  const intraday = showFeed && isIntraday(selection.interval);
+  const legacyTimeframe: Timeframe = !showFeed && selection.interval === "1W" && !useFeed ? "W" : !showFeed && selection.interval === "1M" && !useFeed ? "M" : "D";
+  const frame = { D: { size: 1, keep: 30 }, W: { size: 5, keep: 26 }, M: { size: 21, keep: 14 } }[legacyTimeframe];
   const frameOf = (candles: Candle[]) => (frame.size === 1 ? candles : aggregateCandles(candles, frame.size));
-  const fullFrame = frameOf(histories[selected]);
+  const fullFrame = showFeed ? feed.bars : frameOf(histories[selected]);
   const rsiFull = rsiSeries(fullFrame, 14);
-  const compareFull = compareWith ? frameOf(histories[compareWith]) : null;
+  const compareFull = compareWith && !showFeed ? frameOf(histories[compareWith]) : null;
+  const feedInfo: FeedInfo = { selection, explicit, intervals: availability, showRanges: dataKind === "live", indian: sym.type !== "crypto", status: feed.status, error: feed.error, reload: feed.reload };
   const { series: customSeries, error: formulaError } = useMemo(
     () => computeCustomSeries(fullFrame, formula),
     [fullFrame, formula]
@@ -159,22 +177,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex gap-1 rounded-md border border-slate-200 p-0.5">
-                {(["D", "W", "M"] as const).map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={
-                      "rounded px-2.5 py-1 text-[11.5px] font-medium " +
-                      (timeframe === tf
-                        ? "bg-blue-600 text-slate-50"
-                        : "text-slate-500 hover:text-slate-900")
-                    }
-                  >
-                    {tf}
-                  </button>
-                ))}
-              </div>
               <div className="flex flex-wrap gap-1 rounded-md border border-slate-200 p-0.5">
                 <button
                   onClick={() => setShowMA((v) => !v)}
@@ -267,10 +269,14 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           <ChartWithTools
             heightClass={showRSI ? "h-[440px] md:h-[480px]" : "h-[320px] md:h-[360px]"}
               symbol={selected}
-              timeframe={timeframe}
+              timeframe={showFeed ? `${selection.interval}|${selection.range}` : legacyTimeframe}
+              intraday={intraday}
+              settings={chartSettings}
+              update={updateChartSettings}
+              feed={feedInfo}
               type={sym.type}
               candles={fullFrame}
-              keep={frame.keep}
+              keep={showFeed ? Math.max(1, feed.bars.length) : frame.keep}
               showMA={showMA}
               showEMA={showEMA}
               showBB={showBB}

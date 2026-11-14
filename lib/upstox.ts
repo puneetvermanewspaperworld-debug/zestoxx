@@ -491,3 +491,25 @@ export async function fetchContractCandles(token: string, key: string): Promise<
     .map((c) => ({ t: String(c[0]), o: num(c[1]), h: num(c[2]), l: num(c[3]), c: num(c[4]), v: num(c[5]) }))
     .reverse();
 }
+
+/* ------------------------------------------------------------------------- chart candles ---- */
+
+/**
+ * One window of candles for the Trade page chart: `unit`/`n` as the endpoint names them (minutes 15, hours 1, days 1, weeks 1, months 1),
+ * dates inclusive, rows as the feed sends them (newest first, [ISO time, o, h, l, c, volume, oi]). The caller keeps each window inside the
+ * endpoint's per-request limit (see lib/chart/intervals.ts). A window that ends before today never changes, so it is cached longer.
+ */
+export async function fetchChartWindow(token: string, key: string, unit: string, n: number, from: string, to: string, revalidate: number): Promise<unknown[]> {
+  const res = await fetch(`${UPSTOX_BASE}/v3/historical-candle/${encodeURIComponent(key)}/${unit}/${n}/${to}/${from}`, { headers: authHeaders(token), next: { revalidate } });
+  if (!res.ok) throw new Error(`upstox candles ${res.status}`);
+  const rows = ((await res.json()) as { data?: { candles?: unknown[] } }).data?.candles;
+  return Array.isArray(rows) ? rows : [];
+}
+
+/** Today's candles so far, for an intraday interval (the historical endpoint does not carry the session in progress). Empty before the first trade and when the market is closed. */
+export async function fetchChartToday(token: string, key: string, unit: string, n: number): Promise<unknown[]> {
+  const res = await fetch(`${UPSTOX_BASE}/v3/historical-candle/intraday/${encodeURIComponent(key)}/${unit}/${n}`, { headers: authHeaders(token), cache: "no-store" });
+  if (!res.ok) throw new Error(`upstox intraday candles ${res.status}`);
+  const rows = ((await res.json()) as { data?: { candles?: unknown[] } }).data?.candles;
+  return Array.isArray(rows) ? rows : [];
+}

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, CandlestickChart, ChevronDown, LineChart, Mountain, TrendingUp, Waves } from "lucide-react";
+import { BarChart3, CandlestickChart, ChevronDown, LineChart, Mountain, RefreshCw, TrendingUp, Waves } from "lucide-react";
 import { CHART_TYPES, MAX_BRICKS, chartTypeInfo, suggestBrickSize, toRenko, type ChartType } from "@/lib/chart/charttypes";
+import { INTERVALS, RANGES, intervalInfo, pickInterval, pickRange, type IntervalId, type RangeId, type Selection } from "@/lib/chart/intervals";
 import type { TimedCandle } from "@/lib/chart/series";
 import type { ChartSettings } from "@/lib/chart/settings";
 import Sheet, { Badge, rowClass } from "./Sheet";
@@ -24,8 +25,25 @@ export const controlBtn = (on = false) =>
   "flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors " +
   (on ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:text-slate-900");
 
+/** What the interval and range controls need to know about the data. */
+export interface FeedInfo {
+  selection: Selection;
+  /** an interval or range was chosen (until then the chart shows the app's usual daily view) */
+  explicit: boolean;
+  /** each interval, and why it cannot be chosen now (null: it can) */
+  intervals: { id: IntervalId; reason: string | null }[];
+  /** the range buttons are for live Indian data only */
+  showRanges: boolean;
+  /** times are on the Indian clock */
+  indian: boolean;
+  status: "idle" | "loading" | "ready" | "error";
+  error: string | null;
+  reload: () => void;
+}
+
 export interface ChartControlsProps {
   symbol: string;
+  feed: FeedInfo;
   settings: ChartSettings;
   update: SettingsUpdate;
   /** the real bars, for a brick size to be suggested and checked against */
@@ -37,10 +55,111 @@ export interface ChartControlsProps {
 /** The row of chart controls above the chart. */
 export default function ChartControls(p: ChartControlsProps) {
   return (
-    <div role="toolbar" aria-label="Chart controls" className="mb-2 flex flex-wrap items-center gap-1.5" data-testid="chart-controls">
-      <TypeMenu {...p} />
+    <div className="mb-2 space-y-1.5" data-testid="chart-controls">
+      <div role="toolbar" aria-label="Chart controls" className="flex flex-wrap items-center gap-1.5">
+        <TypeMenu {...p} />
+        <IntervalMenu {...p} />
+        {p.feed.indian && (
+          <span data-testid="tz-note" className="text-[10.5px] text-slate-400">
+            Times in IST
+          </span>
+        )}
+      </div>
+      {p.feed.showRanges && <RangeRow {...p} />}
+      <FeedStatus {...p} />
     </div>
   );
+}
+
+const pickIn = (feed: FeedInfo, interval: IntervalId): Selection => pickInterval(feed.selection, interval);
+
+function IntervalMenu({ update, feed }: ChartControlsProps) {
+  const [open, setOpen] = useState(false);
+  const cur = feed.selection.interval;
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Interval: ${intervalInfo(cur).label}`} data-testid="interval-button" className={controlBtn()}>
+        <span className="font-mono">{cur}</span>
+        <ChevronDown size={14} aria-hidden />
+      </button>
+      {open && (
+        <Sheet title="Interval" onClose={() => setOpen(false)} testId="interval-sheet">
+          <div role="radiogroup" aria-label="Interval">
+            {INTERVALS.map((i) => {
+              const a = feed.intervals.find((x) => x.id === i.id);
+              const off = !!a?.reason;
+              return (
+                <button
+                  key={i.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={cur === i.id}
+                  aria-disabled={off}
+                  disabled={off}
+                  data-testid={`interval-${i.id}`}
+                  onClick={() => {
+                    const next = pickIn(feed, i.id);
+                    update({ interval: next.interval, range: next.range });
+                    setOpen(false);
+                  }}
+                  className={rowClass(cur === i.id) + (off ? " opacity-50" : "")}
+                >
+                  <span className="w-10 font-mono">{i.id}</span>
+                  <span className="flex-1">{i.label}</span>
+                  {a?.reason && <span className="text-[11px] text-slate-400">{a.reason}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <p className="px-3 pb-2 pt-1 text-[11px] leading-relaxed text-slate-400">Minute and hourly candles go back to January 2022; daily, weekly and monthly back to January 2000. Times are Indian Standard Time.</p>
+        </Sheet>
+      )}
+    </>
+  );
+}
+
+function RangeRow({ update, feed }: ChartControlsProps) {
+  return (
+    <div role="group" aria-label="Range" className="flex flex-wrap gap-1" data-testid="range-row">
+      {RANGES.map((r) => {
+        const on = feed.explicit && feed.selection.range === r.id;
+        return (
+          <button
+            key={r.id}
+            type="button"
+            aria-pressed={on}
+            data-testid={`range-${r.id}`}
+            onClick={() => {
+              const next = pickRange(feed.selection, r.id as RangeId);
+              update({ interval: next.interval, range: next.range });
+            }}
+            className={controlBtn(on) + " px-3"}
+          >
+            {r.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function FeedStatus({ feed }: ChartControlsProps) {
+  if (feed.status === "loading")
+    return (
+      <p role="status" data-testid="chart-loading" className="flex min-h-[28px] items-center gap-2 text-[12px] text-slate-500">
+        <RefreshCw size={14} className="animate-spin" aria-hidden /> Loading {intervalInfo(feed.selection.interval).label} candles…
+      </p>
+    );
+  if (feed.status === "error")
+    return (
+      <p role="alert" data-testid="chart-error" className="flex flex-wrap items-center gap-2 text-[12px] text-rose-600">
+        {feed.error}
+        <button type="button" onClick={feed.reload} data-testid="chart-retry" className="min-h-[44px] rounded-lg border border-slate-200 bg-white px-3 font-medium text-slate-700">
+          Try again
+        </button>
+      </p>
+    );
+  return null;
 }
 
 function TypeMenu({ symbol, settings, update, bars, sizingRequest }: ChartControlsProps) {

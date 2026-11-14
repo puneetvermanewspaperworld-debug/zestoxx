@@ -247,11 +247,16 @@ test("drawings are kept per symbol, survive a reload and a timeframe change, and
   await place(page, "hline", [[0.5, 0.3]]);
   const saved = await waitStored(page, 2);
   // another timeframe: the same drawings, the same times and prices
-  await page.getByRole("button", { name: "W", exact: true }).click();
-  await page.waitForTimeout(700);
+  await page.getByTestId("interval-button").click();
+  await page.getByTestId("interval-1W").click();
+  await expect(page.getByTestId("interval-button")).toHaveText(/1W/);
+  await page.waitForTimeout(900);
   await expect(page.getByTestId("drawing-layer").locator("g[data-drawing]")).toHaveCount(1);
   expect(await stored(page)).toEqual(saved);
-  await page.getByRole("button", { name: "D", exact: true }).click();
+  await page.getByTestId("interval-button").click();
+  await page.getByTestId("interval-1D").click();
+  await expect(page.getByTestId("interval-button")).toHaveText(/1D/);
+  await page.waitForTimeout(900);
   // reload
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByTestId("drawing-layer").waitFor({ timeout: 20_000 });

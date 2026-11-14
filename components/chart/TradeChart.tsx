@@ -21,7 +21,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { ORDINAL_BASE, displayBars, drawingsAllowed, type ChartType, type DisplayBar } from "@/lib/chart/charttypes";
-import { fmtBarDate } from "@/lib/chart/readout";
+import { fmtBarStamp } from "@/lib/chart/readout";
 import { ATTRIBUTION_LINK_TEXT, ATTRIBUTION_NOTICE, TRADINGVIEW_URL } from "@/lib/chart/notice";
 import { defaultView } from "@/lib/chart/view";
 import { VOLUME_NOT_AVAILABLE, buildChartSeries, volumeAvailable, withTimes, type LinePoint, type TimedCandle } from "@/lib/chart/series";
@@ -34,7 +34,10 @@ import type { AssetType, Candle } from "@/lib/types";
  */
 export interface TradeChartProps {
   symbol: string;
-  timeframe: "D" | "W" | "M";
+  /** names the interval, so that a new one starts on a fresh view */
+  timeframe: string;
+  /** bars shorter than a day: the axis and the crosshair show the time of day (IST) */
+  intraday: boolean;
   type: AssetType;
   /** how the bars are drawn (see lib/chart/charttypes.ts) */
   chartType: ChartType;
@@ -125,6 +128,7 @@ export default function TradeChart(p: TradeChartProps) {
   const mainType = useRef<ChartType | "">("");
   /** for Renko and Line Break: the real time of each brick, by position, so the axis and the crosshair can show it */
   const labels = useRef<number[] | null>(null);
+  const intradayRef = useRef(false);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const lines = useRef<Partial<Record<LineName, ISeriesApi<SeriesType>>>>({});
   const shownKey = useRef("");
@@ -185,10 +189,10 @@ export default function TradeChart(p: TradeChartProps) {
         rightOffset: 4,
         timeVisible: false,
         secondsVisible: false,
-        tickMarkFormatter: (time: Time) => (labels.current ? fmtBarDate(realTime(time, labels.current)) : null),
+        tickMarkFormatter: (time: Time) => (labels.current ? fmtBarStamp(realTime(time, labels.current), false) : null),
       },
       crosshair: { mode: CrosshairMode.Normal },
-      localization: { timeFormatter: (time: Time) => fmtBarDate(realTime(time, labels.current)) },
+      localization: { timeFormatter: (time: Time) => fmtBarStamp(realTime(time, labels.current), intradayRef.current && !labels.current) },
       // A vertical swipe scrolls the page; horizontal drags pan the chart; two fingers pinch it.
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true } },
@@ -244,6 +248,8 @@ export default function TradeChart(p: TradeChartProps) {
     const today = new Date().toISOString().slice(0, 10);
     const real = withTimes(input.candles, today);
     const rebuilt = !drawingsAllowed(input.chartType);
+    intradayRef.current = input.intraday;
+    chart.applyOptions({ timeScale: { timeVisible: input.intraday && !rebuilt } });
     const compare = input.compare && !rebuilt ? withTimes(input.compare, today) : null;
     // what is plotted: the real bars, or Heikin Ashi, or Renko / Line Break bricks
     const timed = displayBars(input.chartType, real, input.renkoSize);
@@ -335,6 +341,7 @@ export default function TradeChart(p: TradeChartProps) {
     if (el) {
       const last = <T extends { value: number }>(a: T[] | null) => (a && a.length ? a[a.length - 1].value : null);
       el.dataset.chartType = input.chartType;
+      el.dataset.intraday = input.intraday ? "1" : "0";
       el.dataset.series = JSON.stringify({
         chartType: input.chartType,
         bars: s.candles.length,

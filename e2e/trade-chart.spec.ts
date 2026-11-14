@@ -35,15 +35,16 @@ function fourHourBars() {
   });
 }
 
-async function mock(page: Page) {
+async function mock(page: Page, live = true) {
   await page.clock.install({ time: OPEN });
+  await page.route("**/api/candles**", (r) => r.fulfill({ status: 502, json: { source: "unavailable" } })); // these tests are about the usual daily view
   await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
   await page.route("**/api/market-data?asset=equity", (r) =>
-    r.fulfill({ json: { RELIANCE: { price: 1500, prevClose: 1490 }, TCS: { price: 4200, prevClose: 4100 }, NIFTY50: { price: 25250, prevClose: 25200 } } })
+    r.fulfill({ json: !live ? {} : { RELIANCE: { price: 1500, prevClose: 1490 }, TCS: { price: 4200, prevClose: 4100 }, NIFTY50: { price: 25250, prevClose: 25200 } } })
   );
   await page.route("**/api/market-data?asset=crypto", (r) => r.fulfill({ json: { BTC: { price: 91500, prevClose: 90500 } } }));
   await page.route("**/api/market-data?asset=equity-ohlc", (r) =>
-    r.fulfill({ json: { RELIANCE: dailyBars(271, 1400), TCS: dailyBars(271, 4000), NIFTY50: dailyBars(271, 24500, 0) } })
+    r.fulfill({ json: !live ? {} : { RELIANCE: dailyBars(271, 1400), TCS: dailyBars(271, 4000), NIFTY50: dailyBars(271, 24500, 0) } })
   );
   await page.route("**/api/market-data?asset=crypto-ohlc", (r) => r.fulfill({ json: { BTC: fourHourBars() } }));
 }
@@ -65,11 +66,11 @@ interface Summary {
 const summary = async (page: Page): Promise<Summary> => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-series")) ?? "{}");
 const settle = (page: Page) => page.waitForTimeout(500);
 
-async function open(page: Page, symbol = "RELIANCE") {
+async function open(page: Page, symbol = "RELIANCE", live = true) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await mock(page);
+  await mock(page, live);
   await page.goto(`/app/trade/${symbol}`, { waitUntil: "domcontentloaded" });
   await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });
   await expect.poll(async () => (await summary(page)).bars, { timeout: 20_000 }).toBeGreaterThan(0);
@@ -99,9 +100,6 @@ test("it opens on the latest bars (about 30), also after the real history replac
   const v = await view(page);
   expect(v.to - v.from).toBeGreaterThan(28);
   expect(v.to - v.from).toBeLessThan(40);
-  // the weekly view opens on its own last 26 bars
-  await page.getByRole("button", { name: "W", exact: true }).click();
-  await expect.poll(async () => (await view(page)).to).toBeGreaterThanOrEqual(Math.ceil(271 / 5) - 1);
 });
 
 test("every indicator of the old chart is plotted and can be switched on and off", async ({ page }) => {
@@ -126,14 +124,20 @@ test("every indicator of the old chart is plotted and can be switched on and off
   await expect.poll(async () => (await summary(page)).rsi).toBe(0);
 });
 
-test("weekly and monthly timeframes aggregate the daily bars", async ({ page }) => {
-  await open(page);
-  await page.getByRole("button", { name: "W", exact: true }).click();
-  await expect.poll(async () => (await summary(page)).bars).toBe(Math.ceil(271 / 5));
-  await page.getByRole("button", { name: "M", exact: true }).click();
-  await expect.poll(async () => (await summary(page)).bars).toBe(Math.ceil(271 / 21));
-  await page.getByRole("button", { name: "D", exact: true }).click();
-  await expect.poll(async () => (await summary(page)).bars).toBe(271);
+test("on the app's own daily series (no live feed) weekly and monthly aggregate the daily bars", async ({ page }) => {
+  await open(page, "RELIANCE", false);
+  const daily = (await summary(page)).bars;
+  expect(daily).toBeGreaterThan(100);
+  const pick = async (id: string) => {
+    await page.getByTestId("interval-button").click();
+    await page.getByTestId(`interval-${id}`).click();
+  };
+  await pick("1W");
+  await expect.poll(async () => (await summary(page)).bars).toBe(Math.ceil(daily / 5));
+  await pick("1M");
+  await expect.poll(async () => (await summary(page)).bars).toBe(Math.ceil(daily / 21));
+  await pick("1D");
+  await expect.poll(async () => (await summary(page)).bars).toBe(daily);
 });
 
 test("compare and the custom formula are plotted", async ({ page }) => {

@@ -5,13 +5,14 @@ import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
 import { drawingsAllowed, type DisplayBar } from "@/lib/chart/charttypes";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
-import ChartControls from "./ChartControls";
+import type { ChartSettings } from "@/lib/chart/settings";
+import ChartControls, { type FeedInfo } from "./ChartControls";
 import ChartToolbox, { ChartProperties } from "./ChartToolbox";
 import CrosshairReadout from "./CrosshairReadout";
 import { QuickBar, ToolRail } from "./ChartOverlays";
 import DrawingLayer from "./DrawingLayer";
 import TradeChart, { type TradeChartProps } from "./TradeChart";
-import { useChartSettings } from "./useChartSettings";
+import type { SettingsUpdate } from "./useChartSettings";
 import { useDrawings } from "./useDrawings";
 import { useIndexLot } from "./useIndexLot";
 import { useLevelAlerts } from "./useLevelAlerts";
@@ -20,9 +21,8 @@ import { useLevelAlerts } from "./useLevelAlerts";
  * The Trade page's chart with its drawing tools: the chart, the drawing layer over it, and the toolbox. Drawings belong to the symbol
  * and are kept in this browser (see lib/chart/storage.ts).
  */
-export default function ChartWithTools({ heightClass, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "layer" | "chartType" | "renkoSize"> & { heightClass: string }) {
+export default function ChartWithTools({ heightClass, settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "layer" | "chartType" | "renkoSize"> & { heightClass: string; settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
   const api = useDrawings(chartProps.symbol);
-  const [settings, update] = useChartSettings();
   const chartType = settings.type;
   const renkoSize = settings.renko[chartProps.symbol] ?? null;
   const drawable = drawingsAllowed(chartType);
@@ -65,7 +65,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
 
   return (
     <div ref={root} className="flex flex-col" data-testid="chart-with-tools" data-tool={api.tool}>
-      <ChartControls symbol={chartProps.symbol} settings={settings} update={update} bars={realBars} sizingRequest={sizingRequest} />
+      <ChartControls symbol={chartProps.symbol} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} />
       {drawable ? (
         <ChartToolbox api={api} />
       ) : (
@@ -81,7 +81,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
           </button>
         </p>
       )}
-      <div className={heightClass}>
+      <div className={heightClass + (feed.status === "loading" ? " opacity-60" : "")} aria-busy={feed.status === "loading"}>
         <TradeChart
           {...chartProps}
           chartType={chartType}
@@ -92,7 +92,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
             <>
               {drawable && <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} />}
               {drawable && <QuickBar api={api} />}
-              {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} /> : null}
+              {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} intraday={chartProps.intraday} /> : null}
               {drawable && ctx && api.loaded ? (
               <DrawingLayer
                 chart={ctx.chart}

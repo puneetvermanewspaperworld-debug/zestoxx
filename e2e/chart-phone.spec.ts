@@ -379,3 +379,31 @@ test("on a phone the chart type menu is a bottom sheet with 44 px rows, and a pi
   await expect(page.getByTestId("trade-chart")).toHaveAttribute("data-chart-type", "ha");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+/* ---------------------------------------------------------------------------------- intervals, ranges -- */
+test("on a phone the interval sheet and the range buttons are 44 px targets, and choosing a range loads it", async ({ page }) => {
+  const seen: string[] = [];
+  await openTrade(page, "RELIANCE", { seen });
+  await show(page);
+  const row = page.getByTestId("range-row");
+  await expect(row).toBeVisible();
+  for (const r of ["1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "All"]) {
+    const b = (await page.getByTestId(`range-${r}`).boundingBox())!;
+    expect(b.height, r).toBeGreaterThanOrEqual(44);
+    expect(b.width, r).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, r).toBeLessThanOrEqual(390);
+  }
+  await page.getByTestId("range-5D").tap();
+  await expect(page.getByTestId("interval-button")).toHaveText(/15m/);
+  await expect.poll(() => seen.some((s) => s.includes("interval=15m") && s.includes("range=5D"))).toBe(true);
+  await page.getByTestId("interval-button").tap();
+  for (const id of ["1m", "5m", "15m", "30m", "1h", "1D", "1W", "1M"]) {
+    const b = (await page.getByTestId(`interval-${id}`).boundingBox())!;
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(390);
+  }
+  await page.getByTestId("interval-1h").tap();
+  await expect(page.getByTestId("interval-sheet")).toHaveCount(0);
+  await expect(page.getByTestId("interval-button")).toHaveText(/1h/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});

@@ -23,8 +23,15 @@ export function fmtBarDate(t: number): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/** "12 Nov 2026", or "12 Nov 2026 09:15" on an intraday chart (the time is the Indian clock: bar times are IST-shifted). */
+export function fmtBarStamp(t: number, intraday: boolean): string {
+  if (!intraday) return fmtBarDate(t);
+  const d = new Date(t * 1000);
+  return `${fmtBarDate(t)} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}
+
 /** The bar whose time is `time`, found by bisection, or null when there is none (the crosshair is off the data). */
-export function readoutFor(bars: readonly ReadoutBar[], time: number): Readout | null {
+export function readoutFor(bars: readonly ReadoutBar[], time: number, intraday = false): Readout | null {
   let lo = 0;
   let hi = bars.length - 1;
   while (lo <= hi) {
@@ -33,7 +40,7 @@ export function readoutFor(bars: readonly ReadoutBar[], time: number): Readout |
       const b = bars[mid];
       const prev = mid > 0 ? bars[mid - 1].close : null;
       return {
-        date: fmtBarDate(b.realT ?? b.t),
+        date: fmtBarStamp(b.realT ?? b.t, intraday),
         open: b.open,
         high: b.high,
         low: b.low,
