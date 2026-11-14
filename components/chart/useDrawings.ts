@@ -142,6 +142,8 @@ export function useDrawings(symbol: string, store: DrawingStore = defaultStore) 
   return {
     loaded: loadedFor === symbol,
     drawings,
+    /** the drawings as saved, without the live copy of one being dragged */
+    committed: present,
     selected,
     selectedId,
     tool,

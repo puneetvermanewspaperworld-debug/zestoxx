@@ -28,6 +28,8 @@ export interface DrawingLayerProps {
   tool: ToolId;
   magnet: boolean;
   hidden: boolean;
+  /** ids of the horizontal levels that have a price alert: they carry a bell */
+  alerted?: ReadonlySet<string>;
   /** lot size of the index's future, when known (the Measure tool's rupees per lot) */
   lot: number | null;
   isIndex: boolean;
@@ -57,7 +59,7 @@ interface Interaction {
 type DragMode = { kind: "handle"; handle: string } | { kind: "body" };
 
 export default function DrawingLayer(p: DrawingLayerProps) {
-  const { chart, series, bars, drawings, selectedId, tool, magnet, hidden } = p;
+  const { chart, series, bars, drawings, selectedId, tool, magnet, hidden, alerted } = p;
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
   const [, setTick] = useState(0);
   // What is being placed or measured belongs to one tool: when the tool changes it is simply no longer current, so a new tool starts clean.
@@ -142,12 +144,12 @@ export default function DrawingLayer(p: DrawingLayerProps) {
       }
     }
     for (const [id, d] of want) {
-      const opts = { price: d.price, color: d.color, lineWidth: d.width, lineStyle: LINE_STYLE[d.dash], axisLabelVisible: true, title: "" };
+      const opts = { price: d.price, color: d.color, lineWidth: d.width, lineStyle: LINE_STYLE[d.dash], axisLabelVisible: true, title: alerted?.has(id) ? "🔔" : "" };
       const have = lines.current.get(id);
       if (have) have.applyOptions(opts);
       else lines.current.set(id, series.createPriceLine(opts));
     }
-  }, [drawings, hidden, series]);
+  }, [drawings, hidden, series, alerted]);
   useEffect(
     () => () => {
       for (const line of lines.current.values()) {
@@ -416,7 +418,7 @@ export default function DrawingLayer(p: DrawingLayerProps) {
   const scaleAttr = JSON.stringify({ x0: chart.timeScale().logicalToCoordinate(0 as Logical), x100: chart.timeScale().logicalToCoordinate(100 as Logical), y1: series.priceToCoordinate(1), y1000: series.priceToCoordinate(1000) });
   if (w <= 0 || h <= 0) return null;
   return (
-    <div className="pointer-events-none absolute left-0 top-0 z-10" style={{ width: w, height: h, touchAction: "none" }} data-testid="drawing-layer" data-scale={scaleAttr} data-levels={JSON.stringify(shown.filter((d) => d.kind === "hline").map((d) => (d as Extract<Drawing, { kind: "hline" }>).price))}>
+    <div className="pointer-events-none absolute left-0 top-0 z-10" style={{ width: w, height: h, touchAction: "none" }} data-testid="drawing-layer" data-scale={scaleAttr} data-alerted={JSON.stringify([...(alerted ?? [])])} data-levels={JSON.stringify(shown.filter((d) => d.kind === "hline").map((d) => (d as Extract<Drawing, { kind: "hline" }>).price))}>
       <svg width={w} height={h} className="absolute left-0 top-0 overflow-hidden" style={{ touchAction: "none" }} data-drawings={shown.length}>
         {shown.map((d) => {
           const s = shapeOf(d, vp);

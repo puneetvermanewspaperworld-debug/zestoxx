@@ -305,3 +305,21 @@ test("a long press with a drawing tool in hand does not place anything", async (
   await page.getByTestId("done").tap();
   expect(await stored(page)).toEqual([]);
 });
+
+test("on a phone: tap a level, tap 'Alert when price crosses', and the level carries a bell", async ({ page }) => {
+  await openPhone(page);
+  await pickTool(page, "hline");
+  await tapAt(page, 258, 0.5);
+  await waitStored(page, 1);
+  const btn = page.getByTestId("level-alert");
+  await btn.scrollIntoViewIfNeeded();
+  const b = (await btn.boundingBox())!;
+  expect(b.height).toBeGreaterThanOrEqual(44);
+  await btn.tap();
+  await expect(btn).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("drawing-layer")).not.toHaveAttribute("data-alerted", "[]");
+  await show(page);
+  await page.getByTestId("chart-with-tools").screenshot({ path: "docs/chart-tools/level-alert-390.png" });
+  await btn.tap();
+  await expect(btn).toHaveAttribute("aria-pressed", "false");
+});

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Copy, Eye, EyeOff, Lock, LockOpen, Trash2 } from "lucide-react";
+import { BellRing, Copy, Eye, EyeOff, Lock, LockOpen, Trash2 } from "lucide-react";
 import { COLORS, DASHES, WIDTHS, type Dash, type Drawing, type Width } from "@/lib/chart/drawings";
 import type { DrawingsApi } from "./useDrawings";
+import type { LevelAlertView } from "./useLevelAlerts";
 
 const btn = (on = false, danger = false) =>
   "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-md border px-2 text-[11.5px] font-medium transition-colors disabled:opacity-40 " +
@@ -57,14 +58,14 @@ export default function ChartToolbox({ api }: { api: DrawingsApi }) {
  * Style and actions for the selected drawing. It sits below the chart, not above it: opening it must never move the chart under
  * the finger.
  */
-export function ChartProperties({ api, cloneBy }: { api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number } }) {
+export function ChartProperties({ api, cloneBy, levelAlert }: { api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number }; levelAlert?: LevelAlertView }) {
   const { selected } = api;
   if (!selected) return null;
-  return <Properties key={`${selected.id}|${selected.kind === "text" ? selected.text : ""}|${selected.kind === "hline" ? selected.price : ""}`} d={selected} api={api} cloneBy={cloneBy} />;
+  return <Properties key={`${selected.id}|${selected.kind === "text" ? selected.text : ""}|${selected.kind === "hline" ? selected.price : ""}`} d={selected} api={api} cloneBy={cloneBy} levelAlert={levelAlert} />;
 }
 
 /** Style and actions for the selected drawing. A text or price field is applied when it is left or Enter is pressed: one undo step, not one per key. */
-function Properties({ d, api, cloneBy }: { d: Drawing; api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number } }) {
+function Properties({ d, api, cloneBy, levelAlert }: { d: Drawing; api: DrawingsApi; cloneBy: (d: Drawing) => { dTime: number; dPrice: number }; levelAlert?: LevelAlertView }) {
   const [price, setPrice] = useState(d.kind === "hline" ? String(d.price) : "");
   const [text, setText] = useState(d.kind === "text" ? d.text : "");
   const commitPrice = () => {
@@ -117,6 +118,25 @@ function Properties({ d, api, cloneBy }: { d: Drawing; api: DrawingsApi; cloneBy
             className="w-28 min-h-[44px] rounded-md border border-slate-200 bg-white px-2 font-mono text-[12px] outline-none focus:border-blue-400"
           />
         </label>
+      )}
+      {d.kind === "hline" && levelAlert && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            data-testid="level-alert"
+            aria-pressed={levelAlert.has}
+            disabled={!levelAlert.has && !levelAlert.canSet}
+            onClick={levelAlert.toggle}
+            title={levelAlert.canSet || levelAlert.has ? undefined : "The price is at this level now"}
+            className={btn(levelAlert.has)}
+          >
+            <BellRing size={16} aria-hidden />
+            {levelAlert.has ? `Alert set: ${levelAlert.side} this level. Tap to remove` : "Alert when price crosses"}
+          </button>
+          <span className="text-[10.5px] text-slate-400" data-testid="level-alert-note">
+            {levelAlert.has ? "Fires once, while Zestoxx is open. It is also on the Alerts page." : levelAlert.canSet ? `Alerts you when the price goes ${levelAlert.side} this level.` : "The price is at this level now."}
+          </span>
+        </div>
       )}
       {d.kind === "text" && (
         <label className="flex items-center gap-1 text-[11.5px] text-slate-600">

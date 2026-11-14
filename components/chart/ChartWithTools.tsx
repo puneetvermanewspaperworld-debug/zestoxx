@@ -11,6 +11,7 @@ import DrawingLayer from "./DrawingLayer";
 import TradeChart, { type TradeChartProps } from "./TradeChart";
 import { useDrawings } from "./useDrawings";
 import { useIndexLot } from "./useIndexLot";
+import { useLevelAlerts } from "./useLevelAlerts";
 
 /**
  * The Trade page's chart with its drawing tools: the chart, the drawing layer over it, and the toolbox. Drawings belong to the symbol
@@ -21,6 +22,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
   const [ctx, setCtx] = useState<{ chart: IChartApi; series: ISeriesApi<"Candlestick"> } | null>(null);
   const [bars, setBars] = useState<TimedCandle[]>([]);
   const lot = useIndexLot(chartProps.symbol, chartProps.type);
+  const { alerted, viewFor } = useLevelAlerts(chartProps.symbol, api.committed, api.loaded);
   // the tool rail starts open on a wide screen and collapsed on a phone, where it would cover too much of the chart
   const [railOpen, setRailOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 640);
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
@@ -52,6 +54,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
                 tool={api.tool}
                 magnet={api.magnet}
                 hidden={api.hidden}
+                alerted={alerted}
                 lot={lot}
                 isIndex={chartProps.type === "index"}
                 onAdd={api.add}
@@ -65,7 +68,7 @@ export default function ChartWithTools({ heightClass, ...chartProps }: Omit<Trad
           }
         />
       </div>
-      <ChartProperties api={api} cloneBy={cloneBy} />
+      <ChartProperties api={api} cloneBy={cloneBy} levelAlert={api.selected?.kind === "hline" ? viewFor(api.selected) : undefined} />
     </div>
   );
 }
