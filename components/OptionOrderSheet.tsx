@@ -15,6 +15,7 @@ import DataBadge from "@/components/DataBadge";
 import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
 import { quoteNote } from "@/lib/closed-notes";
 import { useMarketStatus } from "@/lib/useMarketStatus";
+import { SELL_NOT_HELD } from "@/lib/sell-shortcut";
 import { fmtINR, fmtIsoDate, fmtOi, fmtOiChange } from "@/lib/helpers";
 import { GREEKS, chainStats, type OptionChain, type OptionLeg } from "@/lib/options";
 import { useContractCandles, useContractQuote } from "@/lib/useContractQuote";
@@ -218,12 +219,15 @@ export default function OptionOrderSheet({
   type,
   onPick,
   onClose,
+  sellIntent = false,
 }: {
   chain: OptionChain;
   strike: number;
   type: "CE" | "PE";
   onPick: (strike: number, type: "CE" | "PE") => void;
   onClose: () => void;
+  /** opened from a Paper sell shortcut: say up front that selling needs a held contract */
+  sellIntent?: boolean;
 }) {
   const { cash, holdings, tradeContract } = useZestoxx();
   const marketOpen = useMarketStatus()?.open ?? null;
@@ -484,6 +488,11 @@ export default function OptionOrderSheet({
               </div>
             </div>
           </div>
+          {sellIntent && held === 0 && (
+            <p data-testid="sell-not-held" className="mb-2 text-[11.5px] text-amber-700">
+              {SELL_NOT_HELD}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

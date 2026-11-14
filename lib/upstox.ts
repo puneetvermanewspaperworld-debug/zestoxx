@@ -141,6 +141,14 @@ export const OPTION_UNDERLYINGS: Record<string, string> = {
   MIDCPNIFTY: "NSE_INDEX|NIFTY MID SELECT",
 };
 
+/**
+ * The Upstox key of an option underlying: the fixed ones above, else an F&O stock from the exchange's instrument list
+ * (`fnoStocks`, from the F&O universe), else null.
+ */
+export function underlyingKey(symbol: string, fnoStocks: { symbol: string; key: string }[]): string | null {
+  return OPTION_UNDERLYINGS[symbol] ?? fnoStocks.find((s) => s.symbol === symbol)?.key ?? null;
+}
+
 const INDIA_VIX_KEY = "NSE_INDEX|India VIX";
 
 /** Today's date in IST as YYYY-MM-DD — expiries are Indian exchange dates. */

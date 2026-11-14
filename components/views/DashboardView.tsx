@@ -3,6 +3,7 @@
 import React from "react";
 import CandleChart from "@/components/CandleChart";
 import { useZestoxx } from "@/components/ZestoxxProvider";
+import { FiiDiiSummaryCard, FuturesGainersCard } from "@/components/DashboardCards";
 import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
 import { fmt, fmtINR, fmtSigned } from "@/lib/helpers";
 import { NEWS_NOT_CONNECTED } from "@/lib/news";
@@ -113,6 +114,11 @@ export default function DashboardView() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <FuturesGainersCard />
+        <FiiDiiSummaryCard />
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
