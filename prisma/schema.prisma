@@ -163,3 +163,38 @@ model IndexValuation {
   @@id([indexName, date])
   @@index([date])
 }
+
+/// One mutual fund scheme we show: Direct plan, Growth option, open ended (dividend/IDCW and Regular plans are not stored). Static
+/// facts from AMFI's NAV file plus the newest NAV and the returns worked out from the stored history, refreshed nightly.
+model MfScheme {
+  /// AMFI's scheme code
+  code      Int      @id
+  name      String
+  isin      String?
+  /// fund house, e.g. "Axis Mutual Fund"
+  amc       String
+  /// the category as AMFI writes it, e.g. "Equity Scheme - Large Cap Fund"
+  category  String
+  /// the newest NAV and the date it is for (this scheme's own date)
+  nav       Float
+  navDate   DateTime @db.Date
+  /// returns in per cent as of navDate: 1 month, 6 months, 1 year absolute; 3 and 5 years annualised. null = not enough history.
+  ret1m     Float?
+  ret6m     Float?
+  ret1y     Float?
+  ret3y     Float?
+  ret5y     Float?
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+/// One dated NAV of a stored scheme. Daily for roughly the last 400 days, weekly (the last NAV of the week) before that.
+/// Written nightly from AMFI's NAV file and once by the backfill script; never edited.
+model MfNav {
+  code Int
+  date DateTime @db.Date
+  nav  Float
+
+  @@id([code, date])
+}

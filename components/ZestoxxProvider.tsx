@@ -54,6 +54,7 @@ type ViewId =
   | "options"
   | "buildup"
   | "fiidii"
+  | "funds"
   | "mtf"
   | "news"
   | "alerts"
