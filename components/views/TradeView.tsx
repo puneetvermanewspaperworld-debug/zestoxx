@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   TrendingUp,
   TrendingDown,
@@ -9,14 +10,9 @@ import {
   Bell,
   Layers,
   ListOrdered,
-  Pencil,
-  Minus,
-  Eraser,
   FunctionSquare,
   SlidersHorizontal,
 } from "lucide-react";
-import CandleChart from "@/components/CandleChart";
-import RSIPanel from "@/components/RSIPanel";
 import DepthLadder from "@/components/DepthLadder";
 import Watchlist from "@/components/Watchlist";
 import OrderPanel from "@/components/OrderPanel";
@@ -28,7 +24,13 @@ import { PULSE_BASIS, pulseFor } from "@/lib/pulse";
 import { rsiSeries } from "@/lib/indicators";
 import DataBadge from "@/components/DataBadge";
 import { fmt, fmtSigned } from "@/lib/helpers";
-import type { Candle, Timeframe } from "@/lib/types";
+import type { Candle } from "@/lib/types";
+
+// The chart needs the browser (canvas), so it is loaded on the client only.
+const TradeChart = dynamic(() => import("@/components/chart/TradeChart"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse rounded bg-slate-50" aria-busy="true" />,
+});
 
 export default function TradeView({ symbol }: { symbol?: string }) {
   // Phones: the order ticket opens as a bottom sheet from the sticky Paper buy / Paper sell bar.
@@ -65,11 +67,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     removeFromWatchlist,
     orderLog,
     onAddAlert,
-    drawMode,
-    setDrawMode,
-    drawings,
-    onAddDrawing,
-    onClearDrawings,
     formula,
     setFormula,
     hasFeedQuote,
@@ -82,12 +79,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
 
-  const applyTimeframe = (candles: Candle[], tf: Timeframe) => {
-    if (tf === "D") return candles.slice(-30);
-    if (tf === "W") return aggregateCandles(candles, 5).slice(-26);
-    return aggregateCandles(candles, 21).slice(-14); // "M"
-  };
-  const visible = applyTimeframe(histories[selected], timeframe);
   const symOrders = orderLog.filter((o) => o.symbol === selected).slice(0, 6);
   const pulseState = pulseFor({
     symId: selected,
@@ -97,14 +88,16 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     hasQuote: hasFeedQuote(selected),
     hasRealHistory: hasRealHistory(selected),
   });
-  // RSI is worked out on the whole history and then cut to what is on screen: Wilder's smoothing needs the earlier bars.
+  // The chart gets the whole history for the timeframe (it opens on the last `keep` bars and can be panned back). Indicators, RSI and
+  // the custom formula are worked out on all of it: Wilder's smoothing and the EMA need the earlier bars.
   const frame = { D: { size: 1, keep: 30 }, W: { size: 5, keep: 26 }, M: { size: 21, keep: 14 } }[timeframe];
-  const fullFrame = frame.size === 1 ? histories[selected] : aggregateCandles(histories[selected], frame.size);
-  const rsiVisible = rsiSeries(fullFrame, 14).slice(-frame.keep);
-  const compareCandles = compareWith ? applyTimeframe(histories[compareWith], timeframe) : null;
+  const frameOf = (candles: Candle[]) => (frame.size === 1 ? candles : aggregateCandles(candles, frame.size));
+  const fullFrame = frameOf(histories[selected]);
+  const rsiFull = rsiSeries(fullFrame, 14);
+  const compareFull = compareWith ? frameOf(histories[compareWith]) : null;
   const { series: customSeries, error: formulaError } = useMemo(
-    () => computeCustomSeries(visible, formula),
-    [visible, formula]
+    () => computeCustomSeries(fullFrame, formula),
+    [fullFrame, formula]
   );
 
   return (
@@ -259,46 +252,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           </div>
 
           <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-blue-50 pb-2.5">
-            <div className="flex items-center gap-1 rounded-md border border-slate-200 p-0.5">
-              <button
-                onClick={() => setDrawMode(drawMode === "trend" ? "none" : "trend")}
-                title="Trendline"
-                className={
-                  "flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium " +
-                  (drawMode === "trend"
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-slate-500 hover:text-slate-900")
-                }
-              >
-                <Pencil size={12} /> Trend
-              </button>
-              <button
-                onClick={() => setDrawMode(drawMode === "hline" ? "none" : "hline")}
-                title="Horizontal line"
-                className={
-                  "flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium " +
-                  (drawMode === "hline"
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-slate-500 hover:text-slate-900")
-                }
-              >
-                <Minus size={12} /> H-Line
-              </button>
-              <button
-                onClick={onClearDrawings}
-                title="Clear drawings"
-                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-slate-500 hover:text-rose-500"
-              >
-                <Eraser size={12} /> Clear
-              </button>
-            </div>
-            {drawMode !== "none" && (
-              <span className="text-[10.5px] text-slate-400">
-                {drawMode === "trend"
-                  ? "Click two points on the chart to draw a trendline."
-                  : "Click a point to draw a horizontal line at that price."}
-              </span>
-            )}
             <div className="ml-auto flex w-full basis-full items-center gap-1.5 sm:w-[340px] sm:flex-none sm:basis-auto">
               <FunctionSquare size={13} className="shrink-0 text-slate-400" />
               <input
@@ -311,18 +264,21 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           </div>
           {formulaError && <div className="mb-2 text-[11px] text-rose-500">{formulaError}</div>}
 
-          <div className="h-[260px] md:h-[300px]">
-            <CandleChart
-              candles={visible}
+          <div className={showRSI ? "h-[440px] md:h-[480px]" : "h-[320px] md:h-[360px]"}>
+            <TradeChart
+              symbol={selected}
+              timeframe={timeframe}
+              type={sym.type}
+              candles={fullFrame}
+              keep={frame.keep}
               showMA={showMA}
-              showVolume={showVolume}
-              showBB={showBB}
               showEMA={showEMA}
-              compareSeries={compareCandles}
-              customSeries={customSeries}
-              drawMode={drawMode}
-              drawings={drawings}
-              onAddDrawing={onAddDrawing}
+              showBB={showBB}
+              showVolume={showVolume}
+              showRSI={showRSI}
+              rsi={rsiFull}
+              compare={compareFull}
+              custom={customSeries}
             />
           </div>
           {compareWith && (
@@ -332,11 +288,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           )}
           {customSeries && (
             <div className="mt-1 text-[10.5px] text-cyan-600">— cyan line = your custom formula</div>
-          )}
-          {showRSI && (
-            <div className="mt-1 h-[90px] border-t border-blue-50 pt-1 md:h-[80px]">
-              <RSIPanel candles={visible} values={rsiVisible} />
-            </div>
           )}
         </div>
 

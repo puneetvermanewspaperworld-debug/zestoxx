@@ -10,6 +10,8 @@ export interface SymbolInfo {
 }
 
 export interface Candle {
+  /** the bar's day as seconds since the epoch at 00:00 UTC of its calendar date (IST date for Indian symbols, UTC date for crypto); absent on simulated bars, which are given dates only when charted */
+  t?: number;
   open: number;
   high: number;
   low: number;

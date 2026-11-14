@@ -366,13 +366,15 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const applyHistory = (data: Record<string, number[][]>) => {
+    /** `tzOffsetMs`: how far ahead of UTC the feed's calendar day is (IST, 5.5 h, for Indian symbols); a bar's `t` is its calendar day at 00:00 UTC. */
+    const applyHistory = (data: Record<string, number[][]>, tzOffsetMs = 0) => {
       const ids = Object.keys(data).filter((id) => Array.isArray(data[id]) && data[id].length >= 10);
       if (cancelled || ids.length === 0) return;
       setHistories((prev) => {
         const next = { ...prev };
         ids.forEach((id) => {
           next[id] = data[id].map((c) => ({
+            t: Math.floor((c[0] + tzOffsetMs) / 86_400_000) * 86_400,
             open: c[1],
             high: c[2],
             low: c[3],
@@ -414,7 +416,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           const data = (await res.json()) as Record<string, number[][]>;
           // CoinGecko sends 4-hour bars; everything downstream (the chart's D timeframe, Pulse's RSI) is daily. UTC day boundaries.
           if (asset === "crypto-ohlc") for (const id of Object.keys(data)) if (Array.isArray(data[id])) data[id] = resampleToDaily(data[id]);
-          applyHistory(data);
+          applyHistory(data, asset === "crypto-ohlc" ? 0 : 19_800_000);
         } catch {
           // that family stays simulated
         }
