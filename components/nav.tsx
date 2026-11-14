@@ -13,6 +13,7 @@ import {
   Flame,
   Star,
   Calculator,
+  Percent,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export const NAV: NavItem[] = [
   { id: "options", label: "Options", icon: SlidersHorizontal, href: "/app/options" },
   { id: "buildup", label: "Buildup", icon: Activity, href: "/app/buildup" },
   { id: "fiidii", label: "FII/DII", icon: Landmark, href: "/app/fiidii" },
+  { id: "mtf", label: "MTF", icon: Percent, href: "/app/mtf" },
   { id: "news", label: "News", icon: Newspaper, href: "/app/news" },
   { id: "alerts", label: "Alerts", icon: Bell, href: "/app/alerts" },
   { id: "orders", label: "Orders", icon: ListOrdered, href: "/app/orders" },
