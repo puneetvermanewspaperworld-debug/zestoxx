@@ -44,7 +44,7 @@ export function weekdays(n: number, endIso: string): string[] {
 }
 const BASE: Record<string, number> = { RELIANCE: 1500, TCS: 4200, NIFTY50: 25250 };
 const SESSIONS: Record<string, number> = { "1D": 1, "5D": 5, "1M": 22, "3M": 66, "6M": 126, "1Y": 252, "5Y": 1260, All: 1500 };
-const BAR_SECONDS: Record<string, number> = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600 };
+const BAR_SECONDS: Record<string, number> = { "1m": 60, "2m": 120, "3m": 180, "5m": 300, "10m": 600, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4h": 14400 };
 
 /** What the mocked /api/candles answers: [epoch ms, open, high, low, close, volume], oldest first. Not random: each bar's price follows from its position. Indices carry no volume. */
 export function candleRows(symbol: string, interval: string, range: string): number[][] {

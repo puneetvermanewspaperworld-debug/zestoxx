@@ -95,9 +95,23 @@ describe("/api/candles refuses bad requests before asking the feed anything", ()
       calls.push(String(url));
       return feedOk([]);
     }) as typeof fetch;
-    for (const q of ["symbol=BTC&interval=1D&range=1M", "symbol=RELIANCE&interval=2m&range=1D", "symbol=RELIANCE&interval=5m&range=10Y", "symbol=RELIANCE&interval=1m&range=1M", "symbol=RELIANCE&interval=5m&range=All"]) {
+    for (const q of ["symbol=BTC&interval=1D&range=1M", "symbol=RELIANCE&interval=4m&range=1D", "symbol=RELIANCE&interval=3h&range=1D", "symbol=RELIANCE&interval=5m&range=10Y", "symbol=RELIANCE&interval=1m&range=1M", "symbol=RELIANCE&interval=5m&range=All"]) {
       assert.equal((await get(q)).status, 400, q);
     }
     assert.equal(calls.length, 0);
+  });
+});
+
+describe("/api/candles for the added intervals", () => {
+  it("asks the feed for the unit and number each one is named by, and refuses 4m and 3h", async () => {
+    const seen: Record<string, string> = {};
+    globalThis.fetch = (async (url: string) => {
+      const m = String(url).match(/historical-candle\/[^/]+\/(minutes|hours)\/(\d+)\//);
+      if (m) seen[m[1] + "/" + m[2]] = "yes";
+      return feedOk([row("2026-11-13T09:15:00+05:30", 100)]);
+    }) as typeof fetch;
+    for (const [id, range] of [["2m", "1D"], ["3m", "1D"], ["10m", "5D"], ["2h", "1M"], ["4h", "3M"]]) assert.equal((await get(`symbol=NIFTY50&interval=${id}&range=${range}`)).status, 200, id);
+    assert.deepEqual(Object.keys(seen).sort(), ["hours/2", "hours/4", "minutes/10", "minutes/2", "minutes/3"]);
+    for (const id of ["4m", "3h"]) assert.equal((await get(`symbol=RELIANCE&interval=${id}&range=1D`)).status, 400, id);
   });
 });

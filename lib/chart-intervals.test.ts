@@ -11,10 +11,14 @@ import type { Candle } from "./types";
 const ist = (iso: string, hhmm = "00:00") => Date.parse(`${iso}T${hhmm}:00+05:30`);
 
 describe("intervals and ranges: only what has real data", () => {
-  it("the intervals are 1m, 5m, 15m, 30m, 1h, 1D, 1W, 1M, with the limits that were measured", () => {
-    assert.deepEqual(INTERVALS.map((i) => i.id), ["1m", "5m", "15m", "30m", "1h", "1D", "1W", "1M"]);
-    assert.deepEqual(INTERVALS.map((i) => i.maxSpanDays), [30, 30, 30, 90, 90, 3600, null, null]); // measured: 32, 32, 32, 93, 93, 3650 days ok
-    assert.deepEqual(INTERVALS.map((i) => i.intraday), [true, true, true, true, true, false, false, false]);
+  it("the intervals are 1m, 2m, 3m, 5m, 10m, 15m, 30m, 1h, 2h, 4h, 1D, 1W, 1M, with the limits that were measured; no 4m and no 3h", () => {
+    assert.deepEqual(INTERVALS.map((i) => i.id), ["1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"]);
+    assert.ok(!INTERVALS.some((i) => (i.id as string) === "4m" || (i.id as string) === "3h"));
+    // measured on the feed: minute bars up to 31 days a request, 30 minute to 4 hour bars up to 90, daily 3650; the windows used are inside that
+    assert.deepEqual(INTERVALS.map((i) => i.maxSpanDays), [30, 30, 30, 30, 30, 30, 90, 90, 90, 90, 3600, null, null]);
+    assert.deepEqual(INTERVALS.map((i) => i.intraday), [true, true, true, true, true, true, true, true, true, true, false, false, false]);
+    assert.deepEqual(INTERVALS.filter((i) => i.intraday).map((i) => i.barSeconds), [60, 120, 180, 300, 600, 900, 1800, 3600, 7200, 14400]);
+    assert.deepEqual(INTERVALS.filter((i) => i.intraday).map((i) => i.unit + "/" + i.n), ["minutes/1", "minutes/2", "minutes/3", "minutes/5", "minutes/10", "minutes/15", "minutes/30", "hours/1", "hours/2", "hours/4"]);
     assert.ok(INTERVALS.filter((i) => i.intraday).every((i) => i.earliest === "2022-01-03"));
     assert.ok(INTERVALS.filter((i) => !i.intraday).every((i) => i.earliest === "2000-01-01"));
   });
@@ -36,7 +40,7 @@ describe("intervals and ranges: only what has real data", () => {
   });
   it("intraday intervals are not offered for long ranges that the data cannot fill", () => {
     for (const r of ["5Y", "All"] as RangeId[]) assert.ok(VALID_INTERVALS[r].every((i) => !isIntraday(i)), r);
-    assert.ok(!VALID_INTERVALS["1Y"].some((i) => ["1m", "5m", "15m", "30m"].includes(i)));
+    assert.ok(!VALID_INTERVALS["1Y"].some((i) => ["1m", "2m", "3m", "5m", "10m", "15m", "30m"].includes(i)));
   });
   it("picking an interval keeps the range when it suits, otherwise uses that interval's usual range", () => {
     assert.deepEqual(pickInterval({ interval: "1D", range: "1Y" }, "1W"), { interval: "1W", range: "1Y" });
@@ -51,7 +55,8 @@ describe("intervals and ranges: only what has real data", () => {
   it("a stored selection that is unknown or does not go together is made valid, never kept", () => {
     assert.deepEqual(selectionFrom(null, null), { interval: "1D", range: "1Y" });
     assert.deepEqual(selectionFrom("1D", "1D"), { interval: "1D", range: "1Y" });
-    assert.deepEqual(selectionFrom("2m", "zz"), { interval: "1D", range: "1Y" });
+    assert.deepEqual(selectionFrom("4m", "zz"), { interval: "1D", range: "1Y" }); // 4m is not offered
+    assert.deepEqual(selectionFrom("2m", "zz"), { interval: "2m", range: "1D" });
     assert.deepEqual(selectionFrom("15m", null), { interval: "15m", range: "5D" });
     assert.deepEqual(selectionFrom(null, "3M"), { interval: "1D", range: "3M" });
     assert.deepEqual(selectionFrom("1m", "All"), { interval: "1m", range: "1D" });

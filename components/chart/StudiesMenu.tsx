@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, FunctionSquare, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, FunctionSquare, Plus, Search, Star, Trash2 } from "lucide-react";
+import { pinFirst } from "@/lib/chart/favourites";
 import { PATTERNS, PATTERN_THRESHOLDS } from "@/lib/chart/patterns";
 import { MAX_STUDIES } from "@/lib/chart/settings";
 import { STUDIES, STUDY_MAP, checkParams, searchStudies, studyAvailability, studyTitle, type StudyContext, type StudyInstance, type StudyResult } from "@/lib/chart/studies";
@@ -15,6 +16,9 @@ export interface StudiesApi {
   add: (id: string) => void;
   remove: (uid: number) => void;
   clear: () => void;
+  /** the starred studies (ids), in the order they were starred, and a way to star or unstar one */
+  favourites: string[];
+  toggleFavourite: (id: string) => void;
   setParams: (uid: number, params: Record<string, number>) => void;
 }
 
@@ -37,7 +41,8 @@ export default function StudiesMenu({ api, openFor, onClosed }: { api: StudiesAp
     onClosed();
   };
   const full = api.studies.length >= MAX_STUDIES;
-  const list = searchStudies(query);
+  const list = pinFirst(searchStudies(query), api.favourites, (d) => d.id);
+  const starredCount = list.filter((d) => api.favourites.includes(d.id)).length;
 
   return (
     <>
@@ -108,11 +113,16 @@ export default function StudiesMenu({ api, openFor, onClosed }: { api: StudiesAp
                 No study matches “{query}”.
               </p>
             )}
-            {list.map((def) => {
+            {list.map((def, k) => {
               const avail = studyAvailability(def, api.context);
               const off = !avail.ok || full;
+              const starred = api.favourites.includes(def.id);
               return (
-                <button key={def.id} type="button" disabled={off} aria-disabled={off} onClick={() => api.add(def.id)} data-testid={`add-${def.id}`} className={rowClass() + (off ? " opacity-50" : "")}>
+                <div key={def.id}>
+                  {k === 0 && starredCount > 0 && <h4 className="px-3 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-amber-600" data-testid="starred-heading">Starred</h4>}
+                  {k === starredCount && starredCount > 0 && <h4 className="px-3 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">All studies</h4>}
+                  <div className="flex items-center gap-0.5">
+                <button type="button" disabled={off} aria-disabled={off} onClick={() => api.add(def.id)} data-testid={`add-${def.id}`} className={rowClass() + (off ? " opacity-50" : "") + " flex-1"}>
                   <Plus size={16} aria-hidden className="shrink-0 text-slate-400" />
                   <span className="flex-1">
                     {def.name}
@@ -121,6 +131,11 @@ export default function StudiesMenu({ api, openFor, onClosed }: { api: StudiesAp
                   {def.experimental && <Badge>Experimental</Badge>}
                   {!avail.ok ? <span className="text-[11px] text-amber-700">{avail.reason}</span> : <span className="text-[11px] text-slate-400">{def.placement === "pane" ? "own pane" : "on price"}</span>}
                 </button>
+                    <button type="button" aria-pressed={starred} aria-label={`${starred ? "Unstar" : "Star"} ${def.name}`} data-testid={`star-${def.id}`} onClick={() => api.toggleFavourite(def.id)} className={"flex h-11 w-11 shrink-0 items-center justify-center rounded-lg " + (starred ? "text-amber-500" : "text-slate-400 hover:text-slate-700")}>
+                      <Star size={17} aria-hidden fill={starred ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </section>

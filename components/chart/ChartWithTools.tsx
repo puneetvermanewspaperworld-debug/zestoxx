@@ -5,10 +5,12 @@ import type { IChartApi, ISeriesApi, SeriesType } from "lightweight-charts";
 import { drawingsAllowed, type DisplayBar } from "@/lib/chart/charttypes";
 import { cloneOffset, type Drawing } from "@/lib/chart/drawings";
 import type { TimedCandle } from "@/lib/chart/series";
+import { toggleFavourite } from "@/lib/chart/favourites";
 import { MAX_STUDIES, nextUid, type ChartSettings } from "@/lib/chart/settings";
 import { STUDY_MAP, defaultParams, nextColor, type StudyResult } from "@/lib/chart/studies";
 import ChartControls, { type FeedInfo, type FullscreenApi } from "./ChartControls";
 import StudyLegend from "./StudyLegend";
+import { useChartPrefs } from "./useChartPrefs";
 import ChartToolbox, { ChartProperties } from "./ChartToolbox";
 import CrosshairReadout from "./CrosshairReadout";
 import { QuickBar, ToolRail } from "./ChartOverlays";
@@ -27,7 +29,7 @@ import { useLevelAlerts } from "./useLevelAlerts";
 const BASE_PX = { phone: 320, wide: 360 };
 const PANE_PX = 120;
 
-export default function ChartWithTools({ settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies" | "scale" | "grid" | "magnet"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
+export default function ChartWithTools({ settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies" | "scale" | "grid" | "magnet" | "invert" | "theme"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
   const api = useDrawings(chartProps.symbol);
   const chartType = settings.type;
   const renkoSize = settings.renko[chartProps.symbol] ?? null;
@@ -37,6 +39,7 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
   const [bars, setBars] = useState<DisplayBar[]>([]);
   const [realBars, setRealBars] = useState<TimedCandle[]>([]);
   const [sizingRequest, setSizingRequest] = useState(0);
+  const prefs = useChartPrefs(settings, update);
   const [studyState, setStudyState] = useState<{ results: StudyResult[]; hasVolume: boolean }>({ results: [], hasVolume: true });
   const [studyRequest, setStudyRequest] = useState<{ uid: number; n: number } | null>(null);
   const studiesApi = {
@@ -52,6 +55,8 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
       }),
     remove: (uid: number) => update((prev) => ({ studies: prev.studies.filter((s) => s.uid !== uid) })),
     clear: () => update({ studies: [] }),
+    favourites: settings.favStudies,
+    toggleFavourite: (id: string) => update((prev) => ({ favStudies: toggleFavourite(prev.favStudies, id) })),
     setParams: (uid: number, params: Record<string, number>) => update((prev) => ({ studies: prev.studies.map((s) => (s.uid === uid ? { ...s, params } : s)) })),
   };
   // Fullscreen: the chart takes the whole screen (a fixed overlay, so it works where the Fullscreen API does not, as on an iPhone), and the
@@ -168,12 +173,13 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
         root.current = el;
         stage.current = el;
       }}
-      className={full ? "fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-white p-2" : "flex flex-col"} data-testid="chart-with-tools"
+      className={(full ? "fixed inset-0 z-[60] flex flex-col overflow-y-auto p-2 " + (settings.theme === "dark" ? "" : "bg-white") : "flex flex-col") + (settings.theme === "dark" ? " zx-dark" + (full ? "" : " rounded-lg p-2") : "")} data-testid="chart-with-tools"
       data-tool={api.tool}
       data-fullscreen={full ? "1" : "0"}
       data-landscape={landscape ? "1" : "0"}
+      data-theme={settings.theme}
     >
-      <ChartControls symbol={chartProps.symbol} fullscreen={fullscreen} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} studies={studiesApi} studyRequest={studyRequest} onStudyMenuClosed={() => setStudyRequest(null)} />
+      <ChartControls symbol={chartProps.symbol} fullscreen={fullscreen} settings={settings} update={update} feed={feed} bars={realBars} sizingRequest={sizingRequest} studies={studiesApi} prefs={prefs} studyRequest={studyRequest} onStudyMenuClosed={() => setStudyRequest(null)} />
       <StudyLegend results={studyState.results} bars={bars} chart={ctx?.chart ?? null} type={chartProps.type} onEdit={(uid) => setStudyRequest({ uid, n: (studyRequest?.n ?? 0) + 1 })} onRemove={studiesApi.remove} />
       {drawable ? (
         <ChartToolbox api={api} />
@@ -201,6 +207,8 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
           scale={settings.scale}
           grid={settings.grid}
           magnet={settings.magnet}
+          invert={settings.invert}
+          theme={settings.theme}
           onStudies={onStudies}
           chartType={chartType}
           renkoSize={renkoSize}
@@ -208,7 +216,7 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
           onBars={onBars}
           layer={
             <>
-              {drawable && <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} />}
+              {drawable && <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} favs={settings.favTools} onToggleFav={(id) => update((prev) => ({ favTools: toggleFavourite(prev.favTools, id) }))} />}
               {drawable && <QuickBar api={api} />}
               {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} intraday={chartProps.intraday} /> : null}
               {drawable && ctx && api.loaded ? (

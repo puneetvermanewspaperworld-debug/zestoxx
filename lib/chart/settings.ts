@@ -1,9 +1,12 @@
 import { isChartType, type ChartType } from "./charttypes";
+import { TOOLS } from "./drawings";
+import { isThemeId, type ThemeId } from "./theme";
 import { INSTANCE_COLORS, STUDY_MAP, checkParams, defaultParams, type StudyInstance } from "./studies";
 
 /**
  * What the Trade page chart remembers on this device: the chart type, the Renko brick size chosen for each symbol, the studies and their
- * parameters, the price scale, grid, crosshair, and the interval and range last used. Kept in this browser only. Whatever is read back is
+ * parameters, the price scale (and whether it is inverted), grid, crosshair, the theme, the starred drawing tools and studies, and the interval and
+ * range last used. Kept in this browser only. Whatever is read back is
  * checked, and anything that does not make sense is replaced by its default, so a damaged or old entry can never break the chart.
  */
 export type ScaleMode = "normal" | "log" | "percent";
@@ -19,6 +22,14 @@ export interface ChartSettings {
   magnet: boolean;
   interval: string | null;
   range: string | null;
+  /** the price axis upside down: higher prices lower on the screen */
+  invert: boolean;
+  /** the chart's own light or dark look */
+  theme: ThemeId;
+  /** the drawing tools starred to the top of the tool rail, in the order they were starred */
+  favTools: string[];
+  /** the studies starred to the top of the studies list */
+  favStudies: string[];
 }
 
 export const SETTINGS_KEY = "zestoxx:chart-settings:v1";
@@ -31,13 +42,24 @@ export const DEFAULT_STUDIES: StudyInstance[] = [
   { uid: 3, id: "volume", params: {} },
 ];
 
-export const DEFAULT_SETTINGS: ChartSettings = { type: "candle", renko: {}, studies: DEFAULT_STUDIES, scale: "normal", grid: true, magnet: false, interval: null, range: null };
+export const DEFAULT_SETTINGS: ChartSettings = { type: "candle", renko: {}, studies: DEFAULT_STUDIES, scale: "normal", grid: true, magnet: false, interval: null, range: null, invert: false, theme: "light", favTools: [], favStudies: [] };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** The drawing tools that can be starred: every tool but Select (which is always first). */
+export const FAVOURITE_TOOL_IDS: string[] = TOOLS.filter((x) => x.id !== "select").map((x) => x.id);
+
+/** A list of ids from storage: only known ones, once each, in order. */
+function idList(raw: unknown, known: readonly string[]): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) if (typeof v === "string" && known.includes(v) && !out.includes(v)) out.push(v);
+  return out;
+}
+
 /** Settings from whatever was stored: valid parts are kept, the rest fall back to the defaults. */
 export function parseSettings(raw: unknown): ChartSettings {
-  const base: ChartSettings = { ...DEFAULT_SETTINGS, renko: {}, studies: DEFAULT_STUDIES.map((s) => ({ ...s, params: { ...s.params } })) };
+  const base: ChartSettings = { ...DEFAULT_SETTINGS, renko: {}, favTools: [], favStudies: [], studies: DEFAULT_STUDIES.map((s) => ({ ...s, params: { ...s.params } })) };
   if (!isObj(raw)) return base;
   const out = { ...base };
   if (isChartType(raw.type)) out.type = raw.type;
@@ -64,6 +86,10 @@ export function parseSettings(raw: unknown): ChartSettings {
   if (typeof raw.magnet === "boolean") out.magnet = raw.magnet;
   if (typeof raw.interval === "string" && raw.interval.length <= 6) out.interval = raw.interval;
   if (typeof raw.range === "string" && raw.range.length <= 6) out.range = raw.range;
+  if (typeof raw.invert === "boolean") out.invert = raw.invert;
+  if (isThemeId(raw.theme)) out.theme = raw.theme;
+  out.favTools = idList(raw.favTools, FAVOURITE_TOOL_IDS);
+  out.favStudies = idList(raw.favStudies, Object.keys(STUDY_MAP));
   return out;
 }
 
