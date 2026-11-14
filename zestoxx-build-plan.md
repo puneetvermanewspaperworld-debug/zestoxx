@@ -213,7 +213,7 @@ Build the MTF calculator page exactly as specified in section D of zestoxx-build
 - Net profit = gross profit - interest - charges.
 - Return on own capital = net profit / own capital used. Show net, not only gross.
 - Breakeven exit price = price + (interest + charges) / quantity.
-- Price fall that wipes out own capital = 1 - (own capital / position value) = funding%.
+- Price fall that wipes out own capital = own capital / position value = 1 - funding%. (At 60% funding the loan is 60% of the position, so the position must lose 40% of its value before only the loan is left: a 40% fall, as in the worked example below.)
 - Price at which a forced sale may trigger = funded amount / (quantity x (1 - forced-sale level)).
 
 **Worked example for the tests** (price 839, exit 892, own ₹1,00,000, funding 60%, 10 days, interest 15%):
