@@ -62,3 +62,15 @@ export function istClock(now: Date = new Date()): { date: string; weekday: numbe
   const d = new Date(now.getTime() + 5.5 * 3_600_000);
   return { date: d.toISOString().slice(0, 10), weekday: d.getUTCDay(), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
 }
+
+/**
+ * A signed number for a change: "+1.25", "-0.09", "0.00". The sign comes from the rounded value, so a tiny
+ * negative never prints "-0.00" and a plus sign is never put in front of a minus ("+-0.09").
+ * `suffix` is appended as is ("%").
+ */
+export function fmtSigned(n: number | null | undefined, digits = 2, suffix = ""): string {
+  if (n == null || !Number.isFinite(n)) return "--";
+  const s = Math.abs(n).toFixed(digits);
+  const zero = Number(s) === 0;
+  return `${zero ? "" : n > 0 ? "+" : "-"}${s}${suffix}`;
+}

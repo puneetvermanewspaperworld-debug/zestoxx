@@ -3,6 +3,8 @@
 import React, { useMemo } from "react";
 import { chainStats, type OptionChain } from "@/lib/options";
 import { fmtOi } from "@/lib/helpers";
+import { unavailableNote } from "@/lib/closed-notes";
+import { useMarketStatus } from "@/lib/useMarketStatus";
 
 type Accent = "none" | "resistance" | "support";
 
@@ -55,6 +57,7 @@ function Stat({
 
 export default function OptionsStatsStrip({ chain }: { chain: OptionChain }) {
   const stats = useMemo(() => chainStats(chain.rows, chain.spot), [chain.rows, chain.spot]);
+  const open = useMarketStatus()?.open ?? null;
   if (!stats) return null;
 
   const [call1, call2] = stats.topCalls;
@@ -68,25 +71,25 @@ export default function OptionsStatsStrip({ chain }: { chain: OptionChain }) {
       <Stat
         label="ATM IV"
         value={stats.atmIv != null ? `${stats.atmIv.toFixed(2)}%` : "--"}
-        sub={`strike ${stats.atmStrike}`}
+        sub={unavailableNote(open, stats.atmIv) ?? `strike ${stats.atmStrike}`}
         hint="Average implied volatility of the at-the-money call and put"
       />
       <Stat
         label="PCR (OI)"
         value={stats.pcr != null ? stats.pcr.toFixed(2) : "--"}
-        sub={stats.pcr != null ? (stats.pcr >= 1 ? "more puts than calls" : "more calls than puts") : undefined}
+        sub={stats.pcr != null ? (stats.pcr >= 1 ? "more puts than calls" : "more calls than puts") : (unavailableNote(open, stats.pcr) ?? undefined)}
         hint="Put-Call Ratio: total put open interest ÷ total call open interest across the chain"
       />
       <Stat
         label="India VIX"
         value={chain.vix != null ? chain.vix.toFixed(2) : "--"}
-        sub={chain.source === "simulated" ? "simulated" : undefined}
+        sub={chain.source === "simulated" ? "simulated" : (unavailableNote(open, chain.vix) ?? undefined)}
         hint="NSE's expected 30-day volatility index"
       />
       <Stat
         label="Max pain"
         value={stats.maxPain != null ? String(stats.maxPain) : "--"}
-        sub="writers' least payout"
+        sub={unavailableNote(open, stats.maxPain) ?? "writers' least payout"}
         hint="Strike where option writers' total payout at expiry would be smallest"
       />
       <Stat

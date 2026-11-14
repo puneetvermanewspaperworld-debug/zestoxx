@@ -6,6 +6,8 @@ import { Flame } from "lucide-react";
 import { fmtINR, fmtIsoDate, fmtOi } from "@/lib/helpers";
 import { SYMBOL_MAP } from "@/lib/symbols";
 import { useMovers } from "@/lib/useMovers";
+import { moversNote, noChangeFigure } from "@/lib/closed-notes";
+import { useMarketStatus } from "@/lib/useMarketStatus";
 import {
   EQUITY_FILTER,
   contractLabel,
@@ -103,7 +105,7 @@ const NO_TRADES = "No trades yet today — these lists fill in once the market o
 
 /* ----------------------------------------------------------------- tables ---- */
 
-function StockTable({ rows, showLot }: { rows: StockMover[]; showLot?: boolean }) {
+function StockTable({ rows, showLot, open }: { rows: StockMover[]; showLot?: boolean; open: boolean | null }) {
   if (rows.length === 0) return <Empty>{NO_TRADES}</Empty>;
   return (
     <div className="overflow-x-auto">
@@ -133,8 +135,8 @@ function StockTable({ rows, showLot }: { rows: StockMover[]; showLot?: boolean }
                 <div className="max-w-[150px] break-words sm:max-w-[220px] sm:truncate text-[10.5px] text-slate-400">{titleCase(r.name)}</div>
               </td>
               <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{fmtINR(r.ltp)}</td>
-              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
-              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + tone(r.changePct)}>{signed(r.changePct)}%</td>
+              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{open === false && noChangeFigure(r) ? "--" : signed(r.change)}</td>
+              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + tone(r.changePct)}>{open === false && noChangeFigure(r) ? "--" : `${signed(r.changePct)}%`}</td>
               <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
               <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{rupees(r.value)}</td>
               {showLot && (
@@ -148,7 +150,7 @@ function StockTable({ rows, showLot }: { rows: StockMover[]; showLot?: boolean }
   );
 }
 
-function FutureTable({ rows }: { rows: FutureMover[] }) {
+function FutureTable({ rows, open }: { rows: FutureMover[]; open: boolean | null }) {
   if (rows.length === 0) return <Empty>{NO_TRADES}</Empty>;
   return (
     <div className="overflow-x-auto">
@@ -174,8 +176,8 @@ function FutureTable({ rows }: { rows: FutureMover[] }) {
                 <div className="text-[10.5px] text-slate-400">FUT · {fmtIsoDate(r.expiry)}</div>
               </td>
               <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{fmtINR(r.ltp)}</td>
-              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
-              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + tone(r.changePct)}>{signed(r.changePct)}%</td>
+              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{open === false && noChangeFigure(r) ? "--" : signed(r.change)}</td>
+              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + tone(r.changePct)}>{open === false && noChangeFigure(r) ? "--" : `${signed(r.changePct)}%`}</td>
               <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
               <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{r.lot}</td>
             </tr>
@@ -186,7 +188,7 @@ function FutureTable({ rows }: { rows: FutureMover[] }) {
   );
 }
 
-function OptionTable({ rows }: { rows: OptionContract[] }) {
+function OptionTable({ rows, open }: { rows: OptionContract[]; open: boolean | null }) {
   if (rows.length === 0) return <Empty>{NO_TRADES}</Empty>;
   return (
     <div className="overflow-x-auto">
@@ -206,9 +208,9 @@ function OptionTable({ rows }: { rows: OptionContract[] }) {
             <tr key={`${r.symbol}${r.expiry}${r.strike}${r.type}`} className="border-b border-blue-50 hover:bg-slate-50">
               <td className="px-2 py-2.5 sm:px-3 font-mono text-[12px] font-medium text-slate-900">{contractLabel(r)}</td>
               <td className="px-2 py-2.5 sm:px-3 text-right font-mono text-slate-900">{r.ltp.toFixed(2)}</td>
-              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{signed(r.change)}</td>
-              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + (r.changePct == null ? "text-slate-300" : tone(r.changePct))}>
-                {r.changePct == null ? "--" : `${signed(r.changePct)}%`}
+              <td className={"hidden px-2 py-2.5 sm:px-3 text-right font-mono sm:table-cell " + tone(r.change)}>{open === false && noChangeFigure(r) ? "--" : signed(r.change)}</td>
+              <td className={"px-2 py-2.5 sm:px-3 text-right font-mono " + (r.changePct == null || (open === false && noChangeFigure(r)) ? "text-slate-300" : tone(r.changePct))}>
+                {r.changePct == null || (open === false && noChangeFigure(r)) ? "--" : `${signed(r.changePct)}%`}
               </td>
               <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{fmtOi(r.volume)}</td>
               <td className="hidden px-2 py-2.5 sm:px-3 text-right font-mono text-slate-500 sm:table-cell">{rupees(r.value)}</td>
@@ -258,6 +260,7 @@ export default function MoversView() {
 
   const { res, loading } = useMovers<StockMovers | FutureMovers | OptionMovers>(query, { enabled: top !== "mf" });
   const data = res?.source === "live" ? res.data : null;
+  const marketOpen = useMarketStatus()?.open ?? null;
 
   const optionRows = useMemo(() => {
     if (!data || !("contracts" in data)) return [];
@@ -278,6 +281,16 @@ export default function MoversView() {
 
   let body: React.ReactNode;
   let footnote: React.ReactNode = null;
+  const shown: { change: number; changePct: number | null }[] = !data
+    ? []
+    : "contracts" in data
+      ? optionRows
+      : "ranked" in data
+        ? data[stockSeg]
+        : futSeg === "gainers"
+          ? data.gainers
+          : data.losers;
+  const closedNote = moversNote(marketOpen, shown);
 
   if (top === "mf") {
     body = <Empty>Mutual fund movers need a fund-data source, which isn&apos;t connected yet.</Empty>;
@@ -291,18 +304,18 @@ export default function MoversView() {
       </Empty>
     );
   } else if ("contracts" in data) {
-    body = <OptionTable rows={optionRows} />;
+    body = <OptionTable rows={optionRows} open={marketOpen} />;
     footnote = `Ranked among the ${data.contracts.length} most-traded ${
       optKind === "OPTIDX" ? "index" : "stock"
     } option contracts in the nearest expiry (${data.underlyings.length} underlyings, ${data.scanned.toLocaleString("en-IN")} contracts scanned). Change is vs the previous close.`;
   } else if ("ranked" in data) {
-    body = <StockTable rows={data[stockSeg]} showLot={top === "fno"} />;
+    body = <StockTable rows={data[stockSeg]} showLot={top === "fno"} open={marketOpen} />;
     footnote =
       top === "equity"
         ? `All NSE stocks priced ≥ ₹${EQUITY_FILTER.minPrice} that have traded ≥ ₹${EQUITY_FILTER.minTurnoverCr} Cr today (${data.ranked.toLocaleString("en-IN")} of ${data.scanned.toLocaleString("en-IN")}). Most Active ranks by traded value.`
         : `The ${data.scanned} F&O-eligible stocks. Most Active ranks by traded value.`;
   } else {
-    body = <FutureTable rows={futSeg === "gainers" ? data.gainers : data.losers} />;
+    body = <FutureTable rows={futSeg === "gainers" ? data.gainers : data.losers} open={marketOpen} />;
     footnote = `Near-month stock and index futures (${data.scanned} scanned). Change is vs the previous close.`;
   }
 
@@ -421,6 +434,11 @@ export default function MoversView() {
           )}
         </div>
 
+        {closedNote && (
+          <p data-testid="movers-note" className="px-4 pt-3 text-[11.5px] text-slate-500">
+            {closedNote}
+          </p>
+        )}
         <div className="mt-3 border-t border-slate-100">{body}</div>
         {footnote && <p className="border-t border-slate-100 px-4 py-2.5 text-[10.5px] text-slate-400">{footnote}</p>}
       </div>

@@ -433,6 +433,44 @@ export async function fetchContractQuote(token: string, key: string): Promise<Co
   };
 }
 
+/* ------------------------------------------------------------ market depth ---- */
+
+export interface SymbolDepth {
+  /** best bid first, at most five levels */
+  bids: DepthLevel[];
+  /** best ask first, at most five levels */
+  asks: DepthLevel[];
+  totalBuyQty: number;
+  totalSellQty: number;
+}
+
+/** The depth block of a full quote, as levels. Pure: no level is ever made up, a missing side is just empty. */
+export function depthFromQuote(q: ApiFullQuote | null | undefined): SymbolDepth {
+  return {
+    bids: toLevels(q?.depth?.buy),
+    asks: toLevels(q?.depth?.sell),
+    totalBuyQty: num(q?.total_buy_quantity),
+    totalSellQty: num(q?.total_sell_quantity),
+  };
+}
+
+/** The Upstox key whose quote carries market depth: listed equities only. Indices and crypto have no order book. */
+export function depthKeyFor(symbol: string): string | null {
+  const key = UPSTOX_KEYS[symbol];
+  return key && /^(NSE_EQ|BSE_EQ)\|/.test(key) ? key : null;
+}
+
+/** Five-level depth for one listed equity, from the full quote. */
+export async function fetchSymbolDepth(token: string, key: string): Promise<SymbolDepth> {
+  const res = await fetch(`${UPSTOX_BASE}/v2/market-quote/quotes?instrument_key=${encodeURIComponent(key)}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`upstox depth ${res.status}`);
+  const json = (await res.json()) as { data?: Record<string, ApiFullQuote> };
+  return depthFromQuote(Object.values(json.data ?? {})[0]);
+}
+
 /** Today's 5-minute candles for one contract, oldest first. Empty before the first trade. */
 export async function fetchContractCandles(token: string, key: string): Promise<Candle5[]> {
   const res = await fetch(

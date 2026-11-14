@@ -119,6 +119,8 @@ interface ZestoxxContextValue {
   chgFor: (id: string) => number;
   /** Previous-close reference for any symbol. */
   prevCloseFor: (id: string) => number;
+  /** True only when this symbol's price and previous close came from a live feed (not the simulation). */
+  hasFeedQuote: (id: string) => boolean;
   setActiveView: (v: ViewId) => void;
   onTrade: (t: TradeInput) => void;
   /** Market paper trade in an option contract (id from makeContractId); qty is in units, not lots. */
@@ -816,6 +818,8 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     [prevClose, histories, live]
   );
 
+  const hasFeedQuote = useCallback((id: string): boolean => (prevClose[id] ?? 0) > 0, [prevClose]);
+
   /** Day-change % for a symbol: (price − previous close) / previous close. */
   const chgFor = useCallback(
     (id: string): number => {
@@ -872,6 +876,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     chg,
     chgFor,
     prevCloseFor,
+    hasFeedQuote,
     setActiveView,
     onTrade,
     tradeContract,

@@ -89,5 +89,6 @@ export interface PulseResult {
   label: "Bullish" | "Bearish" | "Neutral";
   momentum: number;
   rsi: number;
-  newsScore: number;
+  /** what the score is built from, in words */
+  basis: string;
 }
