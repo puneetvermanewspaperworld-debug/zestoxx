@@ -42,7 +42,10 @@ export const DEFAULT_STUDIES: StudyInstance[] = [
   { uid: 3, id: "volume", params: {} },
 ];
 
-export const DEFAULT_SETTINGS: ChartSettings = { type: "candle", renko: {}, studies: DEFAULT_STUDIES, scale: "normal", grid: true, magnet: false, interval: null, range: null, invert: false, theme: "dark", favTools: [], favStudies: [] };
+/** The theme a device starts with when it has not chosen one: dark on the phone chart page, light everywhere else (desktop is as it was). */
+export const defaultTheme = (phone: boolean): ThemeId => (phone ? "dark" : "light");
+
+export const DEFAULT_SETTINGS: ChartSettings = { type: "candle", renko: {}, studies: DEFAULT_STUDIES, scale: "normal", grid: true, magnet: false, interval: null, range: null, invert: false, theme: "light", favTools: [], favStudies: [] };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -57,9 +60,9 @@ function idList(raw: unknown, known: readonly string[]): string[] {
   return out;
 }
 
-/** Settings from whatever was stored: valid parts are kept, the rest fall back to the defaults. */
-export function parseSettings(raw: unknown): ChartSettings {
-  const base: ChartSettings = { ...DEFAULT_SETTINGS, renko: {}, favTools: [], favStudies: [], studies: DEFAULT_STUDIES.map((s) => ({ ...s, params: { ...s.params } })) };
+/** Settings from whatever was stored: valid parts are kept, the rest fall back to the defaults (`phone`: the phone's, which differ only in the theme). */
+export function parseSettings(raw: unknown, phone = false): ChartSettings {
+  const base: ChartSettings = { ...DEFAULT_SETTINGS, theme: defaultTheme(phone), renko: {}, favTools: [], favStudies: [], studies: DEFAULT_STUDIES.map((s) => ({ ...s, params: { ...s.params } })) };
   if (!isObj(raw)) return base;
   const out = { ...base };
   if (isChartType(raw.type)) out.type = raw.type;
@@ -98,12 +101,12 @@ export interface StorageLike {
   setItem(k: string, v: string): void;
 }
 
-export function loadSettings(storage: StorageLike | null): ChartSettings {
+export function loadSettings(storage: StorageLike | null, phone = false): ChartSettings {
   try {
     const raw = storage?.getItem(SETTINGS_KEY);
-    return parseSettings(raw ? JSON.parse(raw) : null);
+    return parseSettings(raw ? JSON.parse(raw) : null, phone);
   } catch {
-    return parseSettings(null);
+    return parseSettings(null, phone);
   }
 }
 

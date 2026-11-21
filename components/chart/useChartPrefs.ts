@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { isPhoneNow } from "@/lib/useScreenMode";
 import { defaultTarget, forgetPrefs, loadPrefs, savePrefs, savedTarget, type SavedPrefs } from "@/lib/chart/prefs";
 import type { ChartSettings } from "@/lib/chart/settings";
 import type { SettingsUpdate } from "./useChartSettings";
@@ -41,7 +42,7 @@ export function useChartPrefs(settings: ChartSettings, update: SettingsUpdate): 
     setMessage("Back to your saved preferences.");
   }, [saved, update]);
   const resetToDefaults = useCallback(() => {
-    update(defaultTarget());
+    update(defaultTarget(isPhoneNow()));
     setMessage("Back to the app's defaults.");
   }, [update]);
   const forget = useCallback(() => {

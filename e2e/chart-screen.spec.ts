@@ -66,6 +66,9 @@ for (const [w, h] of [
       expect(Math.round(drawer.y + drawer.height)).toBe(h);
       expect(drawer.height).toBeLessThanOrEqual(58);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // the licence's link and whole notice are under the chart, not behind a tap
+      await expect(page.getByTestId("chart-attribution")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
+      await expect(page.getByTestId("chart-attribution").getByRole("link", { name: "Charts by TradingView Lightweight Charts" })).toHaveAttribute("href", "https://www.tradingview.com/");
     });
 
     test("the header is one row: back, symbol, price and change; the app's own bars are gone", async ({ page }) => {
@@ -198,7 +201,18 @@ for (const [w, h] of [
       await page.getByTestId("rail-delete").click();
       await expect(page.getByTestId("rail-delete")).toHaveAttribute("data-count", "1");
       await expect(page.getByTestId("rail-delete")).toHaveAttribute("aria-label", "Delete all drawings (1)");
+      // with nothing selected one tap does not delete: it asks first
       await page.getByTestId("rail-delete").click();
+      await expect(page.getByTestId("delete-all-sheet")).toBeVisible();
+      await expect(page.getByTestId("delete-all-sheet")).toContainText("Delete all drawings?");
+      for (const id of ["delete-all-confirm", "delete-all-cancel"]) expect((await page.getByTestId(id).boundingBox())!.height, id).toBeGreaterThanOrEqual(43.5);
+      await expect(page.getByTestId("rail-delete")).toHaveAttribute("data-count", "1");
+      await page.getByTestId("delete-all-cancel").click();
+      await expect(page.getByTestId("delete-all-sheet")).toHaveCount(0);
+      await expect(page.getByTestId("rail-delete")).toHaveAttribute("data-count", "1"); // cancelled: still there
+      await page.getByTestId("rail-delete").click();
+      await page.getByTestId("delete-all-confirm").click();
+      await expect(page.getByTestId("delete-all-sheet")).toHaveCount(0);
       await expect(page.getByTestId("rail-delete")).toHaveAttribute("data-count", "0");
       await expect(page.getByTestId("rail-delete")).toBeDisabled();
       // undo brings the last deletions back, one step at a time
@@ -481,40 +495,54 @@ for (const [w, h] of [
 test.describe("sideways 844x390", () => {
   test.use(phone(844, 390));
 
-  test("the chart takes everything between the header row and the collapsed drawer, and the page does not scroll", async ({ page }) => {
+  test("the chart takes the whole screen under one toolbar row, with Paper buy and Paper sell in it, and the page does not scroll", async ({ page }) => {
     await openTrade(page, "RELIANCE");
     const m = await measureShare(page);
     console.log("share 844x390", JSON.stringify({ share: m.share, chartTop: m.chartTop, chart: m.chart }));
-    expect(m.share).toBeGreaterThanOrEqual(55);
+    expect(m.share).toBeGreaterThanOrEqual(70);
     expect(m.pageScroll).toBe(0);
     expect(m.coveredPx).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight && document.body.scrollHeight <= window.innerHeight)).toBe(true);
     await page.mouse.wheel(0, 400);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
-    // the header and the interval bar share one row, with the icons at its end
+    // the header, the interval bar, the icons and the order buttons share one row
     const row = await box(page, "chart-controls");
     expect(row.height).toBeLessThanOrEqual(46);
     expect(row.y).toBeLessThan(2);
-    for (const id of ["trade-back", "ibar-5m", "ibar-1D", "chart-type-button", "studies-button", "more-button"]) {
+    for (const id of ["trade-back", "ibar-5m", "chart-type-button", "studies-button", "more-button", "paper-buy", "paper-sell", "drawer-toggle"]) {
       const b = await box(page, id);
       expect(Math.abs(b.y - row.y), id).toBeLessThan(6);
       expect(b.height, id).toBeGreaterThanOrEqual(43.5);
+      expect(b.width, id).toBeGreaterThanOrEqual(43.5);
       expect(b.x + b.width, id).toBeLessThanOrEqual(844.5);
     }
+    await expect(page.getByTestId("chart-controls").getByTestId("paper-buy")).toHaveText("Paper buy");
+    await expect(page.getByTestId("chart-controls").getByTestId("paper-sell")).toHaveText("Paper sell");
     await expect(page.getByTestId("trade-header")).toBeVisible();
     await expect(page.getByRole("link", { name: /ZESTOXX/ })).toHaveCount(0);
-    // the rail is a full-height column here too, the status bar is under the plot, and the drawer is the last thing on the screen
+    // the drawer is pull-up only: no row of its own
+    await expect(page.getByTestId("drawer-collapsed")).toHaveCount(0);
+    await expect(page.getByTestId("drawer")).toHaveCount(0);
+    // the rail is a full-height column, the status bar and the licence line are the last things on the screen
     const rail = await box(page, "tool-rail");
     const plot = await box(page, "trade-chart");
     expect(Math.abs(rail.y - plot.y)).toBeLessThan(4);
     expect(rail.height).toBeGreaterThanOrEqual(plot.height - 2);
     const sb = await box(page, "chart-status-bar");
-    const drawer = await box(page, "drawer-collapsed");
+    const attr = await box(page, "chart-attribution");
     expect(sb.y).toBeGreaterThanOrEqual(plot.y + plot.height - 1);
-    expect(sb.y + sb.height).toBeLessThanOrEqual(drawer.y + 1);
-    expect(Math.round(drawer.y + drawer.height)).toBe(390);
-    await expect(page.getByTestId("drawer-collapsed").getByTestId("paper-buy")).toBeVisible();
-    await expect(page.getByTestId("drawer-collapsed").getByTestId("paper-sell")).toBeVisible();
+    expect(sb.y + sb.height).toBeLessThanOrEqual(attr.y + 1);
+    expect(attr.y + attr.height).toBeLessThanOrEqual(390.5);
+    await expect(page.getByTestId("chart-attribution")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
+  });
+
+  test("the Paper buy button and the arrow pull the drawer up; it closes again", async ({ page }) => {
+    await openTrade(page, "RELIANCE");
+    await page.getByTestId("paper-buy").click();
+    await expect(page.getByTestId("drawer")).toHaveAttribute("data-open", "1");
+    await expect(page.getByTestId("drawer-tab-trade")).toHaveAttribute("aria-selected", "true");
+    await page.getByTestId("drawer-close").click();
+    await expect(page.getByTestId("drawer")).toHaveCount(0);
   });
 
   test("the drawer opens over the chart sideways too", async ({ page }) => {
@@ -529,10 +557,18 @@ test.describe("sideways 844x390", () => {
     await expect(page.getByTestId("no-positions")).toBeVisible();
   });
 
-  test("an index shows Call and Put in the collapsed drawer", async ({ page }) => {
+  test("an index has Paper buy Call and Paper buy Put in the toolbar row, and the first one still opens the order sheet", async ({ page }) => {
     await openTrade(page, "NIFTY50");
-    await expect(page.getByTestId("paper-buy-call")).toBeVisible();
-    await expect(page.getByTestId("paper-buy-put")).toBeVisible();
+    const row = await box(page, "chart-controls");
+    for (const id of ["paper-buy-call", "paper-buy-put"]) {
+      const b = await box(page, id);
+      expect(Math.abs(b.y - row.y), id).toBeLessThan(6);
+      expect(b.height, id).toBeGreaterThanOrEqual(43.5);
+    }
+    await expect(page.getByTestId("paper-buy")).toHaveCount(0);
+    await expect(page.getByTestId("paper-buy-call")).toBeEnabled({ timeout: 15_000 });
+    await page.getByTestId("paper-buy-call").click();
+    await expect(page.getByTestId("option-sheet")).toBeVisible();
   });
 
   test("More and the Option Chain button work sideways", async ({ page }) => {
@@ -552,7 +588,7 @@ test.describe("sideways 844x390", () => {
 
 test.describe("a wide screen keeps its layout", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
-  test("the desktop controls and the three-column layout are there, with the licence's whole notice under the chart", async ({ page }) => {
+  test("the desktop controls, the three-column layout and the light default theme are there, with the licence's whole notice under the chart", async ({ page }) => {
     await openTrade(page, "RELIANCE");
     await expect(page.getByTestId("trade-screen")).toHaveCount(0);
     await expect(page.getByTestId("chart-toolbox")).toBeVisible();
@@ -561,6 +597,6 @@ test.describe("a wide screen keeps its layout", () => {
     await expect(page.getByTestId("drawer")).toHaveCount(0);
     await expect(page.getByTestId("watchlist-card")).toBeVisible();
     await expect(page.getByTestId("chart-attribution")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
-    await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-theme", "dark"); // dark by default here too
+    await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-theme", "light"); // the desktop default is as it was: light
   });
 });

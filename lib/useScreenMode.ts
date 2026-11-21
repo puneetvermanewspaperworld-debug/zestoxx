@@ -33,6 +33,9 @@ function subscribe(onChange: () => void) {
   return () => lists.forEach((l) => l.removeEventListener("change", onChange));
 }
 
+/** Whether this window is a phone layout right now (read once, for things that start from a default: the chart's theme). */
+export const isPhoneNow = (): boolean => current() !== "wide";
+
 export function useScreenMode(): ScreenMode {
   return useSyncExternalStore(subscribe, current, () => "wide");
 }

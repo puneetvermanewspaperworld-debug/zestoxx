@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Eye, EyeOff, Lock, LockOpen, Magnet, Pin, Redo2, Star, Trash2, Undo2, ZoomIn } from "lucide-react";
 import { TOOLS, type ToolId } from "@/lib/chart/drawings";
 import { pinFirst } from "@/lib/chart/favourites";
+import Sheet from "./Sheet";
 import { TOOL_ICON, tap44 } from "./toolMeta";
 import type { DrawingsApi } from "./useDrawings";
 
@@ -20,6 +21,8 @@ const label = (id: ToolId) => TOOLS.find((t) => t.id === id)?.label ?? id;
 export default function PhoneRail({ api, zoomOn, onZoom, onPick, favs, onToggleFav }: { /** a tool was chosen (so zoom, which is not a drawing tool, lets go of the plot) */ onPick: () => void; api: DrawingsApi; zoomOn: boolean; onZoom: () => void; favs: string[]; onToggleFav: (id: string) => void }) {
   // Star mode: a tap on a tool stars it instead of choosing it. Starred tools come first.
   const [pinning, setPinning] = useState(false);
+  // delete with nothing selected means all of them: one tap is not enough for that, it asks first
+  const [askDeleteAll, setAskDeleteAll] = useState(false);
   const ordered = pinFirst([...MAIN, ...MORE], favs, (id) => id);
   const starred = ordered.filter((id) => favs.includes(id));
   const rest = ordered.filter((id) => !favs.includes(id));
@@ -92,7 +95,7 @@ export default function PhoneRail({ api, zoomOn, onZoom, onPick, favs, onToggleF
         disabled={count === 0}
         data-testid="rail-delete"
         data-count={count}
-        onClick={() => (api.selectedId ? api.remove(api.selectedId) : api.deleteAll())}
+        onClick={() => (api.selectedId ? api.remove(api.selectedId) : setAskDeleteAll(true))}
         className={tap44(false, true) + " relative shrink-0"}
       >
         <Trash2 size={18} aria-hidden />
@@ -113,6 +116,29 @@ export default function PhoneRail({ api, zoomOn, onZoom, onPick, favs, onToggleF
         <Star size={18} aria-hidden fill={pinning ? "currentColor" : "none"} />
       </button>
       {rest.filter((id) => MORE.includes(id)).map(toolButton)}
+      {askDeleteAll && (
+        <Sheet title="Delete all drawings?" onClose={() => setAskDeleteAll(false)} testId="delete-all-sheet">
+          <p className="px-3 pb-3 pt-1 text-[13px] leading-relaxed text-slate-600">
+            This removes all {count} {count === 1 ? "drawing" : "drawings"} on this chart. Undo brings them back.
+          </p>
+          <div className="flex flex-wrap gap-2 px-3 pb-2">
+            <button
+              type="button"
+              data-testid="delete-all-confirm"
+              onClick={() => {
+                api.deleteAll();
+                setAskDeleteAll(false);
+              }}
+              className="min-h-[44px] rounded-lg bg-rose-600 px-4 text-[13px] font-semibold text-white"
+            >
+              Delete all {count}
+            </button>
+            <button type="button" data-testid="delete-all-cancel" onClick={() => setAskDeleteAll(false)} className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] text-slate-600">
+              Cancel
+            </button>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

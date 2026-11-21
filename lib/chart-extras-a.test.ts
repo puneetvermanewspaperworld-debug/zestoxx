@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { FAVOURITE_TOOL_IDS, SETTINGS_KEY, loadSettings, parseSettings, saveSettings, type ChartSettings, type StorageLike } from "./chart/settings";
+import { FAVOURITE_TOOL_IDS, SETTINGS_KEY, loadSettings, parseSettings, saveSettings, type ChartSettings, type StorageLike, defaultTheme } from "./chart/settings";
 import { pinFirst, toggleFavourite } from "./chart/favourites";
 import { THEMES, THEME_IDS, contrast, isThemeId } from "./chart/theme";
 import { PREFS_KEY, defaultTarget, forgetPrefs, loadPrefs, savePrefs, savedTarget } from "./chart/prefs";
@@ -13,22 +13,35 @@ const memory = () => {
 };
 
 describe("invert price scale, theme and favourites in the settings", () => {
-  it("start as: not inverted, dark (the chart page is dark unless the light theme is chosen), nothing starred", () => {
+  it("start as: not inverted, light, nothing starred", () => {
     const s = parseSettings(null);
-    assert.deepEqual([s.invert, s.theme, s.favTools, s.favStudies], [false, "dark", [], []]);
+    assert.deepEqual([s.invert, s.theme, s.favTools, s.favStudies], [false, "light", [], []]);
   });
-  it("a stored light theme stays light", () => {
-    assert.equal(parseSettings({ theme: "light" }).theme, "light");
+  it("the theme defaults to light, except on the phone chart page, where it is dark; a stored choice wins either way", () => {
+    assert.equal(parseSettings(null).theme, "light");
+    assert.equal(parseSettings(null, false).theme, "light");
+    assert.equal(parseSettings(null, true).theme, "dark");
+    assert.equal(loadSettings(null).theme, "light");
+    assert.equal(loadSettings(null, true).theme, "dark");
+    assert.equal(parseSettings({ theme: "light" }, true).theme, "light");
+    assert.equal(parseSettings({ theme: "dark" }, false).theme, "dark");
+    assert.equal(parseSettings({ theme: "sepia" }, true).theme, "dark"); // not a theme: the phone's default
+    assert.equal(parseSettings({ type: "line" }, true).theme, "dark"); // old settings without a theme
+    assert.equal(parseSettings({ type: "line" }, false).theme, "light");
+    assert.equal(defaultTheme(true), "dark");
+    assert.equal(defaultTheme(false), "light");
+    assert.equal(defaultTarget(true).theme, "dark");
+    assert.equal(defaultTarget().theme, "light");
   });
   it("are remembered", () => {
     const st = memory();
-    const s: ChartSettings = { ...parseSettings(null), invert: true, theme: "light", favTools: ["fib", "trend"], favStudies: ["rsi", "macd"] };
+    const s: ChartSettings = { ...parseSettings(null), invert: true, theme: "dark", favTools: ["fib", "trend"], favStudies: ["rsi", "macd"] };
     saveSettings(st, s);
     assert.deepEqual(loadSettings(st), s);
   });
   it("are checked: a wrong type or an unknown id gives the default, and a list keeps only known ids once each, in order", () => {
     const s = parseSettings({ invert: "yes", theme: "sepia", favTools: ["fib", "nope", "fib", "select", "trend", 7], favStudies: ["macd", "rsi", "macd", "zzz"] });
-    assert.deepEqual([s.invert, s.theme], [false, "dark"]);
+    assert.deepEqual([s.invert, s.theme], [false, "light"]);
     assert.deepEqual(s.favTools, ["fib", "trend"]); // Select cannot be starred: it is always first
     assert.deepEqual(s.favStudies, ["macd", "rsi"]);
     assert.deepEqual(parseSettings({ favTools: "fib", favStudies: { a: 1 } }).favTools, []);
@@ -42,7 +55,7 @@ describe("invert price scale, theme and favourites in the settings", () => {
     const st = memory();
     st.setItem(SETTINGS_KEY, JSON.stringify({ type: "hollow", scale: "log" }));
     const s = loadSettings(st);
-    assert.deepEqual([s.type, s.scale, s.invert, s.theme, s.favTools], ["hollow", "log", false, "dark", []]);
+    assert.deepEqual([s.type, s.scale, s.invert, s.theme, s.favTools], ["hollow", "log", false, "light", []]);
   });
 });
 

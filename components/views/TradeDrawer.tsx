@@ -49,7 +49,9 @@ function useDragRegion({ from, full, onHeight, onEnd }: { from: () => number; fu
  * (or tapping the arrow, or an order button) opens it over the foot of the screen with three tabs: Trade (the order form), Open Orders and
  * Positions, all for the symbol on the chart. Dragging the grip down, or the arrow, closes it. The chart does not resize while it moves.
  */
-export default function TradeDrawer({ symbol, buttons, tabs, counts, open, onOpenChange, tab, onTab }: {
+export default function TradeDrawer({ symbol, buttons, tabs, counts, open, onOpenChange, tab, onTab, pullUp = false }: {
+  /** no collapsed row at all: the drawer is only pulled up (opened from a button elsewhere), and closed again (sideways, where the order buttons are in the toolbar) */
+  pullUp?: boolean;
   symbol: string;
   /** the two order buttons of the collapsed row */
   buttons: React.ReactNode;
@@ -78,7 +80,7 @@ export default function TradeDrawer({ symbol, buttons, tabs, counts, open, onOpe
   return (
     <>
       {/* collapsed: the row that is always under the chart */}
-      <div data-testid="drawer-collapsed" inert={open} {...collapsedDrag} className="relative shrink-0 touch-none border-t border-slate-200 bg-white" style={{ height: `calc(${DRAWER_PX}px + ${safe})`, paddingBottom: safe }}>
+      {!pullUp && <div data-testid="drawer-collapsed" inert={open} {...collapsedDrag} className="relative shrink-0 touch-none border-t border-slate-200 bg-white" style={{ height: `calc(${DRAWER_PX}px + ${safe})`, paddingBottom: safe }}>
         <div data-testid="drawer-grip" role="presentation" onClick={() => onOpenChange(true)} className="flex cursor-grab justify-center" style={{ height: GRIP_PX }}>
           <span className="mt-1 h-1 w-10 rounded-full bg-slate-300" />
         </div>
@@ -88,7 +90,8 @@ export default function TradeDrawer({ symbol, buttons, tabs, counts, open, onOpe
           </button>
           {buttons}
         </div>
-      </div>
+      </div>}
+
       {/* open, or being dragged: over the foot of the screen */}
       {panelShown && (
         <div

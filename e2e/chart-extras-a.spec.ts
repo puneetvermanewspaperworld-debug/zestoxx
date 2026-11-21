@@ -137,37 +137,38 @@ test("Invert price scale turns the axis upside down, drawings follow it, and it 
 });
 
 /* ------------------------------------------------------------------------------------------ theme -- */
-test("the chart is dark by default, the light theme re-colours the chart and everything around it in our own palette, and the choice is remembered", async ({ page }) => {
+test("the dark theme re-colours the chart and everything around it in our own palette, and is remembered", async ({ page }) => {
   await openTrade(page);
   const root = page.getByTestId("chart-with-tools");
-  await expect(root).toHaveAttribute("data-theme", "dark"); // dark unless the light theme is chosen
-  expect(await attr(page, "data-text-color")).toBe(THEMES.dark.text);
-  const darkBg = await page.getByTestId("chart-controls").evaluate((e) => getComputedStyle(e.querySelector("button")!).backgroundColor);
-  expect(await root.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe("rgb(14, 22, 38)"); // THEMES.dark.background
-  await openSettings(page);
-  await expect(page.getByTestId("theme-dark")).toHaveAttribute("aria-checked", "true");
-  // the open menu is dark too (not white)
-  expect(await page.getByTestId("settings-sheet").locator("> div").last().evaluate((e) => getComputedStyle(e).backgroundColor)).toBe("rgb(21, 32, 51)"); // THEMES.dark.panel
-  await page.getByTestId("theme-light").click();
   await expect(root).toHaveAttribute("data-theme", "light");
-  await expect.poll(() => attr(page, "data-text-color")).toBe(THEMES.light.text);
-  expect(await setting(page, "theme")).toBe("light");
-  await page.keyboard.press("Escape");
+  expect(await attr(page, "data-text-color")).toBe(THEMES.light.text);
   const lightBg = await page.getByTestId("chart-controls").evaluate((e) => getComputedStyle(e.querySelector("button")!).backgroundColor);
-  expect(lightBg).not.toBe(darkBg);
-  expect(await root.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe("rgb(14, 22, 38)");
-  // the chart still works in light: draw
+  await openSettings(page);
+  await expect(page.getByTestId("theme-light")).toHaveAttribute("aria-checked", "true");
+  await page.getByTestId("theme-dark").click();
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await expect.poll(() => attr(page, "data-text-color")).toBe(THEMES.dark.text);
+  expect(await setting(page, "theme")).toBe("dark");
+  // the surrounding controls and the open menu are dark too (not white)
+  const panel = await page.getByTestId("settings-sheet").locator("> div").last().evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(panel).toBe("rgb(21, 32, 51)"); // THEMES.dark.panel
+  await page.keyboard.press("Escape");
+  const darkBg = await page.getByTestId("chart-controls").evaluate((e) => getComputedStyle(e.querySelector("button")!).backgroundColor);
+  expect(darkBg).not.toBe(lightBg);
+  const rootBg = await root.evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(rootBg).toBe("rgb(14, 22, 38)"); // THEMES.dark.background
+  // the chart still works in dark: draw
   await page.waitForTimeout(400);
   await placeAt(page, "hline", [[262, 1560]]);
   await waitStored(page, 1);
   // remembered
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });
-  await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-theme", "light");
-  await expect.poll(() => attr(page, "data-text-color")).toBe(THEMES.light.text);
-  await openSettings(page);
-  await page.getByTestId("theme-dark").click();
+  await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-theme", "dark");
   await expect.poll(() => attr(page, "data-text-color")).toBe(THEMES.dark.text);
+  await openSettings(page);
+  await page.getByTestId("theme-light").click();
+  await expect.poll(() => attr(page, "data-text-color")).toBe(THEMES.light.text);
 });
 
 test("in the dark theme the text of controls, legend and menus is readable (contrast of at least 4.5 against what is behind it)", async ({ page }) => {
@@ -297,7 +298,7 @@ test("Save preferences keeps the chart type, interval, studies and settings; Res
   await page.keyboard.press("Escape");
   await page.getByTestId("grid-button").click();
   await openSettings(page);
-  await page.getByTestId("theme-light").click();
+  await page.getByTestId("theme-dark").click();
   await page.getByTestId("invert-switch").click();
   await expect(page.getByTestId("prefs-status")).toHaveText("Nothing saved yet.");
   await expect(page.getByTestId("prefs-reset-saved")).toHaveCount(0); // nothing saved: no Reset to saved
@@ -309,10 +310,10 @@ test("Save preferences keeps the chart type, interval, studies and settings; Res
   await expect(page.getByTestId("prefs-forget")).toHaveText("Delete saved preferences");
   await expect(page.getByTestId("prefs-status")).toContainText("Saved ");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("zestoxx:chart-prefs:v1") ?? "null"));
-  expect(saved.settings).toMatchObject({ type: "hollow", interval: "15m", theme: "light", invert: true, grid: false });
+  expect(saved.settings).toMatchObject({ type: "hollow", interval: "15m", theme: "dark", invert: true, grid: false });
   expect(saved.settings.studies.some((s: { id: string }) => s.id === "rsi")).toBe(true);
   // wander off
-  await page.getByTestId("theme-dark").click();
+  await page.getByTestId("theme-light").click();
   await page.getByTestId("invert-switch").click();
   await page.keyboard.press("Escape");
   await page.getByTestId("chart-type-button").click();
@@ -332,7 +333,7 @@ test("Save preferences keeps the chart type, interval, studies and settings; Res
   await page.getByTestId("prefs-reset-confirm").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Back to your saved preferences.");
   await expect.poll(() => attr(page, "data-chart-type")).toBe("hollow");
-  expect(await attr(page, "data-theme")).toBe("light");
+  expect(await attr(page, "data-theme")).toBe("dark");
   expect(await attr(page, "data-invert")).toBe("1");
   expect(await attr(page, "data-grid")).toBe("0");
   await expect(page.getByTestId("interval-button")).toHaveText(/15m/);
@@ -344,7 +345,7 @@ test("Reset to defaults is always there and goes to the app's defaults; with not
   await page.getByTestId("chart-type-button").click();
   await page.getByTestId("type-area").click();
   await openSettings(page);
-  await page.getByTestId("theme-light").click();
+  await page.getByTestId("theme-dark").click();
   await expect(page.getByTestId("prefs-forget")).toHaveCount(0);
   await expect(page.getByTestId("prefs-reset-saved")).toHaveCount(0);
   await page.getByTestId("prefs-reset-defaults").click();
@@ -353,7 +354,7 @@ test("Reset to defaults is always there and goes to the app's defaults; with not
   await page.getByTestId("prefs-reset-confirm").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Back to the app's defaults.");
   await expect.poll(() => attr(page, "data-chart-type")).toBe("candle");
-  expect(await attr(page, "data-theme")).toBe("dark");
+  expect(await attr(page, "data-theme")).toBe("light");
   // save, then delete the saved copy
   await page.getByTestId("prefs-save").click();
   await expect(page.getByTestId("prefs-forget")).toBeVisible();
@@ -371,7 +372,7 @@ test("saved preferences stay in this browser and survive a reload; nothing is se
   page.on("request", (r) => { if (r.method() !== "GET") sent.push(`${r.method()} ${r.url()}`); });
   await openTrade(page);
   await openSettings(page);
-  await page.getByTestId("theme-light").click();
+  await page.getByTestId("theme-dark").click();
   await page.getByTestId("prefs-save").click();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });
@@ -403,7 +404,7 @@ test("every control added here is a 44 px target", async ({ page }) => {
 test("with preferences saved, Reset to defaults goes to the defaults, not to the snapshot, and the snapshot is kept for Reset to saved", async ({ page }) => {
   await openTrade(page);
   await openSettings(page);
-  await page.getByTestId("theme-light").click();
+  await page.getByTestId("theme-dark").click();
   await page.getByTestId("prefs-save").click();
   await page.keyboard.press("Escape");
   await page.getByTestId("chart-type-button").click();
@@ -413,9 +414,9 @@ test("with preferences saved, Reset to defaults goes to the defaults, not to the
   await page.getByTestId("prefs-reset-confirm").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Back to the app's defaults.");
   await expect.poll(() => attr(page, "data-chart-type")).toBe("candle");
-  expect(await attr(page, "data-theme")).toBe("dark"); // the defaults, not the saved light theme
+  expect(await attr(page, "data-theme")).toBe("light"); // the defaults, not the saved dark theme
   await expect(page.getByTestId("prefs-status")).toContainText("Saved "); // the snapshot is still there
   await page.getByTestId("prefs-reset-saved").click();
   await page.getByTestId("prefs-reset-confirm").click();
-  await expect.poll(() => attr(page, "data-theme")).toBe("light");
+  await expect.poll(() => attr(page, "data-theme")).toBe("dark");
 });

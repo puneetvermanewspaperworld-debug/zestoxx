@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CandlestickChart, SlidersHorizontal, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowLeft, CandlestickChart, ChevronUp, SlidersHorizontal, TrendingDown, TrendingUp } from "lucide-react";
 import DataBadge from "@/components/DataBadge";
 import OptionOrderSheet from "@/components/OptionOrderSheet";
 import OptionsChain from "@/components/OptionsChain";
@@ -118,7 +118,9 @@ export default function TradePhone(p: TradePhoneProps) {
     </header>
   );
 
-  const orderButtons = isIndex ? (
+  /** the order buttons: filling the collapsed drawer's row upright, or compact in the toolbar row sideways */
+  const orderButtons = (small: boolean) =>
+    isIndex ? (
     <>
       {(["CE", "PE"] as const).map((t) => (
         <button
@@ -127,7 +129,7 @@ export default function TradePhone(p: TradePhoneProps) {
           disabled={!chain}
           onClick={() => buyAtm(t)}
           data-testid={t === "CE" ? "paper-buy-call" : "paper-buy-put"}
-          className={"min-h-[44px] flex-1 rounded-md px-1 text-[13px] font-semibold leading-tight text-white disabled:opacity-40 " + (t === "CE" ? "bg-emerald-500" : "bg-rose-500")}
+          className={"min-h-[44px] rounded-md text-[13px] font-semibold leading-tight text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5 " : "flex-1 px-1 ") + (t === "CE" ? "bg-emerald-500" : "bg-rose-500")}
         >
           {t === "CE" ? `${PAPER_BUY} Call` : `${PAPER_BUY} Put`}
         </button>
@@ -135,17 +137,17 @@ export default function TradePhone(p: TradePhoneProps) {
     </>
   ) : (
     <>
-      <button type="button" onClick={() => openDrawer("trade")} data-testid="paper-buy" className="min-h-[44px] flex-1 rounded-md bg-emerald-500 text-[13px] font-semibold text-white">
+      <button type="button" onClick={() => openDrawer("trade")} data-testid="paper-buy" className={"min-h-[44px] rounded-md bg-emerald-500 text-[13px] font-semibold text-white " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
         {PAPER_BUY}
       </button>
-      <button type="button" onClick={() => openDrawer("trade")} data-testid="paper-sell" className="min-h-[44px] flex-1 rounded-md bg-rose-500 text-[13px] font-semibold text-white">
+      <button type="button" onClick={() => openDrawer("trade")} data-testid="paper-sell" className={"min-h-[44px] rounded-md bg-rose-500 text-[13px] font-semibold text-white " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
         {PAPER_SELL}
       </button>
     </>
   );
 
   const drawer = (
-    <TradeDrawer symbol={p.selected} buttons={orderButtons} tabs={p.tabs} counts={p.counts} open={drawerOpen} onOpenChange={setDrawerOpen} tab={drawerTab} onTab={setDrawerTab} />
+    <TradeDrawer symbol={p.selected} pullUp={landscape} buttons={orderButtons(false)} tabs={p.tabs} counts={p.counts} open={drawerOpen} onOpenChange={setDrawerOpen} tab={drawerTab} onTab={setDrawerTab} />
   );
   const optionSheet = chain && sheet && <OptionOrderSheet chain={chain} strike={sheet.strike} type={sheet.type} onPick={(strike, type) => setContract({ ...sheet, strike, type })} onClose={() => setContract(null)} />;
 
@@ -197,6 +199,15 @@ export default function TradePhone(p: TradePhoneProps) {
     mode: p.mode,
     extras: p.extras,
     lead: landscape ? lead : undefined,
+    // sideways the order buttons join the toolbar row (with an arrow that pulls the drawer up), so the drawer has no row of its own
+    trail: landscape ? (
+      <div className="flex shrink-0 items-center gap-1 border-l border-slate-100 pl-1">
+        {orderButtons(true)}
+        <button type="button" aria-label="Open the trade drawer" aria-expanded={drawerOpen} data-testid="drawer-toggle" onClick={() => setDrawerOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600">
+          <ChevronUp size={20} aria-hidden />
+        </button>
+      </div>
+    ) : undefined,
     footer: landscape ? <DataBadge source={p.source} type={p.type} className="shrink-0 !px-1.5 !py-0 text-[10px]" /> : undefined,
   };
 

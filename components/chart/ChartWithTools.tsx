@@ -39,6 +39,8 @@ export interface PhoneLayout {
   extras: PhoneExtras;
   /** landscape: what goes at the start of the single top row (the back button and symbol) */
   lead?: React.ReactNode;
+  /** landscape: at the end of the same row (the order buttons and the arrow that pulls the drawer up) */
+  trail?: React.ReactNode;
   /** landscape: at the right end of the line under the status bar */
   footer?: React.ReactNode;
 }
@@ -205,7 +207,7 @@ export default function ChartWithTools({ settings, update, feed, phone, ...chart
         data-landscape={landscape ? "1" : "0"}
         data-theme={settings.theme}
       >
-        <PhoneTopBar p={controls} extras={phone.extras} lead={phone.lead} />
+        <PhoneTopBar p={controls} extras={phone.extras} lead={phone.lead} trail={phone.trail} />
         <div className="flex min-h-0 flex-1">
           {drawable && (
             <PhoneRail

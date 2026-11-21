@@ -197,7 +197,7 @@ function MoreSheet({ p, extras, onClose }: { p: ChartControlsProps; extras: Phon
  * The interval bar with the chart type, the studies and More as icons at its end: one row, no second row of buttons. On a narrow screen the
  * intervals scroll sideways and the three icons stay put.
  */
-export function PhoneTopBar({ p, extras, lead }: { p: ChartControlsProps; extras: PhoneExtras; /** landscape: the back button and symbol, at the start of the same row */ lead?: React.ReactNode }) {
+export function PhoneTopBar({ p, extras, lead, trail }: { p: ChartControlsProps; extras: PhoneExtras; /** landscape: the back button and symbol, at the start of the same row */ lead?: React.ReactNode; /** landscape: the order buttons, at its end */ trail?: React.ReactNode }) {
   const [more, setMore] = useState(false);
   return (
     <div role="toolbar" aria-label="Chart controls" data-testid="chart-controls" className="flex shrink-0 items-center gap-0.5 border-b border-slate-100 bg-white px-0.5">
@@ -210,6 +210,7 @@ export function PhoneTopBar({ p, extras, lead }: { p: ChartControlsProps; extras
           <Ellipsis size={18} aria-hidden />
         </button>
       </div>
+      {trail}
       {more && <MoreSheet p={p} extras={extras} onClose={() => setMore(false)} />}
     </div>
   );
