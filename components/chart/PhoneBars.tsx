@@ -174,12 +174,6 @@ function MoreSheet({ p, extras, onClose }: { p: ChartControlsProps; extras: Phon
         {extras.pulse}
       </section>
       {extras.more}
-      <p data-testid="chart-notice" className="border-t border-slate-100 px-3 pb-2 pt-2 text-[11px] leading-relaxed text-slate-400">
-        <a href={TRADINGVIEW_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-500 underline">
-          {ATTRIBUTION_LINK_TEXT}
-        </a>
-        . {ATTRIBUTION_NOTICE}
-      </p>
     </Sheet>
   );
 }
@@ -261,14 +255,15 @@ export function StatusBar({ feed, settings, update, reset }: { feed: ChartContro
   );
 }
 
-/** The one line the licence asks for, under the chart: a link to TradingView. The full notice is in the More sheet. */
+/** What the licence asks for, under the chart where it is always on screen: the link to TradingView and the notice, in full. */
 export function PhoneAttribution({ right }: { /** at the right end of the line (landscape: where the price comes from) */ right?: React.ReactNode }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 px-2 py-0.5">
-      <p data-testid="chart-attribution" className="truncate text-[10.5px] leading-4 text-slate-400">
+      <p data-testid="chart-attribution" className="min-w-0 text-[10px] leading-[13px] text-slate-400">
         <a href={TRADINGVIEW_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-500 underline-offset-2 hover:underline">
           {ATTRIBUTION_LINK_TEXT}
         </a>
+        <span> · {ATTRIBUTION_NOTICE}</span>
       </p>
       {right}
     </div>

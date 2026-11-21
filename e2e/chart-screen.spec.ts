@@ -81,7 +81,7 @@ for (const [w, h] of [
       for (const id of ["grid-button", "crosshair-magnet-button", "settings-button", "scale-button", "fullscreen-button", "formula-input", "chart-toolbox"]) await expect(page.getByTestId(id)).toHaveCount(0);
       await page.getByTestId("more-button").click();
       const sheet = page.getByTestId("more-sheet");
-      for (const id of ["grid-button", "crosshair-magnet-button", "settings-button", "scale-button", "fullscreen-button", "formula-input", "pulse-pill", "chart-notice"]) await expect(sheet.getByTestId(id)).toBeVisible();
+      for (const id of ["grid-button", "crosshair-magnet-button", "settings-button", "scale-button", "fullscreen-button", "formula-input", "pulse-pill"]) await expect(sheet.getByTestId(id)).toBeVisible();
       // the grid and magnet switches work from here
       await sheet.getByTestId("grid-button").click();
       await expect(page.getByTestId("trade-chart")).toHaveAttribute("data-grid", "0");
@@ -92,8 +92,8 @@ for (const [w, h] of [
       await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-series")) ?? "{}").custom).toBeGreaterThan(0);
       await sheet.getByTestId("formula-input").fill("sma(");
       await expect(sheet.getByTestId("formula-error")).toBeVisible();
-      // the full notice is the licence's text
-      await expect(sheet.getByTestId("chart-notice")).toContainText("Copyright (c) 2025 TradingView, Inc.");
+      // the licence's notice is under the chart, not behind a tap
+      await expect(page.getByTestId("chart-attribution")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
       await page.getByTestId("sheet-close").click();
       await expect(page.getByTestId("more-sheet")).toHaveCount(0);
     });

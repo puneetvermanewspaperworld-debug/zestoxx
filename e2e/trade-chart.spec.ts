@@ -204,16 +204,14 @@ test("a stock with real volume shows it and no 'not available' note", async ({ p
 
 test("attribution: a small TradingView Lightweight Charts link and the notice, and no TradingView logo", async ({ page }) => {
   await open(page);
-  // on a phone the line under the chart is the link; the licence's notice, word for word, is in the More sheet
+  // the line under the chart carries the link and the licence's notice, word for word, on a phone too
   const note = page.getByTestId("chart-attribution");
   await expect(note).toBeVisible();
+  await expect(note).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
   const link = note.getByRole("link", { name: "Charts by TradingView Lightweight Charts" });
   await expect(link).toHaveAttribute("href", "https://www.tradingview.com/");
   // the library's own logo link is switched off: ours is the only link to tradingview.com on the page
   expect(await page.locator('a[href*="tradingview.com"]').count()).toBe(1);
-  await page.getByTestId("more-button").click();
-  await expect(page.getByTestId("chart-notice")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
-  await expect(page.getByTestId("chart-notice").getByRole("link", { name: "Charts by TradingView Lightweight Charts" })).toHaveAttribute("href", "https://www.tradingview.com/");
 });
 
 test("fits at 360px: no sideways scroll", async ({ page }) => {
