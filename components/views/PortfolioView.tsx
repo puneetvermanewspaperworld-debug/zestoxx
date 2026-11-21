@@ -5,6 +5,7 @@ import { useZestoxx } from "@/components/ZestoxxProvider";
 import { typeOf } from "@/lib/symbols";
 import { displayName } from "@/lib/contract";
 import { fmt, fmtINR } from "@/lib/helpers";
+import AccountPanel from "@/components/AccountPanel";
 
 export default function PortfolioView() {
   const { cash, holdings, live } = useZestoxx();
@@ -75,6 +76,7 @@ export default function PortfolioView() {
           </div>
         )}
       </div>
+      <AccountPanel />
     </div>
   );
 }
