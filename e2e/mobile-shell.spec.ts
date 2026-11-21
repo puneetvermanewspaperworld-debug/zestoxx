@@ -523,13 +523,18 @@ test.describe("orders: GTT and stop-loss", () => {
     const [a, b] = [await tab(), await tab()];
     await Promise.all([a.goto("/app/orders", { waitUntil: "domcontentloaded" }), b.goto("/app/orders", { waitUntil: "domcontentloaded" })]);
     await Promise.all([a.getByTestId("app-content").waitFor(), b.getByTestId("app-content").waitFor()]);
-    await a.waitForTimeout(7000);
+    // Wait for the check to happen rather than for a fixed time: it starts only once the page has loaded and the first prices are in (a 2 s timer),
+    // so on a busy machine a fixed wait can end before it began. Then give a second request time to show up: there must be none.
+    await expect.poll(() => requests, { timeout: 30_000 }).toBe(1);
+    await a.waitForTimeout(3000);
     expect(requests).toBe(1);
     const filledIn = async (p: Page) => {
       await p.getByTestId("orders-tab-executed").click();
       return p.locator('[data-testid^="simulated-"]').count();
     };
-    expect((await filledIn(a)) + (await filledIn(b))).toBe(1);
+    await expect.poll(async () => (await filledIn(a)) + (await filledIn(b)), { timeout: 20_000 }).toBe(1);
+    await a.waitForTimeout(1500);
+    expect((await filledIn(a)) + (await filledIn(b))).toBe(1); // and it stays one
     const saved = puts.flat().filter((x) => ((x as { orderLog?: unknown[] }).orderLog ?? []).length > 0);
     expect(saved.length).toBeGreaterThan(0);
     for (const s of saved) expect(((s as { orderLog: unknown[] }).orderLog).length).toBe(1);
