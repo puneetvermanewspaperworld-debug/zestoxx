@@ -31,7 +31,7 @@ export default function PhoneWatchlist() {
 
   return (
     <div className="-mt-3 space-y-2" data-testid="phone-watchlist">
-      <h1 className="sr-only">Watchlist</h1>
+      <h1 className="pointer-events-none absolute h-px w-px text-[13px] opacity-0">Watchlist</h1>
       {/* the lists: a strip 36 px tall; each chip is 28 px and keeps a 44 px tap area */}
       <div className="flex h-[var(--tab-strip)] items-center gap-1.5">
         <div role="tablist" aria-label="Watchlists" className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">

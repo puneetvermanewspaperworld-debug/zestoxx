@@ -352,3 +352,26 @@ body {
 .zx-dark a {
   color: var(--zx-accent);
 }
+
+/* ------------------------------------------------------------------------------------------------
+   A phone turned sideways (short and wide) is past the 767px breakpoint, but a compact control there is just as small. Its hit area is the same
+   44px as in the portrait rules above, so the visible size of a chip or a text link never decides how easy it is to tap.
+   ------------------------------------------------------------------------------------------------ */
+@media (max-height: 500px) and (max-width: 950px) and (orientation: landscape) {
+  button:not(.absolute):not(.fixed):not(.sticky):not(.relative),
+  a[href]:not(.absolute):not(.fixed):not(.sticky):not(.relative),
+  [role="tab"]:not(.absolute):not(.fixed):not(.sticky):not(.relative) {
+    position: relative;
+  }
+  button[data-compact]::after,
+  a[href][data-compact]::after,
+  [role="tab"][data-compact]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}

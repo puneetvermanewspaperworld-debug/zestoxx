@@ -111,7 +111,9 @@ test.describe("the row sheet with the GTT form open needs little scrolling", () 
     await page.waitForTimeout(500);
   }
 
-  for (const [w, h, max] of [[360, 800, 200], [390, 844, 150]] as const) {
+  // 340 and 284 before the type scale; the sheet now follows a phone trading app's spacing (Buy and Sell 49.5px, link rows 71px apart), so it is
+  // a little taller than the compact sheet of the type-scale work (185 and 131)
+  for (const [w, h, max] of [[360, 800, 260], [390, 844, 210]] as const) {
     test(`at ${w}x${h} the sheet scrolls by at most ${max}px (it was 340 and 284 before the type scale)`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await open(page);

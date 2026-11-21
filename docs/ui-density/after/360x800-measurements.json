@@ -18,12 +18,12 @@
       "lh": "22.08px"
     },
     "title": {
-      "top": 118.5,
+      "top": 119.5,
       "height": 1,
       "width": 1,
-      "font": "16px",
+      "font": "13px",
       "weight": "400",
-      "lh": "22.08px"
+      "lh": "17.94px"
     },
     "search": {
       "top": 163.5,
@@ -124,12 +124,12 @@
   },
   "watchlist": {
     "title": {
-      "top": 74.5,
+      "top": 75.5,
       "height": 1,
       "width": 1,
-      "font": "16px",
+      "font": "13px",
       "weight": "400",
-      "lh": "22.08px"
+      "lh": "17.94px"
     },
     "search": {
       "top": 119.5,

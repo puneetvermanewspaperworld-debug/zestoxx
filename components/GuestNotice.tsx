@@ -8,7 +8,7 @@ const EVENT = "zestoxx:guest-notice";
 
 /** What the notice says, one short sentence, also shown in the account panel. */
 /** The one line shown at the top of a page; the whole explanation is on the Account page. */
-export const GUEST_NOTICE_SHORT = "Your paper account is kept in a cookie on this device.";
+export const GUEST_NOTICE_SHORT = "Your paper account lives in a cookie here.";
 export const GUEST_COOKIE_NOTICE = "Zestoxx has no sign-up yet. It keeps your paper account in a cookie on this device, so clearing cookies starts a new account.";
 
 function dismissed(): boolean {
