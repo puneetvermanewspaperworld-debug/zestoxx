@@ -92,7 +92,7 @@ export function createFakePrisma() {
       },
     };
   };
-  const db = {
+  const db: Record<string, unknown> = {
     user: delegate("user"),
     watchlist: delegate("watchlist"),
     holding: delegate("holding"),
@@ -100,7 +100,7 @@ export function createFakePrisma() {
     alert: delegate("alert"),
     sip: delegate("sip"),
     guestCreation: delegate("guestCreation"),
-    $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+    $transaction: async (ops: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => (typeof ops === "function" ? ops(db) : Promise.all(ops)),
   };
   return { db, tables };
 }
