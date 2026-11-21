@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { FAVOURITE_TOOL_IDS, SETTINGS_KEY, loadSettings, parseSettings, saveSettings, type ChartSettings, type StorageLike } from "./chart/settings";
 import { pinFirst, toggleFavourite } from "./chart/favourites";
 import { THEMES, THEME_IDS, contrast, isThemeId } from "./chart/theme";
-import { PREFS_KEY, forgetPrefs, loadPrefs, resetTarget, savePrefs } from "./chart/prefs";
+import { PREFS_KEY, defaultTarget, forgetPrefs, loadPrefs, savePrefs, savedTarget } from "./chart/prefs";
 import { STUDIES } from "./chart/studies";
 import { TOOLS } from "./chart/drawings";
 
@@ -104,21 +104,35 @@ describe("save preferences and reset preferences", () => {
     assert.ok(st.data.has(PREFS_KEY));
     assert.deepEqual(loadPrefs(st)?.settings, changed);
   });
-  it("reset goes back to the saved snapshot", () => {
+  it("Reset to saved goes back to the saved snapshot", () => {
     const st = memory();
     savePrefs(st, changed);
-    assert.deepEqual(resetTarget(loadPrefs(st)), changed);
+    assert.deepEqual(savedTarget(loadPrefs(st)), changed);
   });
-  it("with nothing saved, reset goes to the app's defaults", () => {
-    assert.deepEqual(resetTarget(null), parseSettings(null));
-    assert.equal(loadPrefs(memory()), null);
+  it("with nothing saved there is nothing to reset to (the menu does not offer Reset to saved)", () => {
+    assert.equal(savedTarget(null), null);
+    assert.equal(savedTarget(loadPrefs(memory())), null);
   });
-  it("forgetting the saved preferences removes them, so reset then uses the defaults", () => {
+  it("Reset to defaults is always the app's defaults, whether or not something is saved, and never the snapshot", () => {
+    const st = memory();
+    assert.deepEqual(defaultTarget(), parseSettings(null));
+    savePrefs(st, changed);
+    assert.deepEqual(defaultTarget(), parseSettings(null));
+    assert.notDeepEqual(defaultTarget(), savedTarget(loadPrefs(st)));
+  });
+  it("each Reset to defaults gives its own copy: changing one never changes the defaults", () => {
+    const a = defaultTarget();
+    a.studies[0].params.n = 99;
+    a.favTools.push("fib");
+    assert.deepEqual(defaultTarget(), parseSettings(null));
+  });
+  it("forgetting the saved preferences removes them: Reset to saved is gone, Reset to defaults is not", () => {
     const st = memory();
     savePrefs(st, changed);
     forgetPrefs(st);
     assert.equal(loadPrefs(st), null);
-    assert.deepEqual(resetTarget(loadPrefs(st)), parseSettings(null));
+    assert.equal(savedTarget(loadPrefs(st)), null);
+    assert.deepEqual(defaultTarget(), parseSettings(null));
   });
   it("a later save replaces an earlier one; the chart's own remembered settings are a separate key and are not touched", () => {
     const st = memory();

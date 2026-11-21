@@ -153,11 +153,12 @@ function ViewControls({ settings, update, fullscreen }: ChartControlsProps) {
 /** The chart settings: the theme, the inverted price scale, and saving or resetting preferences (all kept in this browser only). */
 function SettingsMenu({ settings, update, prefs }: ChartControlsProps) {
   const [open, setOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  // which reset is waiting for a second tap to confirm it
+  const [confirming, setConfirming] = useState<"saved" | "defaults" | null>(null);
   const when = prefs.savedAt ? new Date(prefs.savedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : null;
   const close = () => {
     setOpen(false);
-    setConfirming(false);
+    setConfirming(null);
   };
   return (
     <>
@@ -189,7 +190,7 @@ function SettingsMenu({ settings, update, prefs }: ChartControlsProps) {
           <section aria-label="Preferences" className="mt-1 border-t border-slate-100 pt-1">
             <h3 className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Preferences</h3>
             <p data-testid="prefs-status" className="px-3 pb-1 text-[12px] text-slate-500">
-              {when ? `Saved ${when}.` : "Nothing saved yet: Reset goes back to the app's defaults."}
+              {when ? `Saved ${when}.` : "Nothing saved yet."}
             </p>
             <p className="px-3 pb-2 text-[11px] leading-relaxed text-slate-400">Chart type, interval and range, studies and their settings, price scale, grid, crosshair, theme and starred items. Kept in this browser only.</p>
             <div className="flex flex-wrap gap-2 px-3 pb-2">
@@ -197,24 +198,34 @@ function SettingsMenu({ settings, update, prefs }: ChartControlsProps) {
                 Save preferences
               </button>
               {!confirming ? (
-                <button type="button" onClick={() => setConfirming(true)} data-testid="prefs-reset" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] font-medium text-slate-700">
-                  Reset preferences
-                </button>
+                <>
+                  {when && (
+                    <button type="button" onClick={() => setConfirming("saved")} data-testid="prefs-reset-saved" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] font-medium text-slate-700">
+                      Reset to saved
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setConfirming("defaults")} data-testid="prefs-reset-defaults" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] font-medium text-slate-700">
+                    Reset to defaults
+                  </button>
+                </>
               ) : (
                 <span className="flex flex-wrap items-center gap-2" role="group" aria-label="Confirm reset">
-                  <span className="text-[12px] text-slate-500">{when ? "Go back to the saved preferences?" : "Go back to the app's defaults?"}</span>
+                  <span className="text-[12px] text-slate-500" data-testid="prefs-reset-question">
+                    {confirming === "saved" ? "Go back to the saved preferences?" : "Go back to the app's defaults?"}
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
-                      prefs.reset();
-                      setConfirming(false);
+                      if (confirming === "saved") prefs.resetToSaved();
+                      else prefs.resetToDefaults();
+                      setConfirming(null);
                     }}
                     data-testid="prefs-reset-confirm"
                     className="min-h-[44px] rounded-lg bg-rose-600 px-4 text-[13px] font-semibold text-white"
                   >
-                    Reset
+                    {confirming === "saved" ? "Reset to saved" : "Reset to defaults"}
                   </button>
-                  <button type="button" onClick={() => setConfirming(false)} data-testid="prefs-reset-cancel" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] text-slate-600">
+                  <button type="button" onClick={() => setConfirming(null)} data-testid="prefs-reset-cancel" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] text-slate-600">
                     Cancel
                   </button>
                 </span>

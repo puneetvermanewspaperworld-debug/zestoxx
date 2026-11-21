@@ -3,7 +3,8 @@ import { parseSettings, type ChartSettings, type StorageLike } from "./settings"
 /**
  * Saved preferences: a snapshot of the chart's settings (chart type, interval and range, studies and their parameters, price scale, grid,
  * crosshair, invert, theme, favourites, Renko sizes) that the user keeps on purpose, apart from what the chart remembers as it goes.
- * "Save preferences" takes the snapshot; "Reset preferences" puts the chart back to it, or to the app's defaults when none is saved.
+ * "Save preferences" takes the snapshot. "Reset to saved" (only when a snapshot exists) puts the chart back to it; "Reset to defaults" (always
+ * available) puts it back to the app's own defaults; "Delete saved preferences" removes the snapshot.
  * Browser storage only. Whatever is read back is checked like any other setting.
  */
 export const PREFS_KEY = "zestoxx:chart-prefs:v1";
@@ -47,6 +48,9 @@ export function forgetPrefs(storage: RemovableStorage | null): void {
   }
 }
 
-/** What "Reset preferences" goes back to: the saved snapshot, else the app's defaults. */
-export const resetTarget = (saved: SavedPrefs | null): ChartSettings => (saved ? saved.settings : parseSettings(null));
+/** What "Reset to saved" goes back to: the saved snapshot, or null when none is saved (the action is then not offered). */
+export const savedTarget = (saved: SavedPrefs | null): ChartSettings | null => (saved ? saved.settings : null);
+
+/** What "Reset to defaults" goes back to: the app's own defaults, whatever is or is not saved. */
+export const defaultTarget = (): ChartSettings => parseSettings(null);
 

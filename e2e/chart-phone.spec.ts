@@ -466,7 +466,7 @@ test("on a phone: the settings sheet, the dark theme, a starred tool and the new
   await page.getByTestId("settings-button").tap();
   const sheet = page.getByTestId("settings-sheet");
   await expect(sheet).toBeVisible();
-  for (const id of ["theme-light", "theme-dark", "invert-switch", "prefs-save", "prefs-reset"]) {
+  for (const id of ["theme-light", "theme-dark", "invert-switch", "prefs-save", "prefs-reset-defaults"]) {
     await page.getByTestId(id).scrollIntoViewIfNeeded();
     const b = (await page.getByTestId(id).boundingBox())!;
     expect(b.height, id).toBeGreaterThanOrEqual(44);

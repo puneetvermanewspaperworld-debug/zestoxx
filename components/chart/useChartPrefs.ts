@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { forgetPrefs, loadPrefs, resetTarget, savePrefs, type SavedPrefs } from "@/lib/chart/prefs";
+import { defaultTarget, forgetPrefs, loadPrefs, savePrefs, savedTarget, type SavedPrefs } from "@/lib/chart/prefs";
 import type { ChartSettings } from "@/lib/chart/settings";
 import type { SettingsUpdate } from "./useChartSettings";
 
@@ -18,12 +18,14 @@ export interface PrefsApi {
   savedAt: string | null;
   message: string | null;
   save: () => void;
-  /** back to the saved snapshot, or to the app's defaults when none is saved */
-  reset: () => void;
+  /** back to the saved snapshot (does nothing when none is saved: the menu does not offer it then) */
+  resetToSaved: () => void;
+  /** back to the app's defaults */
+  resetToDefaults: () => void;
   forget: () => void;
 }
 
-/** Save preferences and Reset preferences for the chart's settings, kept in this browser only (lib/chart/prefs.ts). */
+/** Save preferences, Reset to saved and Reset to defaults for the chart's settings, kept in this browser only (lib/chart/prefs.ts). */
 export function useChartPrefs(settings: ChartSettings, update: SettingsUpdate): PrefsApi {
   const [saved, setSaved] = useState<SavedPrefs | null>(() => loadPrefs(store()));
   const [message, setMessage] = useState<string | null>(null);
@@ -32,14 +34,20 @@ export function useChartPrefs(settings: ChartSettings, update: SettingsUpdate): 
     setSaved(r);
     setMessage(r ? "Preferences saved on this device." : "Could not save: this browser is not letting the page store data.");
   }, [settings]);
-  const reset = useCallback(() => {
-    update(resetTarget(saved));
-    setMessage(saved ? "Back to your saved preferences." : "Back to the app's defaults.");
+  const resetToSaved = useCallback(() => {
+    const target = savedTarget(saved);
+    if (!target) return;
+    update(target);
+    setMessage("Back to your saved preferences.");
   }, [saved, update]);
+  const resetToDefaults = useCallback(() => {
+    update(defaultTarget());
+    setMessage("Back to the app's defaults.");
+  }, [update]);
   const forget = useCallback(() => {
     forgetPrefs(store());
     setSaved(null);
     setMessage("Saved preferences deleted.");
   }, []);
-  return { savedAt: saved?.savedAt ?? null, message, save, reset, forget };
+  return { savedAt: saved?.savedAt ?? null, message, save, resetToSaved, resetToDefaults, forget };
 }

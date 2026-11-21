@@ -204,7 +204,7 @@ test("in the dark theme the text of controls, legend and menus is readable (cont
       return [255, 255, 255, 1];
     };
     const out: { id: string; fg: number[]; bg: number[] }[] = [];
-    for (const id of ["interval-button", "chart-type-button", "studies-button", "theme-dark", "invert-switch", "prefs-save", "prefs-status", "prefs-reset"]) {
+    for (const id of ["interval-button", "chart-type-button", "studies-button", "theme-dark", "invert-switch", "prefs-save", "prefs-status", "prefs-reset-defaults"]) {
       const el = document.querySelector('[data-testid="' + id + '"]');
       if (el) out.push({ id, fg: rgba(getComputedStyle(el).color), bg: bgOf(el) });
     }
@@ -287,7 +287,7 @@ test("starring a study pins it to the top of the studies list, with a 'Starred' 
 });
 
 /* ----------------------------------------------------------------------------------- preferences -- */
-test("Save preferences keeps the chart type, interval, studies and settings; Reset preferences goes back to them", async ({ page }) => {
+test("Save preferences keeps the chart type, interval, studies and settings; Reset to saved goes back to them", async ({ page }) => {
   await openTrade(page);
   // set the chart up the way we like it
   await page.getByTestId("chart-type-button").click();
@@ -300,9 +300,14 @@ test("Save preferences keeps the chart type, interval, studies and settings; Res
   await openSettings(page);
   await page.getByTestId("theme-dark").click();
   await page.getByTestId("invert-switch").click();
-  await expect(page.getByTestId("prefs-status")).toContainText("Nothing saved yet");
+  await expect(page.getByTestId("prefs-status")).toHaveText("Nothing saved yet.");
+  await expect(page.getByTestId("prefs-reset-saved")).toHaveCount(0); // nothing saved: no Reset to saved
+  await expect(page.getByTestId("prefs-reset-defaults")).toHaveText("Reset to defaults"); // but Reset to defaults is always there
   await page.getByTestId("prefs-save").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Preferences saved on this device.");
+  await expect(page.getByTestId("prefs-reset-saved")).toHaveText("Reset to saved");
+  await expect(page.getByTestId("prefs-reset-defaults")).toHaveText("Reset to defaults");
+  await expect(page.getByTestId("prefs-forget")).toHaveText("Delete saved preferences");
   await expect(page.getByTestId("prefs-status")).toContainText("Saved ");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("zestoxx:chart-prefs:v1") ?? "null"));
   expect(saved.settings).toMatchObject({ type: "hollow", interval: "15m", theme: "dark", invert: true, grid: false });
@@ -317,13 +322,14 @@ test("Save preferences keeps the chart type, interval, studies and settings; Res
   await page.getByTestId("studies-clear").click();
   await page.keyboard.press("Escape");
   await expect.poll(() => attr(page, "data-chart-type")).toBe("line");
-  // reset: asks first, then goes back to the saved preferences
+  // Reset to saved: asks first, then goes back to the saved preferences
   await openSettings(page);
-  await page.getByTestId("prefs-reset").click();
-  await expect(page.getByTestId("prefs-reset-confirm")).toContainText("Reset");
+  await page.getByTestId("prefs-reset-saved").click();
+  await expect(page.getByTestId("prefs-reset-question")).toHaveText("Go back to the saved preferences?");
+  await expect(page.getByTestId("prefs-reset-confirm")).toHaveText("Reset to saved");
   await page.getByTestId("prefs-reset-cancel").click();
   expect(await attr(page, "data-chart-type")).toBe("line"); // cancelled: nothing changed
-  await page.getByTestId("prefs-reset").click();
+  await page.getByTestId("prefs-reset-saved").click();
   await page.getByTestId("prefs-reset-confirm").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Back to your saved preferences.");
   await expect.poll(() => attr(page, "data-chart-type")).toBe("hollow");
@@ -334,15 +340,17 @@ test("Save preferences keeps the chart type, interval, studies and settings; Res
   expect((await setting(page, "studies")).some((s: { id: string }) => s.id === "rsi")).toBe(true);
 });
 
-test("with nothing saved, Reset preferences goes back to the app's defaults; saved preferences can be deleted", async ({ page }) => {
+test("Reset to defaults is always there and goes to the app's defaults; with nothing saved there is no Reset to saved; saved preferences can be deleted", async ({ page }) => {
   await openTrade(page);
   await page.getByTestId("chart-type-button").click();
   await page.getByTestId("type-area").click();
   await openSettings(page);
   await page.getByTestId("theme-dark").click();
   await expect(page.getByTestId("prefs-forget")).toHaveCount(0);
-  await page.getByTestId("prefs-reset").click();
-  await expect(page.getByTestId("prefs-reset-confirm").locator("xpath=..")).toContainText("app's defaults");
+  await expect(page.getByTestId("prefs-reset-saved")).toHaveCount(0);
+  await page.getByTestId("prefs-reset-defaults").click();
+  await expect(page.getByTestId("prefs-reset-question")).toHaveText("Go back to the app's defaults?");
+  await expect(page.getByTestId("prefs-reset-confirm")).toHaveText("Reset to defaults");
   await page.getByTestId("prefs-reset-confirm").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Back to the app's defaults.");
   await expect.poll(() => attr(page, "data-chart-type")).toBe("candle");
@@ -353,6 +361,8 @@ test("with nothing saved, Reset preferences goes back to the app's defaults; sav
   expect((await page.getByTestId("prefs-forget").boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await page.getByTestId("prefs-forget").click();
   await expect(page.getByTestId("prefs-message")).toHaveText("Saved preferences deleted.");
+  await expect(page.getByTestId("prefs-reset-saved")).toHaveCount(0); // gone with the snapshot
+  await expect(page.getByTestId("prefs-reset-defaults")).toBeVisible(); // this one stays
   expect(await page.evaluate(() => localStorage.getItem("zestoxx:chart-prefs:v1"))).toBeNull();
   await expect(page.getByTestId("prefs-status")).toContainText("Nothing saved yet");
 });
@@ -384,6 +394,29 @@ test("every control added here is a 44 px target", async ({ page }) => {
       .map(({ e, r }) => `${e.getAttribute("data-testid")} ${Math.round(r.width)}x${Math.round(r.height)}`)
   );
   expect(small).toEqual([]);
-  await page.getByTestId("prefs-reset").click();
+  expect((await page.getByTestId("prefs-reset-defaults").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.getByTestId("prefs-save").click();
+  expect((await page.getByTestId("prefs-reset-saved").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.getByTestId("prefs-reset-saved").click();
   for (const id of ["prefs-reset-confirm", "prefs-reset-cancel"]) expect((await page.getByTestId(id).boundingBox())!.height, id).toBeGreaterThanOrEqual(44);
+});
+
+test("with preferences saved, Reset to defaults goes to the defaults, not to the snapshot, and the snapshot is kept for Reset to saved", async ({ page }) => {
+  await openTrade(page);
+  await openSettings(page);
+  await page.getByTestId("theme-dark").click();
+  await page.getByTestId("prefs-save").click();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("chart-type-button").click();
+  await page.getByTestId("type-hollow").click();
+  await openSettings(page);
+  await page.getByTestId("prefs-reset-defaults").click();
+  await page.getByTestId("prefs-reset-confirm").click();
+  await expect(page.getByTestId("prefs-message")).toHaveText("Back to the app's defaults.");
+  await expect.poll(() => attr(page, "data-chart-type")).toBe("candle");
+  expect(await attr(page, "data-theme")).toBe("light"); // the defaults, not the saved dark theme
+  await expect(page.getByTestId("prefs-status")).toContainText("Saved "); // the snapshot is still there
+  await page.getByTestId("prefs-reset-saved").click();
+  await page.getByTestId("prefs-reset-confirm").click();
+  await expect.poll(() => attr(page, "data-theme")).toBe("dark");
 });
