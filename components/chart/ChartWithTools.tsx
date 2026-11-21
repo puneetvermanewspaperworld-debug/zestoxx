@@ -18,6 +18,11 @@ import DrawingLayer from "./DrawingLayer";
 import TradeChart, { type TradeChartProps } from "./TradeChart";
 import type { SettingsUpdate } from "./useChartSettings";
 import { useDrawings } from "./useDrawings";
+import Sheet from "./Sheet";
+import { FeedStatus } from "./ChartControls";
+import { IntervalBar, PhoneAttribution, PhoneToolbar, StatusBar, type PhoneExtras } from "./PhoneBars";
+import { Magnet, Pin, Redo2, Undo2 } from "lucide-react";
+import { tap44 } from "./toolMeta";
 import { useIndexLot } from "./useIndexLot";
 import { useLevelAlerts } from "./useLevelAlerts";
 
@@ -29,7 +34,18 @@ import { useLevelAlerts } from "./useLevelAlerts";
 const BASE_PX = { phone: 320, wide: 360 };
 const PANE_PX = 120;
 
-export default function ChartWithTools({ settings, update, feed, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies" | "scale" | "grid" | "magnet" | "invert" | "theme"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo }) {
+/** The phone layout of the chart (see PhoneBars.tsx): the page says which one, and hands over what belongs to the page. */
+export interface PhoneLayout {
+  mode: "portrait" | "landscape";
+  extras: PhoneExtras;
+  /** landscape: what goes at the left and the right of the single slim toolbar row (the back button and symbol, the Paper buttons) */
+  lead?: React.ReactNode;
+  trail?: React.ReactNode;
+  /** landscape: at the right end of the line under the status bar */
+  footer?: React.ReactNode;
+}
+
+export default function ChartWithTools({ settings, update, feed, phone, ...chartProps }: Omit<TradeChartProps, "onChart" | "onBars" | "onStudies" | "layer" | "chartType" | "renkoSize" | "studies" | "scale" | "grid" | "magnet" | "invert" | "theme" | "phone" | "onReset"> & { settings: ChartSettings; update: SettingsUpdate; feed: FeedInfo; phone?: PhoneLayout }) {
   const api = useDrawings(chartProps.symbol);
   const chartType = settings.type;
   const renkoSize = settings.renko[chartProps.symbol] ?? null;
@@ -138,7 +154,12 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
   const lot = useIndexLot(chartProps.symbol, chartProps.type);
   const { alerted, viewFor } = useLevelAlerts(chartProps.symbol, api.committed, api.loaded);
   // the tool rail starts open on a wide screen and collapsed on a phone, where it would cover too much of the chart
-  const [railOpen, setRailOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 640);
+  const [railOpen, setRailOpen] = useState(() => !phone && (typeof window === "undefined" || window.innerWidth >= 640));
+  const [drawSheet, setDrawSheet] = useState(false);
+  const resetView = useRef<(() => void) | null>(null);
+  const onReset = useCallback((f: (() => void) | null) => {
+    resetView.current = f;
+  }, []);
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
 
   // Opening the property bar below the chart pushes the page content under it down; the browser's scroll anchoring would answer by
@@ -166,6 +187,149 @@ export default function ChartWithTools({ settings, update, feed, ...chartProps }
   }, []);
   const onChart = useCallback((chart: IChartApi | null, series: ISeriesApi<SeriesType> | null) => setCtx(chart && series ? { chart, series } : null), []);
   const cloneBy = useCallback((d: Drawing) => cloneOffset(d, times), [times]);
+
+  if (phone) {
+    const landscapeRow = phone.mode === "landscape";
+    const controls = { symbol: chartProps.symbol, fullscreen, settings, update, feed, bars: realBars, sizingRequest, studies: studiesApi, prefs, studyRequest, onStudyMenuClosed: () => setStudyRequest(null) };
+    const hasStudies = studyState.results.length > 0;
+    const quickShown = drawable && (api.tool !== "select" || !!api.selectedId);
+    return (
+      <div
+        ref={(el) => {
+          root.current = el;
+          stage.current = el;
+        }}
+        className={(full ? "fixed inset-0 z-[60] " : "h-full ") + "flex min-h-0 flex-col " + (settings.theme === "dark" ? "zx-dark" : "bg-white")}
+        data-testid="chart-with-tools"
+        data-phone={phone.mode}
+        data-tool={api.tool}
+        data-fullscreen={full ? "1" : "0"}
+        data-landscape={landscape ? "1" : "0"}
+        data-theme={settings.theme}
+      >
+        {landscapeRow ? (
+          <div className="flex shrink-0 items-center gap-0.5 border-b border-slate-100 bg-white px-0.5" data-testid="landscape-toolbar">
+            {phone.lead}
+            <div className="min-w-0 flex-1 overflow-x-auto">
+              <PhoneToolbar p={controls} extras={phone.extras} withInterval />
+            </div>
+            {phone.trail}
+          </div>
+        ) : (
+          <>
+            <IntervalBar feed={feed} update={update} />
+            <PhoneToolbar p={controls} extras={phone.extras} />
+          </>
+        )}
+        <div className={"relative min-h-0 flex-1" + (feed.status === "loading" ? " opacity-60" : "")} aria-busy={feed.status === "loading"}>
+          <TradeChart
+            {...chartProps}
+            studies={settings.studies}
+            scale={settings.scale}
+            grid={settings.grid}
+            magnet={settings.magnet}
+            invert={settings.invert}
+            theme={settings.theme}
+            onStudies={onStudies}
+            chartType={chartType}
+            renkoSize={renkoSize}
+            onChart={onChart}
+            onBars={onBars}
+            onReset={onReset}
+            phone
+            layer={
+              <>
+                {drawable && <ToolRail api={api} open={railOpen} onToggle={() => setRailOpen((v) => !v)} favs={settings.favTools} onToggleFav={(id) => update((prev) => ({ favTools: toggleFavourite(prev.favTools, id) }))} menu={{ count: api.drawings.length, onOpen: () => setDrawSheet(true) }} />}
+                {hasStudies && (
+                  <div className="pointer-events-none absolute left-14 right-1 top-1 z-20 flex">
+                    <div className="pointer-events-auto max-w-full">
+                      <StudyLegend line results={studyState.results} bars={bars} chart={ctx?.chart ?? null} type={chartProps.type} onEdit={(uid) => setStudyRequest({ uid, n: (studyRequest?.n ?? 0) + 1 })} onRemove={studiesApi.remove} />
+                    </div>
+                  </div>
+                )}
+                {quickShown && <QuickBar api={api} offset={hasStudies ? "top-[52px]" : "top-1"} />}
+                {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} intraday={chartProps.intraday} /> : null}
+                {drawable && ctx && api.loaded ? (
+                  <DrawingLayer
+                    chart={ctx.chart}
+                    series={ctx.series}
+                    bars={bars}
+                    drawings={api.drawings}
+                    selectedId={api.selectedId}
+                    tool={api.tool}
+                    magnet={api.magnet}
+                    hidden={api.hidden}
+                    alerted={alerted}
+                    lot={lot}
+                    isIndex={chartProps.type === "index"}
+                    assetType={chartProps.type}
+                    onAdd={api.add}
+                    onSelect={api.select}
+                    onLive={api.setLive}
+                    onCommitLive={api.commitLive}
+                    onUpdate={api.update}
+                  />
+                ) : null}
+                <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 flex flex-col items-center gap-1" data-testid="chart-notes">
+                  {feed.status !== "idle" && feed.status !== "ready" && (
+                    <div className="pointer-events-auto rounded-xl bg-white/95 px-3 shadow ring-1 ring-slate-200">
+                      <FeedStatus {...controls} />
+                    </div>
+                  )}
+                  {fsNote && (
+                    <p role="status" data-testid="landscape-note" className="pointer-events-auto rounded-xl bg-white/95 px-3 py-2 text-[11.5px] text-slate-600 shadow ring-1 ring-slate-200">
+                      {fsNote}
+                    </p>
+                  )}
+                  {!drawable && (
+                    <p data-testid="drawings-off-note" className="rounded-xl bg-white/95 px-3 py-2 text-[11.5px] text-slate-500 shadow ring-1 ring-slate-200">
+                      The drawing tools are off on {chartType === "renko" ? "Renko" : "Line Break"} charts: bricks are not drawn on a time axis. Switch to another chart type to draw.
+                    </p>
+                  )}
+                  {chartType === "renko" && renkoSize === null && (
+                    <p data-testid="renko-needs-size" className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-1 text-[11.5px] text-amber-800 shadow ring-1 ring-amber-200">
+                      Renko needs a brick size for {chartProps.symbol}.
+                      <button type="button" onClick={() => setSizingRequest((n) => n + 1)} className="min-h-[44px] rounded-lg border border-amber-300 bg-white px-3 font-medium">
+                        Set brick size
+                      </button>
+                    </p>
+                  )}
+                </div>
+                {drawable && api.selected && (
+                  <div className="absolute bottom-1 left-14 right-1 z-30 max-h-[55%] overflow-y-auto rounded-xl bg-white shadow-lg ring-1 ring-slate-200" data-testid="properties-overlay">
+                    <ChartProperties api={api} cloneBy={cloneBy} levelAlert={api.selected?.kind === "hline" ? viewFor(api.selected) : undefined} />
+                  </div>
+                )}
+              </>
+            }
+          />
+        </div>
+        <StatusBar feed={feed} settings={settings} update={update} reset={() => resetView.current?.()} />
+        <PhoneAttribution right={phone.footer} />
+        {drawSheet && (
+          <Sheet title="Drawings" onClose={() => setDrawSheet(false)} testId="drawings-sheet">
+            <div className="px-1">
+              <ChartToolbox api={api} showLabels />
+              <div role="toolbar" aria-label="Drawing history and snapping" className="flex flex-wrap gap-1 px-1 pb-2">
+                <button type="button" aria-label="Undo" disabled={!api.canUndo} onClick={api.undo} data-testid="sheet-undo" className={tap44() + " border border-slate-200"}>
+                  <Undo2 size={18} aria-hidden /> Undo
+                </button>
+                <button type="button" aria-label="Redo" disabled={!api.canRedo} onClick={api.redo} data-testid="sheet-redo" className={tap44() + " border border-slate-200"}>
+                  <Redo2 size={18} aria-hidden /> Redo
+                </button>
+                <button type="button" aria-label="Magnet" aria-pressed={api.magnet} onClick={api.toggleMagnet} data-testid="sheet-magnet" className={tap44(api.magnet) + " border border-slate-200"}>
+                  <Magnet size={18} aria-hidden /> Snap
+                </button>
+                <button type="button" aria-label="Stay in drawing mode" aria-pressed={api.stay} onClick={api.toggleStay} data-testid="sheet-stay" className={tap44(api.stay) + " border border-slate-200"}>
+                  <Pin size={18} aria-hidden /> Stay
+                </button>
+              </div>
+            </div>
+          </Sheet>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

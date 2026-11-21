@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, ChevronLeft, Magnet, PencilRuler, Pin, Redo2, Star, Trash2, Undo2 } from "lucide-react";
+import { Check, ChevronLeft, ListChecks, Magnet, PencilRuler, Pin, Redo2, Star, Trash2, Undo2 } from "lucide-react";
 import { TOOLS } from "@/lib/chart/drawings";
 import { pinFirst } from "@/lib/chart/favourites";
 import { TOOL_HINT, TOOL_ICON, tap44 } from "./toolMeta";
@@ -11,7 +11,7 @@ import type { DrawingsApi } from "./useDrawings";
  * The tool rail (left edge of the chart, collapsible) and the floating quick-tool bar (top). Both float over the chart but only their
  * buttons take touches, so the rest of the chart pans, pinches and scrolls as usual. Every button is 44 px, the size of a finger.
  */
-export function ToolRail({ api, open, onToggle, favs, onToggleFav }: { api: DrawingsApi; open: boolean; onToggle: () => void; /** the starred tools, in the order they were starred */ favs: string[]; onToggleFav: (id: string) => void }) {
+export function ToolRail({ api, open, onToggle, favs, onToggleFav, menu }: { /** phones: a button for the drawing actions (hide all, lock all, delete all, how many), kept off the screen's top rows */ menu?: { count: number; onOpen: () => void }; api: DrawingsApi; open: boolean; onToggle: () => void; /** the starred tools, in the order they were starred */ favs: string[]; onToggleFav: (id: string) => void }) {
   // Starring: a pin mode puts a 44 px star beside each tool (so the rail stays one button wide the rest of the time). Starred tools come
   // first, right after Select, which never moves.
   const [pinning, setPinning] = useState(false);
@@ -21,6 +21,16 @@ export function ToolRail({ api, open, onToggle, favs, onToggleFav }: { api: Draw
       <button type="button" aria-label={open ? "Hide drawing tools" : "Show drawing tools"} aria-expanded={open} data-testid="rail-toggle" onClick={onToggle} className={tap44(false) + " shrink-0 bg-white/95 shadow ring-1 ring-slate-200"}>
         {open ? <ChevronLeft size={18} aria-hidden /> : <PencilRuler size={18} aria-hidden />}
       </button>
+      {menu && (
+        <button type="button" aria-label={`Drawing actions: ${menu.count} ${menu.count === 1 ? "drawing" : "drawings"}`} data-testid="rail-menu" onClick={menu.onOpen} className={tap44(false) + " pointer-events-auto relative shrink-0 bg-white/95 shadow ring-1 ring-slate-200"}>
+          <ListChecks size={18} aria-hidden />
+          {menu.count > 0 && (
+            <span data-testid="rail-menu-count" className="pointer-events-none absolute right-0.5 top-0.5 min-w-[16px] rounded-full bg-blue-600 px-1 text-center text-[10px] font-semibold leading-4 text-white">
+              {menu.count}
+            </span>
+          )}
+        </button>
+      )}
       {open && (
         <div role="toolbar" aria-label="Drawing tools" className="pointer-events-auto flex min-h-0 flex-col gap-0.5 overflow-y-auto rounded-lg bg-white/95 p-0.5 shadow ring-1 ring-slate-200">
           <button type="button" aria-pressed={pinning} aria-label={pinning ? "Done starring tools" : "Star tools to pin them to the top"} title="Star tools to pin them to the top" data-testid="tool-pin-mode" onClick={() => setPinning((v) => !v)} className={tap44(pinning) + " shrink-0"}>
@@ -49,10 +59,10 @@ export function ToolRail({ api, open, onToggle, favs, onToggleFav }: { api: Draw
   );
 }
 
-export function QuickBar({ api }: { api: DrawingsApi }) {
+export function QuickBar({ api, offset = "top-1" }: { api: DrawingsApi; /** where it sits (a Tailwind top class): lower when a legend line is above it */ offset?: string }) {
   const Active = TOOL_ICON[api.tool];
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-1 z-20 flex flex-col items-end gap-1 pl-14 pr-16" data-testid="quick-bar-wrap">
+    <div className={"pointer-events-none absolute inset-x-0 z-20 flex flex-col items-end gap-1 pl-14 pr-16 " + offset} data-testid="quick-bar-wrap">
       <div role="toolbar" aria-label="Quick tools" data-testid="quick-bar" className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-white/95 p-0.5 shadow ring-1 ring-slate-200">
         {api.tool !== "select" && (
           <button type="button" aria-label="Done drawing" title="Done: back to select" data-testid="done" onClick={() => api.setTool("select")} className={tap44(true) + " rounded-full"}>

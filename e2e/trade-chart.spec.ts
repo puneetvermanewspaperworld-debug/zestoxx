@@ -38,6 +38,8 @@ function fourHourBars() {
 async function mock(page: Page, live = true) {
   await page.clock.install({ time: OPEN });
   await page.route("**/api/candles**", (r) => r.fulfill({ status: 502, json: { source: "unavailable" } })); // these tests are about the usual daily view
+  // the saved portfolio is kept in the database: with none here it would answer 500 at a time that depends on the machine, and the "no console errors" check below would depend on it
+  await page.route("**/api/portfolio", (r) => r.fulfill({ json: r.request().method() === "GET" ? null : { ok: true } }));
   await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
   await page.route("**/api/market-data?asset=equity", (r) =>
     r.fulfill({ json: !live ? {} : { RELIANCE: { price: 1500, prevClose: 1490 }, TCS: { price: 4200, prevClose: 4100 }, NIFTY50: { price: 25250, prevClose: 25200 } } })
@@ -162,12 +164,17 @@ test("on the app's own daily series (no live feed) weekly and monthly aggregate 
 
 test("compare and the custom formula are plotted", async ({ page }) => {
   await open(page);
-  await page.locator("select").filter({ hasText: "Compare vs" }).selectOption("TCS");
+  // on a phone, Compare is a button in the toolbar and the formula is in the More sheet
+  await page.getByTestId("compare-button").click();
+  await page.getByTestId("compare-TCS").click();
   await expect.poll(async () => (await summary(page)).compare).toBe(271);
-  await expect(page.getByText(/dashed amber line = TCS normalized for comparison/)).toBeVisible();
-  await page.getByPlaceholder(/Custom formula/).fill("sma(20)");
+  await page.getByTestId("compare-button").click();
+  await expect(page.getByTestId("compare-sheet")).toContainText("dashed amber line");
+  await page.getByTestId("sheet-close").click();
+  await page.getByTestId("more-button").click();
+  await page.getByTestId("formula-input").fill("sma(20)");
   await expect.poll(async () => (await summary(page)).custom).toBeGreaterThan(200);
-  await page.getByPlaceholder(/Custom formula/).fill("close*");
+  await page.getByTestId("formula-input").fill("close*");
   await expect(page.getByText("Couldn't parse that formula.")).toBeVisible();
 });
 
@@ -197,11 +204,12 @@ test("a stock with real volume shows it and no 'not available' note", async ({ p
 
 test("attribution: a small TradingView Lightweight Charts link and the notice, and no TradingView logo", async ({ page }) => {
   await open(page);
+  // the line under the chart carries the link and the licence's notice, word for word, on a phone too
   const note = page.getByTestId("chart-attribution");
   await expect(note).toBeVisible();
+  await expect(note).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
   const link = note.getByRole("link", { name: "Charts by TradingView Lightweight Charts" });
   await expect(link).toHaveAttribute("href", "https://www.tradingview.com/");
-  await expect(note).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
   // the library's own logo link is switched off: ours is the only link to tradingview.com on the page
   expect(await page.locator('a[href*="tradingview.com"]').count()).toBe(1);
 });

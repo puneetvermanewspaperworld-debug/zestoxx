@@ -11,7 +11,8 @@ const btn = (on = false, danger = false) =>
   "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-md border px-2 text-[11.5px] font-medium transition-colors disabled:opacity-40 " +
   (on ? "border-blue-300 bg-blue-50 text-blue-700" : danger ? "border-slate-200 text-slate-500 hover:text-rose-500" : "border-slate-200 text-slate-600 hover:text-slate-900");
 
-export default function ChartToolbox({ api }: { api: DrawingsApi }) {
+export default function ChartToolbox({ api, showLabels = false }: { api: DrawingsApi; /** write the names beside the icons at every width (the phone's drawings sheet) */ showLabels?: boolean }) {
+  const label = showLabels ? "" : "hidden sm:inline";
   // Keys: Delete removes the selected drawing; Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z or Ctrl+Y redoes. Ignored while typing in a field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,13 +39,13 @@ export default function ChartToolbox({ api }: { api: DrawingsApi }) {
     <div className="mb-2 space-y-2 border-b border-blue-50 pb-2.5" data-testid="chart-toolbox">
       <div role="toolbar" aria-label="Drawing actions" className="flex flex-wrap items-center gap-1">
         <button type="button" aria-label={api.hidden ? "Show all drawings" : "Hide all drawings"} aria-pressed={api.hidden} onClick={api.toggleHidden} data-testid="hide-all" className={btn(api.hidden)}>
-          {api.hidden ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />} <span className="hidden sm:inline">{api.hidden ? "Show all" : "Hide all"}</span>
+          {api.hidden ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />} <span className={label}>{api.hidden ? "Show all" : "Hide all"}</span>
         </button>
         <button type="button" aria-label={api.allLocked ? "Unlock all drawings" : "Lock all drawings"} aria-pressed={api.allLocked} disabled={api.drawings.length === 0} onClick={api.lockAll} data-testid="lock-all" className={btn(api.allLocked)}>
-          {api.allLocked ? <Lock size={16} aria-hidden /> : <LockOpen size={16} aria-hidden />} <span className="hidden sm:inline">{api.allLocked ? "Unlock all" : "Lock all"}</span>
+          {api.allLocked ? <Lock size={16} aria-hidden /> : <LockOpen size={16} aria-hidden />} <span className={label}>{api.allLocked ? "Unlock all" : "Lock all"}</span>
         </button>
         <button type="button" aria-label="Delete all drawings" disabled={api.drawings.length === 0} onClick={api.deleteAll} data-testid="delete-all" className={btn(false, true)}>
-          <Trash2 size={16} aria-hidden /> <span className="hidden sm:inline">Delete all</span>
+          <Trash2 size={16} aria-hidden /> <span className={label}>Delete all</span>
         </button>
         <span data-testid="drawing-count" className="ml-auto text-[10.5px] text-slate-400">
           {api.drawings.length} {api.drawings.length === 1 ? "drawing" : "drawings"}
