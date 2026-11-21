@@ -61,6 +61,13 @@ async function openPhone(page: Page) {
   await openTrade(page);
   await show(page);
 }
+/** the drawing actions that live in the tool rail's menu on a phone (undo, redo, hide all...): open it, tap one, close it */
+const viaDrawingsSheet = async (page: Page, id: string) => {
+  await page.getByTestId("rail-menu").tap();
+  await page.getByTestId(id).tap();
+  await page.getByTestId("sheet-close").tap();
+  await expect(page.getByTestId("drawings-sheet")).toHaveCount(0);
+};
 const pickTool = async (page: Page, tool: string) => {
   if ((await page.getByTestId("tool-rail").getAttribute("data-open")) !== "1") await page.getByTestId("rail-toggle").tap();
   await page.getByTestId(`tool-${tool}`).tap();
@@ -70,7 +77,7 @@ test("the tool rail starts collapsed on a phone, opens and closes, and every but
   await openPhone(page);
   await expect(page.getByTestId("tool-rail")).toHaveAttribute("data-open", "0");
   await expect(page.getByTestId("tool-trend")).toHaveCount(0);
-  await expect(page.getByTestId("quick-bar")).toBeVisible(); // the quick bar is always there
+  await expect(page.getByTestId("quick-bar")).toHaveCount(0); // the quick bar comes with a tool or a selected drawing, not before: it must not sit over the plot for nothing
   await page.getByTestId("rail-toggle").tap();
   await expect(page.getByTestId("tool-rail")).toHaveAttribute("data-open", "1");
   for (const id of ["select", "hline", "trend", "ray", "rect", "channel", "text", "measure"]) {
@@ -78,7 +85,9 @@ test("the tool rail starts collapsed on a phone, opens and closes, and every but
     expect(b!.width, id).toBeGreaterThanOrEqual(44);
     expect(b!.height, id).toBeGreaterThanOrEqual(44);
   }
-  for (const id of ["undo", "redo", "magnet", "stay", "rail-toggle"]) {
+  await page.getByTestId("tool-hline").tap();
+  await expect(page.getByTestId("quick-bar")).toBeVisible();
+  for (const id of ["undo", "redo", "magnet", "stay", "rail-toggle", "rail-menu"]) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.width, id).toBeGreaterThanOrEqual(44);
     expect(b!.height, id).toBeGreaterThanOrEqual(44);
@@ -214,9 +223,11 @@ test("the quick bar: undo and redo, delete the selected drawing, done", async ({
   await expect(page.getByTestId("quick-delete")).toBeVisible();
   await page.getByTestId("quick-delete").tap();
   await waitStored(page, 0);
-  await page.getByTestId("undo").tap();
+  // with nothing selected and no tool the quick bar is away; undo and redo are in the rail's menu
+  await expect(page.getByTestId("quick-bar")).toHaveCount(0);
+  await viaDrawingsSheet(page, "sheet-undo");
   await waitStored(page, 1);
-  await page.getByTestId("redo").tap();
+  await viaDrawingsSheet(page, "sheet-redo");
   await waitStored(page, 0);
   await pickTool(page, "trend");
   await expect(page.getByTestId("done")).toBeVisible();
@@ -227,12 +238,8 @@ test("the quick bar: undo and redo, delete the selected drawing, done", async ({
 
 test("390 px screenshot with several drawings", async ({ page }) => {
   await openPhone(page);
-  // the controls above the chart take several rows on a phone, which can leave the foot of the plot under the fixed Paper buy / sell bar:
-  // put the plot in the middle of the screen, clear of both bars, before tapping on it
-  await page.evaluate(() => document.querySelector('[data-testid="trade-chart"]')!.scrollIntoView({ block: "center" }));
-  await page.waitForTimeout(400);
-  await page.getByTestId("stay").tap(); // stay in drawing mode: switch tools without reopening anything
   await pickTool(page, "hline");
+  await page.getByTestId("stay").tap(); // stay in drawing mode: switch tools without reopening anything
   await tapAt(page, 258, 0.45);
   await pickTool(page, "trend");
   await tapAt(page, 252, 0.85);
@@ -385,20 +392,21 @@ test("on a phone the chart type menu is a bottom sheet with 44 px rows, and a pi
 });
 
 /* ---------------------------------------------------------------------------------- intervals, ranges -- */
-test("on a phone the interval sheet and the range buttons are 44 px targets, and choosing a range loads it", async ({ page }) => {
+test("on a phone the interval bar, its dropdown sheet and the range buttons are 44 px targets, and choosing a range loads it", async ({ page }) => {
   const seen: string[] = [];
   await openTrade(page, "RELIANCE", { seen });
   await show(page);
   const row = page.getByTestId("range-row");
   await expect(row).toBeVisible();
+  // the ranges are one line that scrolls sideways; each button is a finger
   for (const r of ["1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "All"]) {
     const b = (await page.getByTestId(`range-${r}`).boundingBox())!;
     expect(b.height, r).toBeGreaterThanOrEqual(44);
     expect(b.width, r).toBeGreaterThanOrEqual(44);
-    expect(b.x + b.width, r).toBeLessThanOrEqual(390);
   }
+  expect(await row.evaluate((el) => el.scrollWidth >= el.clientWidth)).toBe(true);
   await page.getByTestId("range-5D").tap();
-  await expect(page.getByTestId("interval-button")).toHaveText(/15m/);
+  await expect(page.getByTestId("ibar-15m")).toHaveAttribute("aria-checked", "true");
   await expect.poll(() => seen.some((s) => s.includes("interval=15m") && s.includes("range=5D"))).toBe(true);
   await page.getByTestId("interval-button").tap();
   for (const id of ["1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"]) {
@@ -408,7 +416,7 @@ test("on a phone the interval sheet and the range buttons are 44 px targets, and
   }
   await page.getByTestId("interval-1h").tap();
   await expect(page.getByTestId("interval-sheet")).toHaveCount(0);
-  await expect(page.getByTestId("interval-button")).toHaveText(/1h/);
+  await expect(page.getByTestId("ibar-1h")).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
@@ -436,6 +444,7 @@ test("on a phone the studies menu is a sheet with 44 px rows; adding RSI gives i
 /* ----------------------------------------------------------------------- fullscreen and landscape -- */
 test("on a phone: fullscreen fills the screen with 44 px controls, and landscape goes fullscreen and either turns the screen or says it cannot", async ({ page }) => {
   await openPhone(page);
+  await page.getByTestId("more-button").tap(); // the view controls are in the More sheet on a phone
   for (const id of ["scale-button", "grid-button", "crosshair-magnet-button", "fullscreen-button", "landscape-button"]) {
     const b = (await page.getByTestId(id).boundingBox())!;
     expect(b.height, id).toBeGreaterThanOrEqual(44);
@@ -463,7 +472,8 @@ test("on a phone: fullscreen fills the screen with 44 px controls, and landscape
 /* ---------------------------------------------------------------------------------- chart extras A -- */
 test("on a phone: the settings sheet, the dark theme, a starred tool and the new intervals all fit and are 44 px targets", async ({ page }) => {
   await openPhone(page);
-  await page.getByTestId("settings-button").tap();
+  await page.getByTestId("more-button").tap();
+  await page.getByTestId("settings-button").tap(); // Settings is in the More sheet on a phone
   const sheet = page.getByTestId("settings-sheet");
   await expect(sheet).toBeVisible();
   for (const id of ["theme-light", "theme-dark", "invert-switch", "prefs-save", "prefs-reset-defaults"]) {
@@ -474,7 +484,8 @@ test("on a phone: the settings sheet, the dark theme, a starred tool and the new
   }
   await page.getByTestId("theme-dark").tap();
   await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-theme", "dark");
-  await page.getByTestId("sheet-close").tap();
+  await page.getByTestId("sheet-close").last().tap(); // the settings sheet...
+  await page.getByTestId("sheet-close").tap(); // ...and the More sheet under it
   // the interval sheet scrolls and every new row is reachable
   await page.getByTestId("interval-button").tap();
   for (const id of ["2m", "3m", "10m", "2h", "4h"]) {

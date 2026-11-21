@@ -23,7 +23,7 @@ export interface StudiesApi {
 }
 
 /** The Studies button and its menu: the studies on the chart (with editable parameters, remove and Clear all) and a searchable list to add from. */
-export default function StudiesMenu({ api, openFor, onClosed }: { api: StudiesApi; /** open straight on this study's parameters (from the legend) */ openFor: { uid: number; n: number } | null; onClosed: () => void }) {
+export default function StudiesMenu({ api, openFor, onClosed, compact = false }: { /** no word beside the icon, whatever the width (the phone's single landscape row) */ compact?: boolean; api: StudiesApi; /** open straight on this study's parameters (from the legend) */ openFor: { uid: number; n: number } | null; onClosed: () => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
@@ -48,9 +48,9 @@ export default function StudiesMenu({ api, openFor, onClosed }: { api: StudiesAp
     <>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Studies: ${api.studies.length} on the chart`} data-testid="studies-button" className={controlBtn(api.studies.length > 0)}>
         <FunctionSquare size={18} aria-hidden />
-        <span className="hidden sm:inline">Studies</span>
+        <span className={compact ? "hidden" : "hidden sm:inline"}>Studies</span>
         {api.studies.length > 0 && <span className="rounded-full bg-blue-600 px-1.5 text-[10.5px] text-white">{api.studies.length}</span>}
-        <ChevronDown size={14} aria-hidden />
+        {!compact && <ChevronDown size={14} aria-hidden />}
       </button>
       {open && (
         <Sheet title="Studies" onClose={close} testId="studies-sheet">

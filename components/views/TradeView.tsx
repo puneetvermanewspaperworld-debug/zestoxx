@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -26,6 +26,8 @@ import { fmt, fmtSigned } from "@/lib/helpers";
 import { useChartSettings } from "@/components/chart/useChartSettings";
 import { useCandles } from "@/components/chart/useCandles";
 import type { FeedInfo } from "@/components/chart/ChartControls";
+import { useScreenMode } from "@/lib/useScreenMode";
+import TradePhone from "@/components/views/TradePhone";
 import { intervalAvailability, isIntraday, selectionFrom, type DataKind } from "@/lib/chart/intervals";
 import type { Candle, Timeframe } from "@/lib/types";
 
@@ -36,8 +38,6 @@ const ChartWithTools = dynamic(() => import("@/components/chart/ChartWithTools")
 });
 
 export default function TradeView({ symbol }: { symbol?: string }) {
-  // Phones: the order ticket opens as a bottom sheet from the sticky Paper buy / Paper sell bar.
-  const [orderOpen, setOrderOpen] = useState(false);
   const {
     selected,
     setSelected,
@@ -106,22 +106,130 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     [fullFrame, formula]
   );
 
+  const mode = useScreenMode();
+
+  const pulsePill = (
+    <span
+      data-testid="pulse-pill"
+      title={pulseState.state === "ok" ? pulseState.result.basis : PULSE_BASIS}
+      className={
+        "ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
+        (pulseState.state !== "ok"
+          ? "bg-slate-100 text-slate-500"
+          : pulseState.result.label === "Bullish"
+            ? "bg-emerald-50 text-emerald-500"
+            : pulseState.result.label === "Bearish"
+              ? "bg-rose-50 text-rose-500"
+              : "bg-blue-50 text-slate-500")
+      }
+    >
+      <Zap size={10} />{" "}
+      {pulseState.state === "ok" ? `Pulse ${pulseState.result.score} · ${pulseState.result.label}` : `Pulse · ${pulseState.text}`}
+    </span>
+  );
+  const watchlistCard = (
+    <div className="order-last overflow-hidden rounded-xl border border-slate-200 bg-white xl:order-none" data-testid="watchlist-card">
+      <div className="px-3 pt-3 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+        Watchlist
+      </div>
+      <Watchlist
+        watchlist={watchlist}
+        selected={selected}
+        onSelect={setSelected}
+        onAdd={addToWatchlist}
+        onRemove={removeFromWatchlist}
+        live={live}
+      />
+    </div>
+  );
+  const recentOrdersCard = (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <h3 className="mb-2.5 flex items-center gap-1.5 font-display text-[12.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+        <ListOrdered size={13} /> Recent Orders — {selected}
+      </h3>
+      {symOrders.length === 0 ? (
+        <div className="py-3 text-center text-[12px] text-slate-400">
+          No orders for this symbol yet.
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {symOrders.map((o) => (
+            <div key={o.id} className="flex items-center justify-between text-[11.5px]">
+              <span
+                className={
+                  "font-medium " + (o.side === "buy" ? "text-emerald-500" : "text-rose-500")
+                }
+              >
+                {o.side.toUpperCase()} {o.qty} · {o.mode}
+              </span>
+              <span className="font-mono text-slate-500">{fmt(o.price, sym.type)}</span>
+              <span className="text-slate-400">{o.time}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  const orderBookCard = (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <h3 className="mb-2 flex items-center gap-1.5 font-display text-[12.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+        <Layers size={13} /> Order Book
+      </h3>
+      <DepthLadder symbol={selected} type={sym.type} />
+    </div>
+  );
+  const orderPanel = <OrderPanel symId={selected} price={price} type={sym.type} cash={cash} holdings={holdings} onTrade={onTrade} />;
+  const chartProps = {
+    symbol: selected,
+    timeframe: showFeed ? `${selection.interval}|${selection.range}` : legacyTimeframe,
+    intraday,
+    settings: chartSettings,
+    update: updateChartSettings,
+    feed: feedInfo,
+    type: sym.type,
+    candles: fullFrame,
+    keep: showFeed ? Math.max(1, feed.bars.length) : frame.keep,
+    compare: compareFull,
+    custom: customSeries,
+  };
+
+  // A phone (upright or sideways) gets the chart screen: see TradePhone.
+  if (mode !== "wide") {
+    return (
+      <TradePhone
+        mode={mode}
+        selected={selected}
+        type={sym.type}
+        price={price}
+        chg={chg}
+        source={liveSource[selected]}
+        extras={{
+          compareOptions: SYMBOLS.filter((s) => s.id !== selected).map((s) => ({ id: s.id, name: s.name })),
+          compareWith,
+          setCompareWith,
+          onAlert: () => onAddAlert(selected),
+          formula,
+          setFormula,
+          formulaError,
+          pulse: pulsePill,
+        }}
+        renderChart={(layout) => <ChartWithTools {...chartProps} phone={layout} />}
+        orderPanel={orderPanel}
+        below={
+          <>
+            {recentOrdersCard}
+            {orderBookCard}
+            {watchlistCard}
+          </>
+        }
+      />
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-[220px_1fr_260px]">
       {/* On phones the watchlist comes after the chart and ticket, not before them. */}
-      <div className="order-last overflow-hidden rounded-xl border border-slate-200 bg-white xl:order-none">
-        <div className="px-3 pt-3 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
-          Watchlist
-        </div>
-        <Watchlist
-          watchlist={watchlist}
-          selected={selected}
-          onSelect={setSelected}
-          onAdd={addToWatchlist}
-          onRemove={removeFromWatchlist}
-          live={live}
-        />
-      </div>
+      {watchlistCard}
 
       <div className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -144,23 +252,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                   {chg >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                   {fmtSigned(chg, 2, "%")}
                 </span>
-                <span
-                  data-testid="pulse-pill"
-                  title={pulseState.state === "ok" ? pulseState.result.basis : PULSE_BASIS}
-                  className={
-                    "ml-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                    (pulseState.state !== "ok"
-                      ? "bg-slate-100 text-slate-500"
-                      : pulseState.result.label === "Bullish"
-                        ? "bg-emerald-50 text-emerald-500"
-                        : pulseState.result.label === "Bearish"
-                          ? "bg-rose-50 text-rose-500"
-                          : "bg-blue-50 text-slate-500")
-                  }
-                >
-                  <Zap size={10} />{" "}
-                  {pulseState.state === "ok" ? `Pulse ${pulseState.result.score} · ${pulseState.result.label}` : `Pulse · ${pulseState.text}`}
-                </span>
+                {pulsePill}
                 <DataBadge source={liveSource[selected]} type={sym.type} />
               </div>
             </div>
@@ -207,19 +299,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           </div>
           {formulaError && <div className="mb-2 text-[11px] text-rose-500">{formulaError}</div>}
 
-          <ChartWithTools
-              symbol={selected}
-              timeframe={showFeed ? `${selection.interval}|${selection.range}` : legacyTimeframe}
-              intraday={intraday}
-              settings={chartSettings}
-              update={updateChartSettings}
-              feed={feedInfo}
-              type={sym.type}
-              candles={fullFrame}
-              keep={showFeed ? Math.max(1, feed.bars.length) : frame.keep}
-              compare={compareFull}
-              custom={customSeries}
-          />
+          <ChartWithTools {...chartProps} />
           {compareWith && (
             <div className="mt-1 text-[10.5px] text-amber-500">
               ┄┄ dashed amber line = {compareWith} normalized for comparison
@@ -230,77 +310,12 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2.5 flex items-center gap-1.5 font-display text-[12.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">
-            <ListOrdered size={13} /> Recent Orders — {selected}
-          </h3>
-          {symOrders.length === 0 ? (
-            <div className="py-3 text-center text-[12px] text-slate-400">
-              No orders for this symbol yet.
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {symOrders.map((o) => (
-                <div key={o.id} className="flex items-center justify-between text-[11.5px]">
-                  <span
-                    className={
-                      "font-medium " + (o.side === "buy" ? "text-emerald-500" : "text-rose-500")
-                    }
-                  >
-                    {o.side.toUpperCase()} {o.qty} · {o.mode}
-                  </span>
-                  <span className="font-mono text-slate-500">{fmt(o.price, sym.type)}</span>
-                  <span className="text-slate-400">{o.time}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {recentOrdersCard}
       </div>
 
       <div className="space-y-3">
-        {/* Sticky action bar (phones only), sitting just above the bottom tab bar */}
-        <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t border-slate-200 bg-white p-2 md:hidden">
-          <button type="button" onClick={() => setOrderOpen(true)} className="min-h-[44px] flex-1 rounded-md bg-emerald-500 text-[14px] font-semibold text-white">
-            Paper buy
-          </button>
-          <button type="button" onClick={() => setOrderOpen(true)} className="min-h-[44px] flex-1 rounded-md bg-rose-500 text-[14px] font-semibold text-white">
-            Paper sell
-          </button>
-        </div>
-        <div
-          className={orderOpen ? "fixed inset-0 z-50 flex items-end bg-slate-900/40 md:static md:z-auto md:block md:bg-transparent" : "hidden md:block"}
-          onClick={() => setOrderOpen(false)}
-        >
-          <div
-            role={orderOpen ? "dialog" : undefined}
-            aria-modal={orderOpen ? true : undefined}
-            aria-label="Paper trade ticket"
-            className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] md:max-h-none md:overflow-visible md:rounded-none md:bg-transparent md:pb-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 pt-3 md:hidden">
-              <span className="font-display text-[15px] font-semibold text-slate-900">Paper trade · {selected}</span>
-              <button type="button" onClick={() => setOrderOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded text-[20px] text-slate-600">
-                ×
-              </button>
-            </div>
-            <OrderPanel
-              symId={selected}
-              price={price}
-              type={sym.type}
-              cash={cash}
-              holdings={holdings}
-              onTrade={onTrade}
-            />
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 flex items-center gap-1.5 font-display text-[12.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">
-            <Layers size={13} /> Order Book
-          </h3>
-          <DepthLadder symbol={selected} type={sym.type} />
-        </div>
+        {orderPanel}
+        {orderBookCard}
       </div>
     </div>
   );

@@ -65,6 +65,8 @@ export interface ChartControlsProps {
   /** open the Studies menu on this study's parameters (asked for by the legend) */
   studyRequest: { uid: number; n: number } | null;
   onStudyMenuClosed: () => void;
+  /** no words beside the icons (the phone's single landscape row) */
+  compact?: boolean;
 }
 
 /** The row of chart controls above the chart. */
@@ -97,7 +99,7 @@ export default function ChartControls(p: ChartControlsProps) {
 const SCALE_LABEL: Record<ScaleMode, string> = { normal: "Linear", log: "Log", percent: "%" };
 
 /** The price scale (linear, log, per cent), the grid, the magnet crosshair, fullscreen, and landscape on a phone. */
-function ViewControls({ settings, update, fullscreen }: ChartControlsProps) {
+export function ViewControls({ settings, update, fullscreen }: ChartControlsProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -151,7 +153,7 @@ function ViewControls({ settings, update, fullscreen }: ChartControlsProps) {
 }
 
 /** The chart settings: the theme, the inverted price scale, and saving or resetting preferences (all kept in this browser only). */
-function SettingsMenu({ settings, update, prefs }: ChartControlsProps) {
+export function SettingsMenu({ settings, update, prefs }: ChartControlsProps) {
   const [open, setOpen] = useState(false);
   // which reset is waiting for a second tap to confirm it
   const [confirming, setConfirming] = useState<"saved" | "defaults" | null>(null);
@@ -259,7 +261,20 @@ function IntervalMenu({ update, feed }: ChartControlsProps) {
         <span className="font-mono">{cur}</span>
         <ChevronDown size={14} aria-hidden />
       </button>
-      {open && (
+      {open && <IntervalSheet update={update} feed={feed} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/** The list of every interval, in a sheet (the phone's interval bar opens it for the ones that have no button of their own). */
+export function IntervalSheet({ update, feed, onClose }: { update: SettingsUpdate; feed: FeedInfo; onClose: () => void }) {
+  const cur = feed.selection.interval;
+  const setOpen = (v: boolean) => {
+    if (!v) onClose();
+  };
+  return (
+    <>
+      {(
         <Sheet title="Interval" onClose={() => setOpen(false)} testId="interval-sheet">
           <div role="radiogroup" aria-label="Interval">
             {INTERVALS.map((i) => {
@@ -295,7 +310,7 @@ function IntervalMenu({ update, feed }: ChartControlsProps) {
   );
 }
 
-function RangeRow({ update, feed }: ChartControlsProps) {
+export function RangeRow({ update, feed }: ChartControlsProps) {
   return (
     <div role="group" aria-label="Range" className="flex flex-wrap gap-1" data-testid="range-row">
       {RANGES.map((r) => {
@@ -320,7 +335,7 @@ function RangeRow({ update, feed }: ChartControlsProps) {
   );
 }
 
-function FeedStatus({ feed }: ChartControlsProps) {
+export function FeedStatus({ feed }: ChartControlsProps) {
   if (feed.status === "loading")
     return (
       <p role="status" data-testid="chart-loading" className="flex min-h-[28px] items-center gap-2 text-[12px] text-slate-500">
@@ -339,7 +354,7 @@ function FeedStatus({ feed }: ChartControlsProps) {
   return null;
 }
 
-function TypeMenu({ symbol, settings, update, bars, sizingRequest }: ChartControlsProps) {
+export function TypeMenu({ symbol, settings, update, bars, sizingRequest, compact }: ChartControlsProps) {
   const [open, setOpen] = useState(false);
   const [lastRequest, setLastRequest] = useState(sizingRequest);
   const [sizing, setSizing] = useState(false);
@@ -396,8 +411,8 @@ function TypeMenu({ symbol, settings, update, bars, sizingRequest }: ChartContro
     <>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label={`Chart type: ${current.label}`} data-testid="chart-type-button" className={controlBtn()}>
         <Icon size={18} aria-hidden />
-        <span className="hidden sm:inline">{current.label}</span>
-        <ChevronDown size={14} aria-hidden />
+        <span className={compact ? "hidden" : "hidden sm:inline"}>{current.label}</span>
+        {!compact && <ChevronDown size={14} aria-hidden />}
       </button>
       {open && (
         <Sheet title={sizing ? "Renko brick size" : "Chart type"} onClose={close} testId="chart-type-sheet">

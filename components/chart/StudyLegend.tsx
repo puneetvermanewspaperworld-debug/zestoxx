@@ -13,7 +13,7 @@ import type { AssetType } from "@/lib/types";
  * One chip for each study on the chart, with its values on the bar under the crosshair (or the latest bar when there is no crosshair). A
  * study that cannot be shown says why instead of a value. Tapping the name opens its parameters; the cross removes it. 44 px targets.
  */
-export default function StudyLegend({ results, bars, chart, type, onEdit, onRemove }: { results: StudyResult[]; bars: readonly TimedCandle[]; chart: IChartApi | null; type: AssetType; onEdit: (uid: number) => void; onRemove: (uid: number) => void }) {
+export default function StudyLegend({ results, bars, chart, type, onEdit, onRemove, line = false }: { line?: boolean; results: StudyResult[]; bars: readonly TimedCandle[]; chart: IChartApi | null; type: AssetType; onEdit: (uid: number) => void; onRemove: (uid: number) => void }) {
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   useEffect(() => {
     if (!chart) return;
@@ -39,11 +39,11 @@ export default function StudyLegend({ results, bars, chart, type, onEdit, onRemo
   }
   const fmt = (key: string, v: Num | undefined) => (v === null || v === undefined ? "–" : key === "volume" ? fmtOi(v) : Math.abs(v) >= 1000 ? fmtPrice(v, type) : v.toFixed(2));
   return (
-    <div className="mb-1.5 flex flex-wrap gap-1.5" data-testid="study-legend" aria-label="Studies on the chart">
+    <div className={line ? "flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain" : "mb-1.5 flex flex-wrap gap-1.5"} data-testid="study-legend" data-line={line ? "1" : "0"} aria-label="Studies on the chart">
       {results.map((r) => {
         const title = studyTitle(r.def, r.instance.params);
         return (
-          <div key={r.instance.uid} data-testid={`legend-${r.instance.uid}`} data-study={r.def.id} className={"flex items-center rounded-lg border bg-white text-[11.5px] " + (r.availability.ok ? "border-slate-200" : "border-amber-200 bg-amber-50/50")}>
+          <div key={r.instance.uid} data-testid={`legend-${r.instance.uid}`} data-study={r.def.id} className={"flex shrink-0 items-center rounded-lg border bg-white/95 text-[11.5px] " + (r.availability.ok ? "border-slate-200" : "border-amber-200 bg-amber-50/50")}>
             <button type="button" onClick={() => onEdit(r.instance.uid)} data-testid={`legend-edit-${r.instance.uid}`} aria-label={`${title}: change parameters`} className="flex min-h-[44px] items-center gap-1.5 rounded-l-lg px-2.5 text-left hover:bg-slate-50">
               <span className="font-medium text-slate-700">{title}</span>
               {r.availability.ok ? (

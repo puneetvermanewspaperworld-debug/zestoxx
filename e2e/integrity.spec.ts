@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { hydrated } from "./hydrate";
 
 /**
  * Integrity fixes, in the browser: no invented news, real depth or a message on the Trade page, honest dashboard
@@ -78,6 +79,9 @@ test("Trade page Pulse pill: Loading with a quote but no real history, a score o
   await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unavailable" } }));
   await quotes(page, { RELIANCE: { price: 1500, prevClose: 1490 } });
   await page.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  // on a phone the Pulse pill is in the chart's More sheet
+  await hydrated(page.getByTestId("more-button"));
+  await page.getByTestId("more-button").click();
   await expect(page.getByTestId("pulse-pill")).toHaveText(/Pulse · Loading/);
 
   const withHistory = await page.context().newPage();
@@ -86,6 +90,8 @@ test("Trade page Pulse pill: Loading with a quote but no real history, a score o
   await quotes(withHistory, { RELIANCE: { price: 1500, prevClose: 1490 } });
   await withHistory.route("**/api/market-data?asset=equity-ohlc", (r) => r.fulfill({ json: { RELIANCE: dailyBars(150, 1400) } }));
   await withHistory.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await hydrated(withHistory.getByTestId("more-button"));
+  await withHistory.getByTestId("more-button").click();
   await expect(withHistory.getByTestId("pulse-pill")).toHaveText(/^\s*Pulse \d+ · (Bullish|Neutral|Bearish)$/);
 });
 

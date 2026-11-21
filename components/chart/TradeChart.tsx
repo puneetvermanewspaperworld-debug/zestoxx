@@ -75,6 +75,10 @@ export interface TradeChartProps {
   onStudies?: (results: StudyResult[], hasVolume: boolean) => void;
   /** drawn inside the chart's box, over the plot (the drawing layer) */
   layer?: React.ReactNode;
+  /** phone layout: no attribution line here (the phone layout draws its own under its status bar) and no floating reset button (the status bar has "auto") */
+  phone?: boolean;
+  /** called with the "jump to the latest candle and re-scale" action once the chart exists (and with null when it is gone) */
+  onReset?: (reset: (() => void) | null) => void;
 }
 
 const COLORS = { up: "#34D399", down: "#F87171", custom: "#22D3EE", compare: "#F0A84E" };
@@ -203,6 +207,12 @@ export default function TradeChart(p: TradeChartProps) {
     chart.priceScale("right").applyOptions({ autoScale: true });
     chart.timeScale().setVisibleLogicalRange(defaultView(barCount.current, keepRef.current));
   }, []);
+
+  const onReset = p.onReset;
+  useEffect(() => {
+    onReset?.(resetView);
+    return () => onReset?.(null);
+  }, [onReset, resetView]);
 
   // Create the chart once.
   useEffect(() => {
@@ -469,7 +479,7 @@ export default function TradeChart(p: TradeChartProps) {
       <div className="relative min-h-0 flex-1">
         <div ref={box} data-testid="trade-chart" className="h-full w-full" />
         {p.layer}
-        <button
+        {!p.phone && <button
           type="button"
           aria-label="Reset view"
           title="Reset view: jump to the latest candle and re-scale"
@@ -478,19 +488,19 @@ export default function TradeChart(p: TradeChartProps) {
           className="absolute bottom-9 right-[72px] z-20 flex h-11 min-w-[44px] items-center justify-center rounded-full bg-white/95 text-slate-600 shadow ring-1 ring-slate-200 hover:text-slate-900"
         >
           <RotateCcw size={16} aria-hidden />
-        </button>
+        </button>}
         {p.studies.some((x) => x.id === "volume") && !volumeAvailable(p.candles, p.type) && (
           <span data-testid="volume-note" className="pointer-events-none absolute bottom-1.5 left-2 rounded bg-white/80 px-1.5 py-0.5 text-[10.5px] text-slate-400">
             {REQUIRES_VOLUME}
           </span>
         )}
       </div>
-      <p data-testid="chart-attribution" className="mt-1 shrink-0 text-[10.5px] leading-snug text-slate-400">
+      {!p.phone && <p data-testid="chart-attribution" className="mt-1 shrink-0 text-[10.5px] leading-snug text-slate-400">
         <a href={TRADINGVIEW_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-500 underline-offset-2 hover:underline">
           {ATTRIBUTION_LINK_TEXT}
         </a>
         <span> · {ATTRIBUTION_NOTICE}</span>
-      </p>
+      </p>}
     </div>
   );
 }

@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* "phone": the screens the Trade chart page lays out as a phone: a narrow window, or a phone turned sideways. */
+@custom-variant phone {
+  @media (max-width: 767px) {
+    @slot;
+  }
+  @media (max-height: 500px) and (max-width: 950px) and (orientation: landscape) {
+    @slot;
+  }
+}
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;

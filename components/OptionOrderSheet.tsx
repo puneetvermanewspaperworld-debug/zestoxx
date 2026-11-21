@@ -292,17 +292,18 @@ export default function OptionOrderSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-center sm:p-4 phone:items-stretch phone:p-0 phone:sm:items-stretch phone:sm:p-0"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-sheet-title"
-        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-xl"
+        data-testid="option-sheet"
+        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-xl phone:h-dvh phone:max-h-none phone:max-w-none phone:rounded-none phone:sm:max-w-none phone:sm:rounded-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {/* header */}
           <div className="border-b border-slate-200 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -324,9 +325,9 @@ export default function OptionOrderSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="rounded p-1 text-slate-400 hover:text-slate-900"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-slate-400 hover:text-slate-900"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
             {quote && (
@@ -352,7 +353,7 @@ export default function OptionOrderSheet({
                 aria-selected={tab === t.id}
                 onClick={() => setTab(t.id)}
                 className={
-                  "border-b-2 px-3 py-2 text-[12px] font-medium " +
+                  "min-h-[44px] border-b-2 px-3 py-2 text-[12px] font-medium " +
                   (tab === t.id
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-slate-500 hover:text-slate-900")
@@ -498,7 +499,7 @@ export default function OptionOrderSheet({
               type="button"
               onClick={() => submit("sell")}
               disabled={!quote}
-              className="flex-1 rounded-md bg-rose-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="min-h-[44px] flex-1 rounded-md bg-rose-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {PAPER_SELL}
             </button>
@@ -506,7 +507,7 @@ export default function OptionOrderSheet({
               type="button"
               onClick={() => submit("buy")}
               disabled={!quote}
-              className="flex-1 rounded-md bg-emerald-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="min-h-[44px] flex-1 rounded-md bg-emerald-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {PAPER_BUY}
             </button>
