@@ -94,7 +94,13 @@ const addStudy = async (page: Page, id: string) => {
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("studies-sheet")).toHaveCount(0); // fail here, not 90 seconds later, if the menu did not close
 };
-const removeStudy = (page: Page, uid: number) => page.getByTestId(`legend-remove-${uid}`).click();
+// the legend is a small block in the plot's corner: a study is removed in the Studies sheet it opens
+const removeStudy = async (page: Page, uid: number) => {
+  await page.getByTestId("studies-button").click();
+  await page.getByTestId(`current-remove-${uid}`).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("studies-sheet")).toHaveCount(0);
+};
 
 test("a real chart is drawn, with the real history and the live price on the last bar", async ({ page }) => {
   const errors = await open(page);
@@ -164,14 +170,14 @@ test("on the app's own daily series (no live feed) weekly and monthly aggregate 
 
 test("compare and the custom formula are plotted", async ({ page }) => {
   await open(page);
-  // on a phone, Compare is a button in the toolbar and the formula is in the More sheet
+  // on a phone, Compare and the formula are in the More sheet
+  await page.getByTestId("more-button").click();
   await page.getByTestId("compare-button").click();
   await page.getByTestId("compare-TCS").click();
   await expect.poll(async () => (await summary(page)).compare).toBe(271);
   await page.getByTestId("compare-button").click();
   await expect(page.getByTestId("compare-sheet")).toContainText("dashed amber line");
-  await page.getByTestId("sheet-close").click();
-  await page.getByTestId("more-button").click();
+  await page.getByTestId("sheet-close").last().click();
   await page.getByTestId("formula-input").fill("sma(20)");
   await expect.poll(async () => (await summary(page)).custom).toBeGreaterThan(200);
   await page.getByTestId("formula-input").fill("close*");

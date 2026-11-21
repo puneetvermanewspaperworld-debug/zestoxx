@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { FAVOURITE_TOOL_IDS, SETTINGS_KEY, loadSettings, parseSettings, saveSettings, type ChartSettings, type StorageLike } from "./chart/settings";
+import { FAVOURITE_TOOL_IDS, SETTINGS_KEY, loadSettings, parseSettings, saveSettings, type ChartSettings, type StorageLike, defaultTheme } from "./chart/settings";
 import { pinFirst, toggleFavourite } from "./chart/favourites";
 import { THEMES, THEME_IDS, contrast, isThemeId } from "./chart/theme";
 import { PREFS_KEY, defaultTarget, forgetPrefs, loadPrefs, savePrefs, savedTarget } from "./chart/prefs";
@@ -16,6 +16,22 @@ describe("invert price scale, theme and favourites in the settings", () => {
   it("start as: not inverted, light, nothing starred", () => {
     const s = parseSettings(null);
     assert.deepEqual([s.invert, s.theme, s.favTools, s.favStudies], [false, "light", [], []]);
+  });
+  it("the theme defaults to light, except on the phone chart page, where it is dark; a stored choice wins either way", () => {
+    assert.equal(parseSettings(null).theme, "light");
+    assert.equal(parseSettings(null, false).theme, "light");
+    assert.equal(parseSettings(null, true).theme, "dark");
+    assert.equal(loadSettings(null).theme, "light");
+    assert.equal(loadSettings(null, true).theme, "dark");
+    assert.equal(parseSettings({ theme: "light" }, true).theme, "light");
+    assert.equal(parseSettings({ theme: "dark" }, false).theme, "dark");
+    assert.equal(parseSettings({ theme: "sepia" }, true).theme, "dark"); // not a theme: the phone's default
+    assert.equal(parseSettings({ type: "line" }, true).theme, "dark"); // old settings without a theme
+    assert.equal(parseSettings({ type: "line" }, false).theme, "light");
+    assert.equal(defaultTheme(true), "dark");
+    assert.equal(defaultTheme(false), "light");
+    assert.equal(defaultTarget(true).theme, "dark");
+    assert.equal(defaultTarget().theme, "light");
   });
   it("are remembered", () => {
     const st = memory();

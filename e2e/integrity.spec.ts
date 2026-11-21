@@ -16,6 +16,13 @@ test.use({
 const OPEN = new Date("2026-11-11T13:50:00+05:30"); // a Wednesday in market hours
 const SHUT = new Date("2026-11-14T12:00:00+05:30"); // a Saturday
 
+/** open the trade drawer (its Trade tab holds the order form and the order book) */
+async function openDrawer(page: Page) {
+  await hydrated(page.getByTestId("drawer-toggle"));
+  await page.getByTestId("drawer-toggle").click();
+  await expect(page.getByTestId("drawer")).toHaveAttribute("data-open", "1");
+}
+
 async function quotes(page: Page, equity: Record<string, { price: number; prevClose: number }>) {
   await page.route("**/api/market-data?asset=equity", (r) => r.fulfill({ json: equity }));
   await page.route("**/api/market-data?asset=crypto", (r) =>
@@ -108,6 +115,7 @@ test("Trade page order book: real depth for a listed stock", async ({ page }) =>
     })
   );
   await page.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await openDrawer(page); // on a phone the order book is in the Trade tab of the drawer
   const ladder = page.getByTestId("depth-ladder");
   await expect(ladder).toBeVisible();
   const t = await ladder.innerText();
@@ -120,6 +128,7 @@ test("Trade page order book: a message, not a ladder, for an index", async ({ pa
   await quotes(page, { NIFTY50: { price: 25250, prevClose: 25200 } });
   await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "unsupported" } }));
   await page.goto("/app/trade/NIFTY50", { waitUntil: "domcontentloaded" });
+  await openDrawer(page);
   await expect(page.getByTestId("depth-message")).toHaveText("Depth not available for this symbol");
   await expect(page.getByTestId("depth-ladder")).toHaveCount(0);
 });
@@ -129,6 +138,7 @@ test("Trade page order book: an empty book with the market shut says when it is 
   await quotes(page, { RELIANCE: { price: 1500, prevClose: 1490 } });
   await page.route("**/api/symbol-depth**", (r) => r.fulfill({ json: { source: "live", bids: [], asks: [] } }));
   await page.goto("/app/trade/RELIANCE", { waitUntil: "domcontentloaded" });
+  await openDrawer(page);
   await expect(page.getByTestId("depth-message")).toHaveText("Available when the market is open");
 });
 

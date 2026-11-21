@@ -13,7 +13,7 @@ import type { AssetType } from "@/lib/types";
  * while the finger moves); with a mouse it follows the pointer. The readout sits at the bottom left of the price pane, clear of the
  * tool rail, and takes no touches.
  */
-export default function CrosshairReadout({ chart, series, bars, type, intraday }: { chart: IChartApi; series: ISeriesApi<SeriesType>; bars: TimedCandle[]; type: AssetType; intraday: boolean }) {
+export default function CrosshairReadout({ chart, series, bars, type, intraday, left = "left-14" }: { /** where it sits from the left (a Tailwind class): the phone's rail is beside the plot, not over it */ left?: string; chart: IChartApi; series: ISeriesApi<SeriesType>; bars: TimedCandle[]; type: AssetType; intraday: boolean }) {
   const [shown, setShown] = useState<{ r: Readout; paneH: number } | null>(null);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function CrosshairReadout({ chart, series, bars, type, intraday }
   return (
     <div
       data-testid="crosshair-readout"
-      className="pointer-events-none absolute left-14 z-20 rounded-lg bg-white/95 px-2 py-1 font-mono text-[11px] leading-[15px] shadow ring-1 ring-slate-200"
+      className={"pointer-events-none absolute z-20 rounded-lg bg-white/95 px-2 py-1 font-mono text-[11px] leading-[15px] shadow ring-1 ring-slate-200 " + left}
       style={{ top: Math.max(0, paneH - 66) }}
     >
       <div className="text-slate-500" data-testid="ro-date">

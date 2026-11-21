@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { isPhoneNow } from "@/lib/useScreenMode";
 import { loadSettings, saveSettings, type ChartSettings, type StorageLike } from "@/lib/chart/settings";
 
 const browserStorage = (): StorageLike | null => {
@@ -13,7 +14,7 @@ const browserStorage = (): StorageLike | null => {
 
 /** What the chart remembers on this device (see lib/chart/settings.ts): read once, saved whenever it changes. */
 export function useChartSettings() {
-  const [settings, setSettings] = useState<ChartSettings>(() => loadSettings(browserStorage()));
+  const [settings, setSettings] = useState<ChartSettings>(() => loadSettings(browserStorage(), isPhoneNow()));
   useEffect(() => {
     saveSettings(browserStorage(), settings);
   }, [settings]);

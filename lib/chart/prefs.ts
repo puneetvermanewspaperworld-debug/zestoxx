@@ -52,5 +52,5 @@ export function forgetPrefs(storage: RemovableStorage | null): void {
 export const savedTarget = (saved: SavedPrefs | null): ChartSettings | null => (saved ? saved.settings : null);
 
 /** What "Reset to defaults" goes back to: the app's own defaults, whatever is or is not saved. */
-export const defaultTarget = (): ChartSettings => parseSettings(null);
+export const defaultTarget = (phone = false): ChartSettings => parseSettings(null, phone);
 
