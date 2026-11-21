@@ -115,3 +115,25 @@ describe("/api/candles for the added intervals", () => {
     for (const id of ["4m", "3h"]) assert.equal((await get(`symbol=RELIANCE&interval=${id}&range=1D`)).status, 400, id);
   });
 });
+
+describe("/api/candles is rate-limited per address", () => {
+  it("answers 429 with Retry-After once one address passes its minute's quota, never touching the feed for those, and leaves other addresses alone", async () => {
+    const { CANDLES_PER_MINUTE } = await import("../app/api/candles/route");
+    let feedCalls = 0;
+    globalThis.fetch = (async () => {
+      feedCalls++;
+      return feedOk([row("2026-11-13T09:15:00+05:30", 100)]);
+    }) as typeof fetch;
+    const as = (ip: string) => GET(new Request("http://localhost/api/candles?symbol=RELIANCE&interval=1D&range=1M", { headers: { "x-forwarded-for": ip } }));
+    for (let i = 0; i < CANDLES_PER_MINUTE; i++) assert.notEqual((await as("203.0.113.77")).status, 429, `request ${i + 1}`);
+    const callsBefore = feedCalls;
+    const over = await as("203.0.113.77");
+    assert.equal(over.status, 429);
+    assert.ok(Number(over.headers.get("retry-after")) >= 1);
+    assert.deepEqual(await over.json(), { source: "unavailable", reason: "too many requests" });
+    assert.equal(feedCalls, callsBefore, "a limited request does not reach the feed");
+    assert.notEqual((await as("203.0.113.78")).status, 429);
+    // this machine (no address) is never limited
+    for (let i = 0; i < CANDLES_PER_MINUTE + 5; i++) assert.notEqual((await GET(new Request("http://localhost/api/candles?symbol=RELIANCE&interval=1D&range=1M"))).status, 429);
+  });
+});

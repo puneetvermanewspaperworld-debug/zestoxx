@@ -229,3 +229,38 @@ describe("the instrument master: indices, F&O underlyings and a daily refresh", 
   });
   void mock;
 });
+
+import { makeLimiter } from "./rateLimit";
+import { GTT_CATCHUP_GAP_MS, GTT_CATCHUP_SYMBOLS, MAX_OPEN_GTT } from "./gtt";
+import fs from "node:fs";
+import path from "node:path";
+
+describe("the next-visit check is bounded", () => {
+  it("a fixed-window limiter lets max through a window, then refuses until it ends", () => {
+    const allow = makeLimiter(3, 1000);
+    assert.deepEqual([allow("a", 0).ok, allow("a", 1).ok, allow("a", 2).ok, allow("a", 3).ok], [true, true, true, false]);
+    assert.equal(allow("a", 3).retryAfterS, 1);
+    assert.equal(allow("b", 3).ok, true);
+    assert.equal(allow("a", 1000).ok, true); // a new window
+  });
+  it("the limits are small constants: 5 symbols a pass, 30 s between passes, 20 open GTT orders", () => {
+    assert.equal(GTT_CATCHUP_SYMBOLS, 5);
+    assert.equal(GTT_CATCHUP_GAP_MS, 30_000);
+    assert.equal(MAX_OPEN_GTT, 20);
+  });
+  const provider = fs.readFileSync(path.join(process.cwd(), "components", "ZestoxxProvider.tsx"), "utf8");
+  it("a pass groups orders by symbol: one candle request per symbol, not per order, and no more than the cap", () => {
+    assert.match(provider, /bySymbol\.set\(o\.symbol/);
+    assert.match(provider, /if \(n\+\+ >= GTT_CATCHUP_SYMBOLS\) break/);
+    assert.equal((provider.match(/fetch\(`\/api\/candles/g) ?? []).length, 1);
+  });
+  it("it runs once per page load, in one tab at a time, not again too soon, and re-checks an order is still open before filling it", () => {
+    assert.match(provider, /caughtUp\.current = true/);
+    assert.match(provider, /zestoxx-gtt-catchup/);
+    assert.match(provider, /ifAvailable: true/);
+    assert.match(provider, /GTT_CATCHUP_GAP_MS/);
+    assert.match(provider, /openOrdersRef\.current\.some\(\(x\) => x\.id === o\.id\) \|\| firedOrders\.current\.has\(o\.id\)/);
+    // the order is marked fired before it is filled
+    assert.ok(provider.indexOf("firedOrders.current.add(o.id);\n            if (short)") > 0);
+  });
+});

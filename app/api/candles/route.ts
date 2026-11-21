@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { MAX_REQUESTS, VALID_INTERVALS, intervalInfo, isIntervalId, isRangeId, istDate, parseUpstoxRows, planRequests, rangeInfo, rangeWindow, toChartSeconds, trimToSessions, type BarRow } from "@/lib/chart/intervals";
 import { UPSTOX_KEYS, fetchChartToday, fetchChartWindow, upstoxToken } from "@/lib/upstox";
+import { clientIp } from "@/lib/guest";
+import { makeLimiter } from "@/lib/rateLimit";
 
 /**
  * Candles for the Trade page chart, on demand: one symbol, one interval, one range.
@@ -14,9 +16,19 @@ import { UPSTOX_KEYS, fetchChartToday, fetchChartWindow, upstoxToken } from "@/l
  */
 export const dynamic = "force-dynamic";
 
+/** At most this many candle requests a minute from one address (the chart, and the next-visit check of GTT orders, share it): the feed behind it has its own limits. */
+export const CANDLES_PER_MINUTE = 90;
+const limiter = makeLimiter(CANDLES_PER_MINUTE, 60_000);
+const LOCAL = new Set(["unknown", "127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
 const unavailable = (reason: string, status = 200) => NextResponse.json({ source: "unavailable", reason }, { status });
 
 export async function GET(request: Request) {
+  const ip = clientIp(request);
+  if (!LOCAL.has(ip)) {
+    const r = limiter(ip);
+    if (!r.ok) return NextResponse.json({ source: "unavailable", reason: "too many requests" }, { status: 429, headers: { "Retry-After": String(r.retryAfterS) } });
+  }
   const q = new URL(request.url).searchParams;
   const symbol = q.get("symbol") ?? "";
   const interval = q.get("interval");

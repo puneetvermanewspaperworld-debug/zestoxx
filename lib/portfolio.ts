@@ -15,6 +15,7 @@ const MAX_ORDERS = 500;
 const MAX_ALERTS = 200;
 const MAX_WATCHLIST = 500;
 const MAX_NOTES = 100;
+const MAX_OPEN_GTT = 20;
 const MAX_NOTE_LENGTH = 500;
 
 export interface PortfolioBlob {
@@ -200,7 +201,7 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
   const orderLog = (Array.isArray(blob.orderLog) ? blob.orderLog : []).slice(0, MAX_ORDERS);
   const ISO = /^\d{4}-\d{2}-\d{2}$/;
   // Resting orders and SIPs are client input too — keep only well-formed ones.
-  const openOrders = (Array.isArray(blob.openOrders) ? blob.openOrders : []).filter(
+  const openOrdersValid = (Array.isArray(blob.openOrders) ? blob.openOrders : []).filter(
     (o) =>
       typeof o?.symbol === "string" &&
       (o.side === "buy" || o.side === "sell") &&
@@ -211,6 +212,9 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
       (o.orderType !== "GTD" || (typeof o.expiryDate === "string" && ISO.test(o.expiryDate))) &&
       (o.orderType !== "GTT" || ((o.trigger === "above" || o.trigger === "below") && typeof o.placedAtMs === "number" && Number.isFinite(o.placedAtMs)))
   );
+  // a paper account keeps at most MAX_OPEN_GTT trigger orders open
+  let gttKept = 0;
+  const openOrders = openOrdersValid.filter((o) => o.orderType !== "GTT" || ++gttKept <= MAX_OPEN_GTT);
   const sips = (Array.isArray(blob.sips) ? blob.sips : [])
     .filter(
       (p) =>

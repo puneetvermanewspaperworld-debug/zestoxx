@@ -30,7 +30,7 @@ import {
   type SipStatus,
 } from "@/lib/orders";
 import { MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, listNameError, type CustomList } from "@/lib/watchlists";
-import { catchUpWindow, firstCrossing, gttError, gttKind, triggerDirection } from "@/lib/gtt";
+import { GTT_CATCHUP_GAP_MS, GTT_CATCHUP_KEY, GTT_CATCHUP_SYMBOLS, MAX_OPEN_GTT, catchUpWindow, firstCrossing, gttError, gttKind, triggerDirection } from "@/lib/gtt";
 import type {
   Candle,
   Holdings,
@@ -715,6 +715,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     ({ symbol, side, qty, trigger }: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }): string | null => {
       const priceNow = liveRef.current[symbol];
       if (!SYMBOL_MAP[symbol] || !(priceNow > 0)) return "There is no price for this symbol yet. Try again in a moment.";
+      if (openOrdersRef.current.filter((o) => o.orderType === "GTT").length >= MAX_OPEN_GTT) return `You can have up to ${MAX_OPEN_GTT} open GTT orders. Cancel one first.`;
       const err = gttError({ side, qty, trigger, priceNow, heldQty: holdingsRef.current[symbol]?.qty ?? 0, cash: cashRef.current });
       if (err) return err;
       const direction = triggerDirection(trigger, priceNow);
@@ -738,11 +739,65 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
 
   // On the first pass after the saved orders and the first prices are in: a GTT placed on an earlier visit could not be watched while the app
   // was shut. Ask for the candles since it was placed and fill it at the first one that crossed the trigger, saying the fill is simulated.
+  //
+  // It can never fill an order twice, and it is gentle on the candle feed:
+  //   - one pass per page load (caughtUp), and only one tab at a time (a Web Lock; a second tab that is open at the same moment skips it);
+  //   - an order is only filled if it is still open at that moment and no live tick has fired it (firedOrders), so a tick and the catch-up cannot both fill it;
+  //   - the saved portfolio is replaced as a whole, so even two tabs that both filled it store one fill, never two;
+  //   - one request per symbol (all that symbol's orders share it), at most GTT_CATCHUP_SYMBOLS symbols a pass, a second apart, and no new pass
+  //     within GTT_CATCHUP_GAP_MS of the last one on this device (a reload loop cannot hammer the feed).
   const sessionStart = useRef(0);
   const caughtUp = useRef(false);
   useEffect(() => {
     sessionStart.current = Date.now();
     let tries = 0;
+    const pass = async () => {
+      const pending = openOrdersRef.current.filter((o) => o.orderType === "GTT" && o.placedAtMs && o.placedAtMs < sessionStart.current - 30_000 && o.trigger);
+      const bySymbol = new Map<string, OpenOrder[]>();
+      for (const o of pending) {
+        if (!SYMBOL_MAP[o.symbol] || SYMBOL_MAP[o.symbol].type === "crypto") continue;
+        bySymbol.set(o.symbol, [...(bySymbol.get(o.symbol) ?? []), o]);
+      }
+      let n = 0;
+      for (const [symbol, orders] of bySymbol) {
+        if (n++ >= GTT_CATCHUP_SYMBOLS) break; // the rest wait for the next visit
+        if (n > 1) await new Promise((r) => setTimeout(r, 1000));
+        const earliest = Math.min(...orders.map((o) => o.placedAtMs as number));
+        const win = catchUpWindow(earliest, Date.now());
+        if (!win) continue;
+        try {
+          const res = await fetch(`/api/candles?symbol=${encodeURIComponent(symbol)}&interval=${win.interval}&range=${win.range}`);
+          const data = res.ok ? await res.json() : null;
+          if (data?.source !== "live" || !Array.isArray(data.bars)) continue; // no candles now: they stay open, and the next visit tries again
+          const bars = (data.bars as number[][]).map((r) => ({ t: r[0], o: r[1], h: r[2], l: r[3] }));
+          for (const o of orders) {
+            // still open, and not fired by a live tick while the candles were on their way
+            if (!openOrdersRef.current.some((x) => x.id === o.id) || firedOrders.current.has(o.id)) continue;
+            const hit = firstCrossing(bars, { trigger: o.limitPrice, direction: o.trigger as "above" | "below", placedAtMs: o.placedAtMs as number });
+            if (!hit) continue;
+            const type = SYMBOL_MAP[o.symbol].type;
+            const date = new Date(hit.t + 5.5 * 3_600_000).toISOString().slice(0, 10);
+            const time = new Date(hit.t).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
+            const short = o.side === "buy" ? o.qty * hit.price > cashRef.current : (holdingsRef.current[o.symbol]?.qty ?? 0) < o.qty;
+            firedOrders.current.add(o.id);
+            if (short) {
+              closeOrders([o], "cancelled");
+              notify(`GTT ${o.side} ${o.qty} ${o.symbol} was cancelled: it crossed its trigger while you were away, but ${o.side === "buy" ? "there was not enough virtual cash" : "you no longer hold enough"}.`);
+              continue;
+            }
+            fillOrder(o.symbol, o.side, o.qty, hit.price, "GTT", { simulated: true, date, time });
+            setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
+            // the refs catch up on the next render; keep the cash and holdings they hold right for the next order in this pass
+            cashRef.current += o.side === "buy" ? -o.qty * hit.price : o.qty * hit.price;
+            const held = holdingsRef.current[o.symbol];
+            if (held) holdingsRef.current = { ...holdingsRef.current, [o.symbol]: { ...held, qty: held.qty + (o.side === "buy" ? o.qty : -o.qty) } };
+            notify(`${gttKind(o.side, o.trigger as "above" | "below")} filled (simulated): ${o.side} ${o.qty} ${o.symbol} @ ${fmt(hit.price, type)}. It crossed ${fmt(o.limitPrice, type)} in the ${time} candle on ${date}. Zestoxx cannot watch prices while it is closed, so this fill is worked out from the candles.`);
+          }
+        } catch {
+          // candles not reachable: the orders stay open for the next visit
+        }
+      }
+    };
     const timer = setInterval(async () => {
       if (caughtUp.current) return;
       if (!hydrated.current || !feedSettled.current) {
@@ -751,38 +806,22 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
       }
       caughtUp.current = true;
       clearInterval(timer);
-      const pending = openOrdersRef.current.filter((o) => o.orderType === "GTT" && o.placedAtMs && o.placedAtMs < sessionStart.current - 30_000 && o.trigger);
-      for (const o of pending) {
-        const win = catchUpWindow(o.placedAtMs as number, Date.now());
-        if (!win || !SYMBOL_MAP[o.symbol] || SYMBOL_MAP[o.symbol].type === "crypto") continue;
-        try {
-          const res = await fetch(`/api/candles?symbol=${encodeURIComponent(o.symbol)}&interval=${win.interval}&range=${win.range}`);
-          const data = res.ok ? await res.json() : null;
-          if (data?.source !== "live" || !Array.isArray(data.bars)) continue; // no candles now: it stays open, and the next visit tries again
-          const bars = (data.bars as number[][]).map((r) => ({ t: r[0], o: r[1], h: r[2], l: r[3] }));
-          const hit = firstCrossing(bars, { trigger: o.limitPrice, direction: o.trigger as "above" | "below", placedAtMs: o.placedAtMs as number });
-          if (!hit) continue;
-          const type = SYMBOL_MAP[o.symbol].type;
-          const when = new Date(hit.t);
-          const date = new Date(hit.t + 5.5 * 3_600_000).toISOString().slice(0, 10);
-          const time = when.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
-          const short = o.side === "buy" ? o.qty * hit.price > cashRef.current : (holdingsRef.current[o.symbol]?.qty ?? 0) < o.qty;
-          if (short) {
-            closeOrders([o], "cancelled");
-            notify(`GTT ${o.side} ${o.qty} ${o.symbol} was cancelled: it crossed its trigger while you were away, but ${o.side === "buy" ? "there was not enough virtual cash" : "you no longer hold enough"}.`);
-            continue;
-          }
-          firedOrders.current.add(o.id);
-          fillOrder(o.symbol, o.side, o.qty, hit.price, "GTT", { simulated: true, date, time });
-          setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
-          notify(`${gttKind(o.side, o.trigger as "above" | "below")} filled (simulated): ${o.side} ${o.qty} ${o.symbol} @ ${fmt(hit.price, type)}. It crossed ${fmt(o.limitPrice, type)} in the ${time} candle on ${date}. Zestoxx cannot watch prices while it is closed, so this fill is worked out from the candles.`);
-        } catch {
-          // candles not reachable: the order stays open for the next visit
-        }
+      if (!openOrdersRef.current.some((o) => o.orderType === "GTT")) return;
+      // not again so soon after the last pass on this device (a reload loop)
+      try {
+        const last = Number(window.localStorage.getItem(GTT_CATCHUP_KEY) ?? 0);
+        if (Date.now() - last < GTT_CATCHUP_GAP_MS) return;
+        window.localStorage.setItem(GTT_CATCHUP_KEY, String(Date.now()));
+      } catch {
+        // storage blocked: no memory of the last pass, so the lock and the once-per-load rule are what limit it
       }
+      const locks = (navigator as Navigator & { locks?: { request: (name: string, opts: { ifAvailable: boolean }, cb: (lock: unknown) => Promise<void>) => Promise<void> } }).locks;
+      if (locks) await locks.request("zestoxx-gtt-catchup", { ifAvailable: true }, async (lock) => (lock ? pass() : undefined));
+      else await pass();
     }, 2000);
     return () => clearInterval(timer);
   }, [closeOrders, fillOrder, notify]);
+
 
   const moveInList = useCallback((list: string, symbol: string, direction: -1 | 1) => {
     const move = (arr: string[]) => {

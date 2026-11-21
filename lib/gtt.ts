@@ -60,3 +60,11 @@ export function catchUpWindow(sinceMs: number, nowMs: number): { range: RangeId;
   if (days <= 180) return { range: "6M", interval: "30m", barMs: 1_800_000 };
   return null;
 }
+
+/** The most GTT orders a paper account may have open at once (also enforced when a portfolio is saved). */
+export const MAX_OPEN_GTT = 20;
+/** The next-visit check asks for the candles of at most this many symbols in one pass, one request each. */
+export const GTT_CATCHUP_SYMBOLS = 5;
+/** No new pass sooner than this after the last one on the same device. */
+export const GTT_CATCHUP_GAP_MS = 30_000;
+export const GTT_CATCHUP_KEY = "zestoxx:gtt-catchup:v1";
