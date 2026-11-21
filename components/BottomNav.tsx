@@ -1,126 +1,54 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
-import { NAV } from "./nav";
+import { Compass, ListOrdered, Star, UserRound, Wallet, type LucideIcon } from "lucide-react";
 import { useZestoxx } from "./ZestoxxProvider";
 
-/** The four sections that get their own tab; everything else lives under "More". */
-const MAIN = ["dashboard", "watchlist", "trade", "pulse"];
+interface Tab {
+  id: string;
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+/** Phones: Watchlist (the home screen), Orders, Portfolio, Explore, Account. There is no separate Trade section: a symbol's chart opens from its row. */
+export const PHONE_TABS: Tab[] = [
+  { id: "watchlist", label: "Watchlist", href: "/app/watchlist", icon: Star },
+  { id: "orders", label: "Orders", href: "/app/orders", icon: ListOrdered },
+  { id: "portfolio", label: "Portfolio", href: "/app/portfolio", icon: Wallet },
+  { id: "explore", label: "Explore", href: "/app/explore", icon: Compass },
+  { id: "account", label: "Account", href: "/app/account", icon: UserRound },
+];
+
+/** Which tab a page belongs to: the three that are tabs of their own, Account, and everything else (the analysis pages, the dashboard) under Explore. */
+export const tabFor = (segment: string): string => (["watchlist", "orders", "portfolio", "account"].includes(segment) ? segment : "explore");
 
 /**
- * Phone navigation (below 768px): a bottom tab bar — Dashboard, Watchlist, Trade, Pulse, More — with every
- * other page in a sheet under "More". Respects the bottom safe area (home indicator). Desktop keeps the sidebar.
+ * Phone navigation (a window under 768 px wide, or a phone turned sideways): a bottom tab bar with five tabs. Respects the bottom safe area
+ * (home indicator). Desktop (1000 px and up, and tablets) keeps the sidebar.
  */
 export default function BottomNav() {
   const pathname = usePathname();
-  const { selected, alerts } = useZestoxx();
-  const segment = pathname.split("/")[2] || "dashboard";
-  const [open, setOpen] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  const main = NAV.filter((n) => MAIN.includes(n.id));
-  const more = NAV.filter((n) => !MAIN.includes(n.id));
-  const moreActive = more.some((n) => n.id === segment);
-
-  // Close the sheet when the page changes, on Escape, and focus its close button when it opens.
-  useEffect(() => {
-    const t = setTimeout(() => setOpen(false), 0);
-    return () => clearTimeout(t);
-  }, [pathname]);
-  useEffect(() => {
-    if (!open) return;
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  const tab = "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[12px] font-medium ";
-
+  const { alerts, openOrders } = useZestoxx();
+  const active = tabFor(pathname.split("/")[2] || "dashboard");
+  const badge: Record<string, number> = { orders: openOrders.length + alerts.length };
   return (
-    <>
-      <nav
-        aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
-      >
-        {main.map((n) => {
-          const Icon = n.icon;
-          const active = segment === n.id;
-          return (
-            <Link
-              key={n.id}
-              href={n.id === "trade" ? `/app/trade/${selected}` : n.href}
-              aria-current={active ? "page" : undefined}
-              className={tab + (active ? "text-blue-600" : "text-slate-600")}
-            >
-              <Icon size={20} />
-              {n.label}
-            </Link>
-          );
-        })}
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          onClick={() => setOpen(true)}
-          className={tab + (moreActive || open ? "text-blue-600" : "text-slate-600")}
-        >
-          <span className="relative">
-            <Menu size={20} />
-            {alerts.length > 0 && <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-blue-600" aria-label={`${alerts.length} active alerts`} />}
-          </span>
-          More
-        </button>
-      </nav>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-900/40 md:hidden" onClick={() => setOpen(false)}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="All pages"
-            className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
-              <h2 className="font-display text-[15px] font-semibold text-slate-900">More</h2>
-              <button ref={closeRef} type="button" onClick={() => setOpen(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded text-slate-600">
-                <X size={18} />
-              </button>
-            </div>
-            <ul className="grid grid-cols-2 gap-2 p-3">
-              {more.map((n) => {
-                const Icon = n.icon;
-                const active = segment === n.id;
-                return (
-                  <li key={n.id}>
-                    <Link
-                      href={n.href}
-                      aria-current={active ? "page" : undefined}
-                      className={
-                        "flex min-h-[52px] items-center gap-3 rounded-lg border px-3 text-[14px] font-medium " +
-                        (active ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-800")
-                      }
-                    >
-                      <Icon size={18} className="shrink-0" />
-                      <span className="min-w-0 truncate">{n.label}</span>
-                      {n.id === "alerts" && alerts.length > 0 && (
-                        <span className="ml-auto rounded-full bg-blue-600 px-1.5 text-[12px] font-bold text-white">{alerts.length}</span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-            <Link href="/" className="mx-3 mb-1 flex min-h-[48px] items-center justify-center rounded-lg text-[14px] font-medium text-slate-600">
-              ← Back to homepage
-            </Link>
-          </div>
-        </div>
-      )}
-    </>
+    <nav aria-label="Main" data-testid="bottom-nav" className="fixed inset-x-0 bottom-0 z-40 hidden border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] phone:flex">
+      {PHONE_TABS.map((t) => {
+        const Icon = t.icon;
+        const on = active === t.id;
+        return (
+          <Link key={t.id} href={t.href} data-testid={`nav-${t.id}`} aria-current={on ? "page" : undefined} className={"flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[12px] font-medium short:min-h-[48px] short:flex-row short:gap-1.5 " + (on ? "text-blue-600" : "text-slate-600")}>
+            <span className="relative">
+              <Icon size={20} aria-hidden />
+              {(badge[t.id] ?? 0) > 0 && <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-blue-600" aria-label={`${badge[t.id]} open`} />}
+            </span>
+            {t.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

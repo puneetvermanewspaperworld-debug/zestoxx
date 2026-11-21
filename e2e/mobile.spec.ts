@@ -36,18 +36,19 @@ for (const r of ROUTES) {
   });
 }
 
-test("phones get a bottom tab bar with Dashboard, Watchlist, Trade, Pulse and More", async ({ page }) => {
+test("phones get a bottom tab bar with Watchlist, Orders, Portfolio, Explore and Account, and every other page is reachable from Explore", async ({ page }) => {
   await open(page, "/app/dashboard");
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav).toBeVisible();
-  for (const t of ["Dashboard", "Watchlist", "Trade", "Pulse", "More"]) await expect(nav.getByText(t, { exact: true })).toBeVisible();
+  for (const t of ["Watchlist", "Orders", "Portfolio", "Explore", "Account"]) await expect(nav.getByText(t, { exact: true })).toBeVisible();
+  for (const t of ["Trade", "More"]) await expect(nav.getByText(t, { exact: true })).toHaveCount(0);
   // a tap before the page has hydrated is lost, so wait for hydration and tap once
-  const more = nav.getByRole("button", { name: "More" });
-  await hydrated(more);
-  await more.click();
-  const sheet = page.getByRole("dialog", { name: "All pages" });
-  for (const t of ["Markets", "Movers", "F&O Analyzer", "Options", "Buildup", "FII/DII", "News", "Alerts", "Orders", "Portfolio"]) {
-    await expect(sheet.getByRole("link", { name: t })).toBeVisible();
+  const explore = nav.getByRole("link", { name: "Explore" });
+  await hydrated(explore);
+  await explore.click();
+  await expect(page).toHaveURL(/\/app\/explore$/);
+  for (const t of ["Pulse", "F&O Analyzer", "MTF", "FII/DII", "Movers", "Options", "Buildup", "Dashboard", "Markets", "News"]) {
+    await expect(page.getByRole("link", { name: t }).first()).toBeVisible();
   }
 });
 

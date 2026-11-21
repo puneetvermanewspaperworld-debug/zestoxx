@@ -19,7 +19,7 @@ export default function PromoCard({
   onClick?: () => void;
 }) {
   const button =
-    "shrink-0 rounded-md bg-blue-600 px-3.5 py-2 text-[12.5px] font-semibold text-white hover:opacity-90";
+    "flex shrink-0 items-center justify-center rounded-md bg-blue-600 px-3.5 py-2 text-[12.5px] font-semibold text-white hover:opacity-90 phone:min-h-[44px]";
   return (
     <div className="mx-auto mt-4 flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4">
       <div className="min-w-[200px] flex-1">

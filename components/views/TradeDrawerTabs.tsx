@@ -5,6 +5,8 @@ import { displayName } from "@/lib/contract";
 import { fmt, fmtINR, fmtIsoDate } from "@/lib/helpers";
 import { typeOf } from "@/lib/symbols";
 import type { Holdings, OpenOrder } from "@/lib/types";
+import { usePrivacy } from "@/components/usePrivacy";
+import { maskPnl } from "@/lib/privacy";
 
 /** The ids of the holdings that belong to a symbol's chart: the symbol itself, and the option contracts on it ("NIFTY 17 NOV 25500 CE" for NIFTY50). */
 export function positionIdsFor(symbol: string, holdings: Holdings): string[] {
@@ -47,6 +49,7 @@ export function OpenOrdersTab({ symbol, orders, onCancel, recent }: { symbol: st
 /** The positions held in this symbol (and its option contracts), each at its last price. */
 export function PositionsTab({ symbol, holdings, live }: { symbol: string; holdings: Holdings; live: Record<string, number> }) {
   const ids = positionIdsFor(symbol, holdings);
+  const { hidden } = usePrivacy();
   if (ids.length === 0)
     return (
       <p data-testid="no-positions" className="rounded-lg bg-slate-50 px-3 py-3 text-[12px] text-slate-500">
@@ -73,9 +76,7 @@ export function PositionsTab({ symbol, holdings, live }: { symbol: string; holdi
                 Avg {fmt(h.avgPrice, typeOf(id))} · Last {fmt(mark, typeOf(id))}
               </span>
               <span data-testid="position-pnl" className={pnl >= 0 ? "text-emerald-600" : "text-rose-500"}>
-                {pnl >= 0 ? "+" : "−"}
-                {fmtINR(Math.abs(pnl))} ({pct >= 0 ? "+" : "−"}
-                {Math.abs(pct).toFixed(2)}%)
+                {maskPnl(`${pnl >= 0 ? "+" : "−"}${fmtINR(Math.abs(pnl))} (${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%)`, hidden)}
               </span>
             </div>
           </li>

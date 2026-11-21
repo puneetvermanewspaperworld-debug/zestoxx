@@ -1,5 +1,7 @@
 "use client";
 
+import PhoneWatchlist from "@/components/phone/PhoneWatchlist";
+import { useScreenMode } from "@/lib/useScreenMode";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import WatchlistOptionsToggle from "@/components/WatchlistOptionsToggle";
@@ -427,7 +429,7 @@ function CustomListPanel({ name, onDeleted }: { name: string; onDeleted: () => v
 
 /* --------------------------------------------------------------- the view ---- */
 
-export default function WatchlistView() {
+function DesktopWatchlistView() {
   const { watchlist, selected, setSelected, addToWatchlist, removeFromWatchlist, live, lists, createList, setActiveView } =
     useZestoxx();
   const [tab, setTab] = useState<Tab>({ kind: "explore" });
@@ -580,4 +582,10 @@ export default function WatchlistView() {
       </div>
     </div>
   );
+}
+
+/** A phone gets the phone layout (components/phone); a tablet or desktop keeps this page. */
+export default function WatchlistView() {
+  const mode = useScreenMode();
+  return mode === "wide" ? <DesktopWatchlistView /> : <PhoneWatchlist />;
 }

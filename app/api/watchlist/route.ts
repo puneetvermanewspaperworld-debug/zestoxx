@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { upstoxToken } from "@/lib/upstox";
 import { memoized } from "@/lib/upstox-movers";
 import { popularRows, quoteRows } from "@/lib/upstox-watchlist";
-import { MAX_SYMBOLS_PER_LIST, POPULAR_BY_ID, isNseSymbol, type WatchlistResponse } from "@/lib/watchlists";
+import { MAX_SYMBOLS_PER_LIST, POPULAR_BY_ID, isWatchSymbol, type WatchlistResponse } from "@/lib/watchlists";
 
 /**
  * Priced rows for a watchlist.
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     compute = () => popularRows(list);
   } else if (symbolsParam !== null) {
     const symbols = [...new Set(symbolsParam.split(",").filter(Boolean))];
-    if (symbols.length > MAX_SYMBOLS_PER_LIST || !symbols.every(isNseSymbol)) {
+    if (symbols.length > MAX_SYMBOLS_PER_LIST || !symbols.every(isWatchSymbol)) {
       return NextResponse.json({ error: "bad symbols" }, { status: 400 });
     }
     if (symbols.length === 0) return NextResponse.json({ source: "live", asOf: new Date().toISOString(), rows: [] });

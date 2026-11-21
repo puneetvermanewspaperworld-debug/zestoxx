@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { useZestoxx } from "./ZestoxxProvider";
+import { usePrivacy } from "./usePrivacy";
+import { maskValue } from "@/lib/privacy";
 import { fmtINR } from "@/lib/helpers";
 import { CALENDAR } from "@/lib/market-calendar";
 import { fmtIsoDate } from "@/lib/helpers";
@@ -11,6 +13,7 @@ import { useMarketStatus } from "@/lib/useMarketStatus";
 
 export default function TopBar() {
   const { cash } = useZestoxx();
+  const { hidden } = usePrivacy();
   const market = useMarketStatus();
 
   return (
@@ -34,7 +37,7 @@ export default function TopBar() {
       </div>
       <div className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px]">
         <Wallet size={13} className="text-blue-600" />
-        <span className="font-mono text-slate-900">{fmtINR(cash)}</span>
+        <span className="font-mono text-slate-900">{maskValue(fmtINR(cash), hidden)}</span>
       </div>
     </div>
   );

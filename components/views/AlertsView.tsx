@@ -40,7 +40,7 @@ export default function AlertsView() {
             <select
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
-              className="mt-0.5 block rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[12.5px] text-slate-900 outline-none"
+              className="mt-0.5 block rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[12.5px] text-slate-900 outline-none phone:min-h-[44px]"
             >
               {SYMBOLS.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -54,7 +54,7 @@ export default function AlertsView() {
             <select
               value={condition}
               onChange={(e) => setCondition(e.target.value as "above" | "below")}
-              className="mt-0.5 block rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[12.5px] text-slate-900 outline-none"
+              className="mt-0.5 block rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[12.5px] text-slate-900 outline-none phone:min-h-[44px]"
             >
               <option value="above">Price goes above</option>
               <option value="below">Price goes below</option>
@@ -67,12 +67,12 @@ export default function AlertsView() {
               onChange={(e) => setTarget(e.target.value)}
               type="number"
               placeholder={live[symbol]?.toFixed(2)}
-              className="mt-0.5 block w-32 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[12.5px] text-slate-900 outline-none focus:border-blue-400"
+              className="mt-0.5 block w-32 phone:min-h-[44px] rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[12.5px] text-slate-900 outline-none focus:border-blue-400"
             />
           </div>
           <button
             onClick={addAlert}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-[12.5px] font-semibold text-slate-50 hover:opacity-90"
+            className="phone:min-h-[44px] phone:min-w-[44px] rounded-md bg-blue-600 px-3 py-1.5 text-[12.5px] font-semibold text-slate-50 hover:opacity-90"
           >
             Create Alert
           </button>
@@ -97,7 +97,7 @@ export default function AlertsView() {
                 </span>
                 <button
                   onClick={() => removeAlert(a.id)}
-                  className="text-rose-500 hover:underline"
+                  className="text-rose-500 hover:underline phone:min-h-[44px] phone:min-w-[44px]"
                 >
                   Remove
                 </button>

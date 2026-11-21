@@ -479,6 +479,27 @@ export async function fetchSymbolDepth(token: string, key: string): Promise<Symb
   return depthFromQuote(Object.values(json.data ?? {})[0]);
 }
 
+export interface SymbolDetail {
+  ltp: number;
+  /** the day's open, high and low so far (0 until the first trade) */
+  ohlc: { open: number; high: number; low: number };
+  /** five levels each side, listed equities only; null for an index */
+  depth: SymbolDepth | null;
+}
+
+/** The full quote for any listed instrument: last price, the day's open/high/low, and five-level depth where there is an order book. */
+export async function fetchSymbolDetail(token: string, key: string): Promise<SymbolDetail> {
+  const res = await fetch(`${UPSTOX_BASE}/v2/market-quote/quotes?instrument_key=${encodeURIComponent(key)}`, { headers: authHeaders(token), cache: "no-store" });
+  if (!res.ok) throw new Error(`upstox quote ${res.status}`);
+  const q = Object.values(((await res.json()) as { data?: Record<string, ApiFullQuote> }).data ?? {})[0];
+  if (!q) throw new Error("upstox quote: empty");
+  return {
+    ltp: num(q.last_price),
+    ohlc: { open: num(q.ohlc?.open), high: num(q.ohlc?.high), low: num(q.ohlc?.low) },
+    depth: /^(NSE_EQ|BSE_EQ)|/.test(key) ? depthFromQuote(q) : null,
+  };
+}
+
 /** Today's 5-minute candles for one contract, oldest first. Empty before the first trade. */
 export async function fetchContractCandles(token: string, key: string): Promise<Candle5[]> {
   const res = await fetch(

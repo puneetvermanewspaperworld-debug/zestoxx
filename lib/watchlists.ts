@@ -188,7 +188,7 @@ export interface CustomList {
 /** Name of the always-present primary list (the sidebar one). */
 export const PRIMARY_LIST = "My Watchlist";
 export const MAX_LISTS = 10;
-export const MAX_SYMBOLS_PER_LIST = 50;
+export const MAX_SYMBOLS_PER_LIST = 250;
 export const MAX_LIST_NAME = 30;
 
 /** Returns an error message, or null if `name` is usable for a new list. */
@@ -206,3 +206,21 @@ export function listNameError(name: string, existing: string[]): string | null {
 
 /** NSE trading symbols look like RELIANCE, M&M, BAJAJ-AUTO — validate before they hit the API. */
 export const isNseSymbol = (s: string): boolean => /^[A-Z0-9&-]{1,20}$/.test(s);
+
+/**
+ * An NSE index in a watchlist. Nifty 50 and Bank Nifty keep the ids the app already charts (NIFTY50, BANKNIFTY); every other index is
+ * "IDX " and its trading symbol from the instrument master, e.g. "IDX NIFTY PVT BANK".
+ */
+export const isIndexSymbol = (s: string): boolean => /^IDX [A-Z0-9& -]{1,30}$/.test(s);
+/** Anything a watchlist may hold: an NSE trading symbol or an index. */
+export const isWatchSymbol = (s: string): boolean => isNseSymbol(s) || isIndexSymbol(s);
+
+/** What a search result is, for the tag beside it. */
+export type InstrumentKind = "equity" | "etf" | "index";
+export interface SearchResult {
+  symbol: string;
+  name: string;
+  kind: InstrumentKind;
+  /** has futures and options (a stock, or an index with derivatives) */
+  fno: boolean;
+}

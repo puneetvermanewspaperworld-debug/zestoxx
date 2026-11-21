@@ -8,19 +8,20 @@
  *   SIP     an installment of a Stock SIP plan, executed as a market buy when due
  */
 
-export type OrderType = "MARKET" | "LIMIT" | "GTD" | "SIP";
+export type OrderType = "MARKET" | "LIMIT" | "GTD" | "GTT" | "SIP";
 export type OrderStatus = "filled" | "cancelled" | "expired";
 
 export const ORDER_TYPE_LABEL: Record<OrderType, string> = {
   MARKET: "Market",
   LIMIT: "Limit (day)",
   GTD: "GTD",
+  GTT: "GTT",
   SIP: "SIP",
 };
 
 /** A resting order: only limit-style orders can rest. */
 export interface RestingOrder {
-  orderType: "LIMIT" | "GTD";
+  orderType: "LIMIT" | "GTD" | "GTT";
   /** YYYY-MM-DD in IST — what makes a LIMIT a day order */
   placedDate: string;
   /** YYYY-MM-DD, GTD only */
@@ -29,6 +30,8 @@ export interface RestingOrder {
 
 /** Whether a resting order is dead as of `today` (IST). GTD stays valid through its expiry date. */
 export function isRestingOrderExpired(o: RestingOrder, today: string): boolean {
+  // a GTT waits for its trigger, but not for ever: a year
+  if (o.orderType === "GTT") return addDaysIso(o.placedDate, GTT_MAX_DAYS) < today;
   if (o.orderType === "GTD") return !!o.expiryDate && o.expiryDate < today;
   return o.placedDate < today;
 }
@@ -44,6 +47,8 @@ export const addDaysIso = (iso: string, n: number): string => fmtIso(parse(iso) 
 
 /** GTD orders may be placed out to a year ahead (the exchange limit is 365 days). */
 export const GTD_MAX_DAYS = 365;
+/** A GTT order is cancelled after this many days if its trigger was never reached. */
+export const GTT_MAX_DAYS = 365;
 
 /** Valid GTD expiry range for an order placed `today`. */
 export function gtdBounds(today: string): { min: string; max: string } {

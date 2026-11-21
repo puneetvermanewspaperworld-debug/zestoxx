@@ -48,9 +48,13 @@ export interface OrderLogEntry {
   orderType?: OrderType;
   status?: OrderStatus;
   expiryDate?: string;
+  /** YYYY-MM-DD (IST) it was filled (absent on entries saved before dates were kept: they count as settled) */
+  date?: string;
+  /** a GTT or stop-loss filled from candles on a later visit, at the first candle that crossed the trigger (not watched live) */
+  simulated?: boolean;
 }
 
-/** A resting limit-style order: a day LIMIT, or a GTD good until `expiryDate`. */
+/** A resting order: a day LIMIT, a GTD good until `expiryDate`, or a GTT / stop-loss waiting for its trigger (lib/gtt.ts). */
 export interface OpenOrder {
   id: number;
   symbol: string;
@@ -58,11 +62,15 @@ export interface OpenOrder {
   qty: number;
   limitPrice: number;
   time: string;
-  orderType: "LIMIT" | "GTD";
+  orderType: "LIMIT" | "GTD" | "GTT";
   /** YYYY-MM-DD (IST) it was placed */
   placedDate: string;
   /** YYYY-MM-DD — GTD only */
   expiryDate?: string;
+  /** GTT only: `limitPrice` is the trigger, and the price has to reach it from this side */
+  trigger?: "above" | "below";
+  /** GTT only: when it was placed (epoch ms), so the next visit knows which candles to look at */
+  placedAtMs?: number;
 }
 
 export interface PriceAlert {

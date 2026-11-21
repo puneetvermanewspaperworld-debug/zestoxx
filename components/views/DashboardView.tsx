@@ -7,10 +7,13 @@ import { FiiDiiSummaryCard, FuturesGainersCard, MarketMoversCard } from "@/compo
 import { SYMBOL_MAP } from "@/lib/symbols";
 import { fmt, fmtINR, fmtSigned } from "@/lib/helpers";
 import { NEWS_NOT_CONNECTED } from "@/lib/news";
+import { usePrivacy } from "@/components/usePrivacy";
+import { maskPnl, maskValue } from "@/lib/privacy";
 
 export default function DashboardView() {
   const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor } =
     useZestoxx();
+  const { hidden } = usePrivacy();
 
   const holdingsValue = Object.entries(holdings).reduce(
     (s, [id, h]) => s + h.qty * (live[id] ?? h.avgPrice),
@@ -29,12 +32,12 @@ export default function DashboardView() {
           <div>
             <div className="text-[10.5px] uppercase tracking-wide text-slate-500">Total Value</div>
             <div className="mt-1 font-mono text-[20px] font-semibold text-slate-900">
-              {fmtINR(cash + holdingsValue)}
+              {maskValue(fmtINR(cash + holdingsValue), hidden)}
             </div>
           </div>
           <div>
             <div className="text-[10.5px] uppercase tracking-wide text-slate-500">Virtual Cash</div>
-            <div className="mt-1 font-mono text-[20px] font-semibold text-slate-900">{fmtINR(cash)}</div>
+            <div className="mt-1 font-mono text-[20px] font-semibold text-slate-900">{maskValue(fmtINR(cash), hidden)}</div>
           </div>
           <div>
             <div className="text-[10.5px] uppercase tracking-wide text-slate-500">Unrealised P&amp;L</div>
@@ -44,8 +47,7 @@ export default function DashboardView() {
                 (totalPnl >= 0 ? "text-emerald-500" : "text-rose-500")
               }
             >
-              {totalPnl >= 0 ? "+" : ""}
-              {fmtINR(totalPnl)}
+              {maskPnl((totalPnl >= 0 ? "+" : "") + fmtINR(totalPnl), hidden)}
             </div>
           </div>
           <div>

@@ -10,6 +10,9 @@
   }
 }
 
+/* "short": a phone turned sideways (short and wide). */
+@custom-variant short (@media (max-height: 500px) and (max-width: 950px) and (orientation: landscape));
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;

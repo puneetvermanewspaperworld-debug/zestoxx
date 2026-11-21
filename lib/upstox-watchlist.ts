@@ -1,7 +1,7 @@
 import { fetchQuotesBatch, upstoxToken, type RawQuote } from "./upstox";
 import { equityMovers, getUniverse, memoized, type StockInfo, type Universe } from "./upstox-movers";
 import { titleCase } from "./movers";
-import type { PopularList, WatchRow } from "./watchlists";
+import type { PopularList, SearchResult, WatchRow } from "./watchlists";
 
 /**
  * Prices for watchlists. Server-only. Everything resolves NSE trading symbols through the
@@ -32,7 +32,7 @@ const row = (s: StockInfo, q: RawQuote): WatchRow => ({
 /** Rows for the given symbols, in the order asked. Unknown or untraded symbols drop out. */
 export async function quoteRows(token: string, symbols: string[]): Promise<WatchRow[]> {
   const u = await getUniverse();
-  const infos = symbols.map((sym) => u.bySymbol.get(sym)).filter((s): s is StockInfo => !!s);
+  const infos = symbols.map((sym) => u.bySymbol.get(sym) ?? u.indices.get(sym)).filter((s): s is StockInfo => !!s);
   const quotes = await fetchQuotesBatch(token, infos.map((s) => s.key));
   const out: WatchRow[] = [];
   for (const s of infos) {
@@ -42,27 +42,28 @@ export async function quoteRows(token: string, symbols: string[]): Promise<Watch
   return out;
 }
 
-/** Symbol/name search over every NSE equity and ETF. Needs no Upstox token. */
-export async function searchSymbols(query: string, limit = 8): Promise<{ symbol: string; name: string }[]> {
+/**
+ * Symbol/name search over every NSE equity, ETF and index, from the public instrument master (cached, refreshed daily; no Upstox token
+ * needed). Each result says what it is and whether it has futures and options.
+ */
+export async function searchSymbols(query: string, limit = 10): Promise<SearchResult[]> {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const u = await getUniverse();
-  const fno = new Set(u.fnoStocks.map((s) => s.symbol));
-  const scored: { s: StockInfo; rank: number }[] = [];
-  for (const s of u.allEq) {
-    const sym = s.symbol.toLowerCase();
-    const nm = displayName(s).toLowerCase();
+  const scored: { r: SearchResult; rank: number; fno: boolean }[] = [];
+  const consider = (symbol: string, name: string, kind: SearchResult["kind"], hay: string) => {
+    const sym = hay.toLowerCase();
+    const nm = name.toLowerCase();
     const rank = sym === q ? 0 : sym.startsWith(q) ? 1 : sym.includes(q) ? 2 : nm.includes(q) ? 3 : -1;
-    if (rank >= 0) scored.push({ s, rank });
-  }
-  // Same match quality: F&O names (the liquid, well-known ones) first, then shorter symbols.
-  scored.sort(
-    (a, b) =>
-      a.rank - b.rank ||
-      Number(fno.has(b.s.symbol)) - Number(fno.has(a.s.symbol)) ||
-      a.s.symbol.length - b.s.symbol.length
-  );
-  return scored.slice(0, limit).map(({ s }) => ({ symbol: s.symbol, name: displayName(s) }));
+    if (rank < 0) return;
+    const fno = u.fnoSymbols.has(symbol);
+    scored.push({ r: { symbol, name, kind, fno }, rank, fno });
+  };
+  for (const s of u.allEq) consider(s.symbol, displayName(s), s.isin?.startsWith("INF") ? "etf" : "equity", s.symbol);
+  for (const s of u.indices.values()) consider(s.symbol, s.name, "index", s.symbol.replace(/^IDX /, ""));
+  // Same match quality: names with F&O (the liquid, well-known ones) first, then shorter symbols.
+  scored.sort((a, b) => a.rank - b.rank || Number(b.fno) - Number(a.fno) || a.r.symbol.length - b.r.symbol.length);
+  return scored.slice(0, limit).map((x) => x.r);
 }
 
 /* ------------------------------------------------------------- 52 weeks ---- */
