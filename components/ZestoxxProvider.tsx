@@ -10,7 +10,8 @@ import React, {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { SYMBOLS, SYMBOL_MAP, VOL } from "@/lib/symbols";
+import { SYMBOLS, SYMBOL_MAP, VOL, typeOf } from "@/lib/symbols";
+import { MAX_QUOTE_SYMBOLS, infoFor, isDynamicEquity, isTradableId, type DynamicQuote, type QuoteState } from "@/lib/dynamic-symbols";
 import { buildHistory } from "@/lib/history";
 import { fmt, istClock } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
@@ -114,6 +115,13 @@ interface ZestoxxContextValue {
   cancelOrder: (id: number) => void;
   /** Place a GTT / stop-loss order: trades the quantity when the price reaches the trigger. Returns an error message, or null when placed. */
   createGtt: (o: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }) => string | null;
+  /**
+   * Keep live quotes coming for these symbols while the caller is on screen (the owner key is the caller's own; an empty list stops it). Only
+   * NSE equities and ETFs the app does not chart on its own need this: the twelve it charts are always priced.
+   */
+  watchQuotes: (owner: string, ids: string[]) => void;
+  /** What the feed last said about a symbol the app does not chart on its own; undefined until it has answered. "none" = no recent trades. */
+  quoteStateOf: (id: string) => QuoteState | "unavailable" | undefined;
   /** the guest's notes on symbols */
   notes: Record<string, string>;
   setNote: (symbol: string, text: string) => void;
@@ -144,6 +152,10 @@ interface ZestoxxContextValue {
 }
 
 const ZestoxxContext = createContext<ZestoxxContextValue | null>(null);
+
+/** Symbols the app does not chart on its own: polled every 15 s while the page is visible, and never twice within 5 s. */
+const QUOTE_POLL_MS = 15_000;
+const QUOTE_GAP_MS = 5_000;
 
 export function useZestoxx(): ZestoxxContextValue {
   const ctx = useContext(ZestoxxContext);
@@ -205,6 +217,9 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const [formula, setFormula] = useState("");
   const [liveSource, setLiveSource] = useState<LiveSource>({});
   const [realHistory, setRealHistory] = useState<Record<string, boolean>>({});
+  // NSE equities and ETFs beyond the twelve the app charts: what the quote feed said about each, and the name the instrument list gave it.
+  const [dynState, setDynState] = useState<Record<string, QuoteState | "unavailable">>({});
+  const [dynNames, setDynNames] = useState<Record<string, string>>({});
   const hydrated = useRef(false);
   const firedOrders = useRef(new Set<number>());
   const cashRef = useRef(cash);
@@ -293,6 +308,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         tickTargets.forEach((id) => {
           if (liveSource[id] === "live") return; // real data owns this symbol
           const sym = SYMBOL_MAP[id];
+          if (!sym) return; // any other symbol is never simulated: it has its feed's price or none
           const vol = VOL[sym.type];
           next[id] = Math.max(0.01, prev[id] * (1 + (Math.random() - 0.5) * vol));
         });
@@ -311,7 +327,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
               else {
                 fillOrder(o.symbol, o.side, o.qty, p, "GTT");
                 setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
-                const text = `${gttKind(o.side, o.trigger ?? "above")} triggered: ${o.side} ${o.qty} ${o.symbol} @ ${fmt(p, SYMBOL_MAP[o.symbol].type)}`;
+                const text = `${gttKind(o.side, o.trigger ?? "above")} triggered: ${o.side} ${o.qty} ${o.symbol} @ ${fmt(p, typeOf(o.symbol))}`;
                 queueMicrotask(() => setToasts((t) => [...t, { id: Date.now() + Math.random(), text }]));
               }
               return;
@@ -328,7 +344,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
               ...t,
               {
                 id: Date.now() + Math.random(),
-                text: `${a.symbol} is now ${a.condition} ${fmt(a.target, SYMBOL_MAP[a.symbol].type)}`,
+                text: `${a.symbol} is now ${a.condition} ${fmt(a.target, typeOf(a.symbol))}`,
               },
             ]);
             setAlerts((cur) => cur.filter((x) => x.id !== a.id));
@@ -340,6 +356,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
         const id = selectedRef.current;
         if (liveSource[id] === "live") return prev; // real candle history owns this symbol
         const arr = prev[id];
+        if (!arr || arr.length === 0) return prev;
         const last = arr[arr.length - 1];
         const p = live[id];
         const updated = { ...last, close: p, high: Math.max(last.high, p), low: Math.min(last.low, p) };
@@ -594,8 +611,12 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const onTrade = useCallback(
     ({ mode, side, qty, limitPrice, expiryDate }: TradeInput) => {
       if (mode === "market") {
-        fillOrder(selectedRef.current, side, qty, live[selectedRef.current]);
+        // a paper market order fills at the live price; with none (a symbol with no recent trades) there is no order
+        const at = live[selectedRef.current];
+        if (!(at > 0)) return;
+        fillOrder(selectedRef.current, side, qty, at);
       } else {
+        if (!isTradableId(selectedRef.current)) return;
         setOpenOrders((cur) => [
           {
             id: Date.now() + Math.random(),
@@ -634,6 +655,188 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     cashRef.current = cash;
     holdingsRef.current = holdings;
   }, [openOrders, sips, cash, holdings]);
+
+  /* ---- any other NSE equity or ETF: quotes and candles on demand ----
+   * Quotes are fetched only for symbols that need watching, all in one request (at most MAX_QUOTE_SYMBOLS), at most every QUOTE_GAP_MS, and only
+   * while the page is visible:
+   *   - symbols on screen, which a view registers with watchQuotes (the chart, the symbol sheet, the portfolio);
+   *   - symbols held, because the account value in the header shows them;
+   *   - symbols with an open order, GTT or alert, because those are what fire while the app is open.
+   * A symbol the feed has no last price for is "none" (no recent trades): its price is left out, never made up. */
+  const watched = useRef(new Map<string, string[]>());
+  const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quoteLastAt = useRef(0);
+  const quoteBusy = useRef(false);
+  const alertsRef = useRef(alerts);
+  useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
+  const quoteIds = useCallback((): string[] => {
+    const ids: string[] = [];
+    const add = (id: string) => {
+      if (isDynamicEquity(id) && !ids.includes(id)) ids.push(id);
+    };
+    for (const list of watched.current.values()) list.forEach(add);
+    Object.keys(holdingsRef.current).forEach(add);
+    openOrdersRef.current.forEach((o) => add(o.symbol));
+    alertsRef.current.forEach((a) => add(a.symbol));
+    return ids.slice(0, MAX_QUOTE_SYMBOLS);
+  }, []);
+
+  const pollQuotes = useCallback(async () => {
+    if (quoteBusy.current || (typeof document !== "undefined" && document.visibilityState === "hidden")) return;
+    const ids = quoteIds();
+    if (ids.length === 0) return;
+    quoteBusy.current = true;
+    quoteLastAt.current = Date.now();
+    try {
+      const res = await fetch(`/api/quotes?symbols=${ids.map(encodeURIComponent).join(",")}`);
+      const data = res.ok ? ((await res.json()) as { source?: string; quotes?: Record<string, DynamicQuote> }) : null;
+      if (!data || data.source !== "live" || !data.quotes) {
+        // the feed did not answer: keep any price already held, and say "unavailable" only for symbols with none
+        setDynState((prev) => {
+          const next = { ...prev };
+          for (const id of ids) if (!(liveRef.current[id] > 0)) next[id] = "unavailable";
+          return next;
+        });
+        return;
+      }
+      const quotes = data.quotes;
+      const got = ids.filter((id) => quotes[id]);
+      const livePriced = got.filter((id) => quotes[id].state === "live" && (quotes[id].ltp ?? 0) > 0);
+      const none = got.filter((id) => quotes[id].state !== "live");
+      livePriced.forEach((id) => quotedRef.current.add(id));
+      setDynState((prev) => {
+        const next = { ...prev };
+        got.forEach((id) => (next[id] = quotes[id].state));
+        return next;
+      });
+      setDynNames((prev) => {
+        const next = { ...prev };
+        got.forEach((id) => {
+          if (quotes[id].name) next[id] = quotes[id].name as string;
+        });
+        return next;
+      });
+      setLive((prev) => {
+        const next = { ...prev };
+        livePriced.forEach((id) => (next[id] = quotes[id].ltp as number));
+        none.forEach((id) => delete next[id]); // no recent trades: no price, not a stale one
+        return next;
+      });
+      setPrevClose((prev) => {
+        const next = { ...prev };
+        livePriced.forEach((id) => {
+          if (quotes[id].prevClose > 0) next[id] = quotes[id].prevClose;
+        });
+        return next;
+      });
+      setLiveSource((prev) => {
+        if (livePriced.every((id) => prev[id] === "live")) return prev;
+        const next = { ...prev };
+        livePriced.forEach((id) => (next[id] = "live"));
+        return next;
+      });
+      setHistories((prev) => {
+        const next = { ...prev };
+        livePriced.forEach((id) => {
+          const arr = next[id];
+          if (!arr || arr.length === 0) return;
+          const last = arr[arr.length - 1];
+          const p = quotes[id].ltp as number;
+          next[id] = [...arr.slice(0, -1), { ...last, close: p, high: Math.max(last.high, p), low: Math.min(last.low, p) }];
+        });
+        return next;
+      });
+    } catch {
+      // keep the last known values; the next poll tries again
+    } finally {
+      quoteBusy.current = false;
+    }
+  }, [quoteIds]);
+
+  /** Poll soon (at least QUOTE_GAP_MS after the last poll), once however many views ask in the same moment. */
+  const scheduleQuotes = useCallback(() => {
+    if (quoteTimer.current) return;
+    const wait = Math.max(250, quoteLastAt.current + QUOTE_GAP_MS - Date.now());
+    quoteTimer.current = setTimeout(() => {
+      quoteTimer.current = null;
+      void pollQuotes();
+    }, wait);
+  }, [pollQuotes]);
+
+  const watchQuotes = useCallback(
+    (owner: string, ids: string[]) => {
+      if (ids.length > 0) watched.current.set(owner, ids);
+      else watched.current.delete(owner);
+      if (ids.length > 0) scheduleQuotes();
+    },
+    [scheduleQuotes]
+  );
+
+  const openOrderKey = openOrders.map((o) => o.symbol).join(",");
+  const alertKey = alerts.map((a) => a.symbol).join(",");
+  const heldKey = Object.keys(holdings).join(",");
+  useEffect(() => {
+    // what needs watching changed (a position, an order or an alert on one of these symbols): look soon
+    scheduleQuotes();
+  }, [openOrderKey, alertKey, heldKey, scheduleQuotes]);
+  useEffect(() => {
+    const timer = setInterval(() => void pollQuotes(), QUOTE_POLL_MS);
+    const visible = () => {
+      if (document.visibilityState === "visible") scheduleQuotes();
+    };
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", visible);
+      if (quoteTimer.current) clearTimeout(quoteTimer.current);
+      quoteTimer.current = null;
+    };
+  }, [pollQuotes, scheduleQuotes]);
+
+  const quoteStateOf = useCallback((id: string) => dynState[id], [dynState]);
+
+  // The chart's daily candles for a symbol the app does not chart on its own, fetched once when it is selected (the same /api/candles, with its
+  // caching and limits). Until they arrive, or when they cannot be had, the chart has nothing to draw and says so: no invented history.
+  const histRequested = useRef(new Set<string>());
+  useEffect(() => {
+    const requested = histRequested.current;
+    if (!isDynamicEquity(selected) || requested.has(selected)) return;
+    requested.add(selected);
+    let cancelled = false;
+    let done = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/candles?symbol=${encodeURIComponent(selected)}&interval=1D&range=1Y`);
+        const data = res.ok ? await res.json() : null;
+        if (cancelled || data?.source !== "live" || !Array.isArray(data.bars) || data.bars.length === 0) {
+          requested.delete(selected); // try again the next time it is selected
+          return;
+        }
+        const candles = (data.bars as number[][]).map((c) => ({
+          t: Math.floor((c[0] + 19_800_000) / 86_400_000) * 86_400,
+          open: c[1],
+          high: c[2],
+          low: c[3],
+          close: c[4],
+          volume: Number.isFinite(c[5]) ? c[5] : 0,
+        }));
+        setHistories((prev) => ({ ...prev, [selected]: candles }));
+        setRealHistory((prev) => ({ ...prev, [selected]: true }));
+        setLiveSource((prev) => ({ ...prev, [selected]: "live" }));
+        done = true;
+      } catch {
+        requested.delete(selected);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (!done) requested.delete(selected); // asked for, not answered: ask again if it is selected again
+    };
+  }, [selected]);
+
 
   /** Move resting orders into the history as cancelled/expired — they never filled. */
   const closeOrders = useCallback((orders: OpenOrder[], status: Exclude<OrderStatus, "filled">) => {
@@ -714,7 +917,8 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const createGtt = useCallback(
     ({ symbol, side, qty, trigger }: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }): string | null => {
       const priceNow = liveRef.current[symbol];
-      if (!SYMBOL_MAP[symbol] || !(priceNow > 0)) return "There is no price for this symbol yet. Try again in a moment.";
+      if (!isTradableId(symbol)) return "Zestoxx cannot trade this symbol.";
+      if (!(priceNow > 0)) return isDynamicEquity(symbol) ? "There is no live price for this symbol (no recent trades), so a GTT cannot be placed yet." : "There is no price for this symbol yet. Try again in a moment.";
       if (openOrdersRef.current.filter((o) => o.orderType === "GTT").length >= MAX_OPEN_GTT) return `You can have up to ${MAX_OPEN_GTT} open GTT orders. Cancel one first.`;
       const err = gttError({ side, qty, trigger, priceNow, heldQty: holdingsRef.current[symbol]?.qty ?? 0, cash: cashRef.current });
       if (err) return err;
@@ -755,7 +959,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
       const pending = openOrdersRef.current.filter((o) => o.orderType === "GTT" && o.placedAtMs && o.placedAtMs < sessionStart.current - 30_000 && o.trigger);
       const bySymbol = new Map<string, OpenOrder[]>();
       for (const o of pending) {
-        if (!SYMBOL_MAP[o.symbol] || SYMBOL_MAP[o.symbol].type === "crypto") continue;
+        if (!isTradableId(o.symbol) || SYMBOL_MAP[o.symbol]?.type === "crypto") continue;
         bySymbol.set(o.symbol, [...(bySymbol.get(o.symbol) ?? []), o]);
       }
       let n = 0;
@@ -775,7 +979,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
             if (!openOrdersRef.current.some((x) => x.id === o.id) || firedOrders.current.has(o.id)) continue;
             const hit = firstCrossing(bars, { trigger: o.limitPrice, direction: o.trigger as "above" | "below", placedAtMs: o.placedAtMs as number });
             if (!hit) continue;
-            const type = SYMBOL_MAP[o.symbol].type;
+            const type = typeOf(o.symbol);
             const date = new Date(hit.t + 5.5 * 3_600_000).toISOString().slice(0, 10);
             const time = new Date(hit.t).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
             const short = o.side === "buy" ? o.qty * hit.price > cashRef.current : (holdingsRef.current[o.symbol]?.qty ?? 0) < o.qty;
@@ -967,7 +1171,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const addToAnyList = useCallback(
     (list: string, symbol: string): string | null => {
       if (list !== PRIMARY_LIST) return addToList(list, symbol);
-      if (!SYMBOL_MAP[symbol]) return "My Watchlist holds the symbols Zestoxx can chart. Add this one to another list.";
+      if (!SYMBOL_MAP[symbol]) return "My Watchlist keeps the twelve built-in symbols. Add this one to another list: its chart and orders open from there.";
       if (watchlist.includes(symbol)) return `${symbol} is already in My Watchlist.`;
       addToWatchlist(symbol);
       return null;
@@ -1007,7 +1211,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     [prevCloseFor, live]
   );
 
-  const sym = SYMBOL_MAP[selected];
+  const sym = infoFor(selected, dynNames[selected]);
   const price = live[selected];
   const chg = chgFor(selected);
 
@@ -1046,6 +1250,8 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     createGtt,
     notes,
     setNote,
+    watchQuotes,
+    quoteStateOf,
     addToAnyList,
     removeFromAnyList,
     moveInList,

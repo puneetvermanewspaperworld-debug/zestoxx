@@ -17,7 +17,9 @@ import DepthLadder from "@/components/DepthLadder";
 import Watchlist from "@/components/Watchlist";
 import OrderPanel from "@/components/OrderPanel";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
+import { SYMBOLS } from "@/lib/symbols";
+import { NO_RECENT_TRADES, NO_TRADES_NOTE, isTradableId } from "@/lib/dynamic-symbols";
+import { useWatchSymbols } from "@/components/useWatchSymbols";
 import { aggregateCandles } from "@/lib/history";
 import { computeCustomSeries } from "@/lib/formula";
 import { PULSE_BASIS, pulseFor } from "@/lib/pulse";
@@ -65,13 +67,20 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     setFormula,
     hasFeedQuote,
     hasRealHistory,
+    quoteStateOf,
   } = useZestoxx();
 
   // Keep the selected symbol in sync with the /app/trade/[symbol] route segment.
   useEffect(() => {
-    if (symbol && SYMBOL_MAP[symbol] && symbol !== selected) setSelected(symbol);
+    if (symbol && isTradableId(symbol) && symbol !== selected) setSelected(symbol);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
+  // the quote of the symbol on screen, when it is one the app does not chart on its own
+  useWatchSymbols([symbol ?? selected]);
+  // no live price (a symbol with no recent trades, or a quote that has not come yet): an order has nothing to fill at, and none is made up
+  const hasPrice = price > 0;
+  const noTrades = quoteStateOf(selected) === "none";
+  const notListed = quoteStateOf(selected) === "unknown";
 
   const symOpenOrders = openOrders.filter((o) => o.symbol === selected);
   const symOrders = orderLog.filter((o) => o.symbol === selected).slice(0, 6);
@@ -102,8 +111,8 @@ export default function TradeView({ symbol }: { symbol?: string }) {
   const legacyTimeframe: Timeframe = !showFeed && selection.interval === "1W" && !useFeed ? "W" : !showFeed && selection.interval === "1M" && !useFeed ? "M" : "D";
   const frame = { D: { size: 1, keep: 30 }, W: { size: 5, keep: 26 }, M: { size: 21, keep: 14 } }[legacyTimeframe];
   const frameOf = (candles: Candle[]) => (frame.size === 1 ? candles : aggregateCandles(candles, frame.size));
-  const fullFrame = showFeed ? feed.bars : frameOf(histories[selected]);
-  const compareFull = compareWith && !showFeed ? frameOf(histories[compareWith]) : null;
+  const fullFrame = showFeed ? feed.bars : frameOf(histories[selected] ?? []);
+  const compareFull = compareWith && !showFeed ? frameOf(histories[compareWith] ?? []) : null;
   const feedInfo: FeedInfo = { selection, explicit, intervals: availability, showRanges: dataKind === "live", indian: sym.type !== "crypto", status: feed.status, error: feed.error, reload: feed.reload };
   const { series: customSeries, error: formulaError } = useMemo(
     () => computeCustomSeries(fullFrame, formula),
@@ -182,7 +191,20 @@ export default function TradeView({ symbol }: { symbol?: string }) {
       <DepthLadder symbol={selected} type={sym.type} />
     </div>
   );
-  const orderPanel = <OrderPanel symId={selected} price={price} type={sym.type} cash={cash} holdings={holdings} onTrade={onTrade} />;
+  const orderPanel = hasPrice ? (
+    <OrderPanel symId={selected} price={price} type={sym.type} cash={cash} holdings={holdings} onTrade={onTrade} />
+  ) : (
+    <div data-testid="no-price-panel" role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-[12.5px] leading-relaxed text-amber-900">
+      <p className="font-semibold">{noTrades ? NO_RECENT_TRADES : notListed ? "Not on the NSE list" : "Waiting for a live price"}</p>
+      <p className="mt-1">
+        {noTrades
+          ? NO_TRADES_NOTE
+          : notListed
+            ? `${selected} is not an NSE equity or ETF on Upstox's instrument list, so there is no quote and nothing to trade.`
+            : "Orders fill at the live price, and Zestoxx never makes one up. Buying and selling open when the quote arrives."}
+      </p>
+    </div>
+  );
   const chartProps = {
     symbol: selected,
     timeframe: showFeed ? `${selection.interval}|${selection.range}` : legacyTimeframe,
@@ -205,6 +227,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
         selected={selected}
         type={sym.type}
         price={price}
+        noPriceText={noTrades ? NO_RECENT_TRADES : undefined}
         chg={chg}
         source={liveSource[selected]}
         extras={{
@@ -248,8 +271,8 @@ export default function TradeView({ symbol }: { symbol?: string }) {
                 <span className="text-[12px] text-slate-400">{sym.name}</span>
               </div>
               <div className="mt-1 flex flex-wrap items-baseline gap-2">
-                <span className="font-mono text-[24px] font-semibold text-slate-900">
-                  {fmt(price, sym.type)}
+                <span className="font-mono text-[24px] font-semibold text-slate-900" data-testid="header-price">
+                  {hasPrice ? fmt(price, sym.type) : noTrades ? NO_RECENT_TRADES : "--"}
                 </span>
                 <span
                   className={

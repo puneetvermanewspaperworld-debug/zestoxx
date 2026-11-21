@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import TradeView from "@/components/views/TradeView";
-import { SYMBOL_MAP, SYMBOLS } from "@/lib/symbols";
+import { SYMBOLS } from "@/lib/symbols";
+import { isTradableId } from "@/lib/dynamic-symbols";
 
 export function generateStaticParams() {
   return SYMBOLS.map((s) => ({ symbol: s.id }));
@@ -13,6 +14,7 @@ export default async function TradeSymbolPage({
 }) {
   const { symbol } = await params;
   const upper = symbol?.toUpperCase();
-  if (!upper || !SYMBOL_MAP[upper]) notFound();
+  // the twelve built-in symbols are built ahead; any other NSE equity or ETF is rendered on demand, its quote and candles fetched by the page
+  if (!upper || !isTradableId(upper)) notFound();
   return <TradeView symbol={upper} />;
 }

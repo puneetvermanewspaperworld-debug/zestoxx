@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { MAX_REQUESTS, VALID_INTERVALS, intervalInfo, isIntervalId, isRangeId, istDate, parseUpstoxRows, planRequests, rangeInfo, rangeWindow, toChartSeconds, trimToSessions, type BarRow } from "@/lib/chart/intervals";
-import { UPSTOX_KEYS, fetchChartToday, fetchChartWindow, upstoxToken } from "@/lib/upstox";
+import { fetchChartToday, fetchChartWindow, upstoxToken } from "@/lib/upstox";
+import { equityKey } from "@/lib/upstox-quotes";
 import { clientIp } from "@/lib/guest";
 import { makeLimiter } from "@/lib/rateLimit";
 
 /**
  * Candles for the Trade page chart, on demand: one symbol, one interval, one range.
  *
+ * GET /api/candles?symbol=RELIANCE&interval=15m&range=5D   (any NSE equity or ETF on Upstox's instrument list, not only the symbols the app charts)
  * GET /api/candles?symbol=RELIANCE&interval=15m&range=5D  ->  { source: "live", bars: [[epochMs, o, h, l, c, volume], ...] }   oldest first
  *
  * The endpoint behind it accepts a limited span per request (a month for 1, 5 and 15 minute bars, a quarter for 30 minute and hourly, ten
@@ -33,12 +35,18 @@ export async function GET(request: Request) {
   const symbol = q.get("symbol") ?? "";
   const interval = q.get("interval");
   const range = q.get("range");
-  const key = UPSTOX_KEYS[symbol];
-  if (!key) return NextResponse.json({ error: "unknown symbol" }, { status: 400 });
   if (!isIntervalId(interval) || !isRangeId(range)) return NextResponse.json({ error: "unknown interval or range" }, { status: 400 });
   if (!VALID_INTERVALS[range].includes(interval)) return NextResponse.json({ error: `${interval} is not offered for ${range}` }, { status: 400 });
 
   const token = upstoxToken();
+  // The app's own symbols have fixed keys; any other NSE equity or ETF is looked up on the exchange's instrument list (cached, refreshed daily).
+  let key: string | null;
+  try {
+    key = await equityKey(symbol);
+  } catch {
+    return unavailable("instrument list", 502);
+  }
+  if (!key) return NextResponse.json({ error: "unknown symbol" }, { status: 400 });
   if (!token) return unavailable("no token");
 
   const info = intervalInfo(interval);

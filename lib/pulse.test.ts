@@ -50,8 +50,11 @@ describe("Pulse shows a score only from a live quote and real history", () => {
 describe("where the real-history flag comes from", () => {
   const src = fs.readFileSync("components/ZestoxxProvider.tsx", "utf8");
   it("is set only when a feed's candle history is applied, not by quotes and not by the simulation", () => {
+    // two places only: a feed's history applied for the twelve symbols, and the daily candles fetched for a symbol the app does not chart on its own
     const sets = src.split("setRealHistory(").length - 1;
-    assert.equal(sets, 1);
+    assert.equal(sets, 2);
+    const onDemand = src.indexOf("setRealHistory((prev) => ({ ...prev, [selected]: true }))");
+    assert.ok(onDemand > src.lastIndexOf("/api/candles?symbol=", onDemand), "set after the candles came back");
     const at = src.indexOf("setRealHistory((prev)");
     const before = src.slice(Math.max(0, at - 700), at);
     assert.match(before, /setLiveSource|applyHistory|ids\.forEach/);

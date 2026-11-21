@@ -11,7 +11,7 @@ import { usePrivacy } from "@/components/usePrivacy";
 import { maskPnl, maskValue } from "@/lib/privacy";
 
 export default function DashboardView() {
-  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor } =
+  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor, sym } =
     useZestoxx();
   const { hidden } = usePrivacy();
 
@@ -23,7 +23,6 @@ export default function DashboardView() {
     (s, [id, h]) => s + ((live[id] ?? h.avgPrice) - h.avgPrice) * h.qty,
     0
   );
-  const sym = SYMBOL_MAP[selected];
 
   return (
     <div className="space-y-3">
@@ -73,7 +72,7 @@ export default function DashboardView() {
             </button>
           </div>
           <div className="h-[220px]">
-            <CandleChart candles={histories[selected].slice(-40)} showMA={false} showVolume={false} />
+            <CandleChart candles={(histories[selected] ?? []).slice(-40)} showMA={false} showVolume={false} />
           </div>
         </div>
         <MarketMoversCard />
