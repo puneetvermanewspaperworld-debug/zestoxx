@@ -15,12 +15,12 @@ import type { FutureMovers, StockMover, StockMovers } from "@/lib/movers";
 
 const tone = (v: number) => (v >= 0 ? "text-emerald-500" : "text-rose-500");
 
-/** One mover row: the stock (a link to its chart when the terminal charts it), its price and its day change. */
+/** One mover row: the stock (a link to its chart and order form), its price and its day change. The price drops under the name when the card is too narrow for both: nothing is cut off. */
 function MoverRow({ m }: { m: StockMover }) {
   const up = m.changePct > 0;
   return (
-    <div data-testid="mover-row" className="flex items-center justify-between gap-2 py-1 text-[12px]">
-      <span className="min-w-0 truncate">
+    <div data-testid="mover-row" className="flex flex-wrap items-center justify-between gap-x-2 py-1 text-[12px]">
+      <span className="min-w-0 break-all">
         {isTradableId(m.symbol) ? (
           <Link href={`/app/trade/${m.symbol}`} className="font-medium text-blue-600 hover:underline">
             {m.symbol}
