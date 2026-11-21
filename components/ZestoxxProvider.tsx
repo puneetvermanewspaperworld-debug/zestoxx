@@ -139,7 +139,8 @@ interface ZestoxxContextValue {
   cancelSip: (id: number) => void;
   /** Sells the whole position at the last price. */
   exitPosition: (id: string) => void;
-  addToWatchlist: (id: string) => void;
+  /** Returns an error message (a symbol that cannot be charted or traded, a full list), or null when added. */
+  addToWatchlist: (id: string) => string | null;
   removeFromWatchlist: (id: string) => void;
   /** Custom watchlists beside the primary one; their symbols are any NSE trading symbols. */
   lists: CustomList[];
@@ -1127,8 +1128,16 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addToWatchlist = useCallback(
-    (id: string) => setWatchlist((w) => (w.includes(id) ? w : [...w, id])),
-    []
+    (id: string): string | null => {
+      // the main list is the terminal's own: every symbol in it opens a chart and an order form, so any stock or ETF may be in it (and the
+      // built-in indices), but not another index, which Zestoxx cannot chart or trade
+      if (!isTradableId(id)) return "My Watchlist holds stocks and ETFs, because each symbol in it opens a chart and an order form. Add an index to another list.";
+      if (watchlist.includes(id)) return null;
+      if (watchlist.length >= MAX_SYMBOLS_PER_LIST) return `A watchlist holds up to ${MAX_SYMBOLS_PER_LIST} symbols.`;
+      setWatchlist((w) => (w.includes(id) ? w : [...w, id]));
+      return null;
+    },
+    [watchlist]
   );
   const removeFromWatchlist = useCallback(
     (id: string) => {
@@ -1171,10 +1180,8 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const addToAnyList = useCallback(
     (list: string, symbol: string): string | null => {
       if (list !== PRIMARY_LIST) return addToList(list, symbol);
-      if (!SYMBOL_MAP[symbol]) return "My Watchlist keeps the twelve built-in symbols. Add this one to another list: its chart and orders open from there.";
       if (watchlist.includes(symbol)) return `${symbol} is already in My Watchlist.`;
-      addToWatchlist(symbol);
-      return null;
+      return addToWatchlist(symbol);
     },
     [addToList, addToWatchlist, watchlist]
   );

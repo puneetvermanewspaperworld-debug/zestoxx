@@ -4,16 +4,17 @@ import React from "react";
 import CandleChart from "@/components/CandleChart";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { FiiDiiSummaryCard, FuturesGainersCard, MarketMoversCard } from "@/components/DashboardCards";
-import { SYMBOL_MAP } from "@/lib/symbols";
+import { useRowQuotes } from "@/components/phone/useRowQuotes";
 import { fmt, fmtINR, fmtSigned } from "@/lib/helpers";
 import { NEWS_NOT_CONNECTED } from "@/lib/news";
 import { usePrivacy } from "@/components/usePrivacy";
 import { maskPnl, maskValue } from "@/lib/privacy";
 
 export default function DashboardView() {
-  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, chgFor, sym } =
+  const { watchlist, live, histories, cash, holdings, selected, setSelected, setActiveView, sym } =
     useZestoxx();
   const { hidden } = usePrivacy();
+  const rowQuotes = useRowQuotes(watchlist);
 
   const holdingsValue = Object.entries(holdings).reduce(
     (s, [id, h]) => s + h.qty * (live[id] ?? h.avgPrice),
@@ -96,8 +97,8 @@ export default function DashboardView() {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {watchlist.map((id) => {
-              const s = SYMBOL_MAP[id];
-              const chg = chgFor(id);
+              const r = rowQuotes[id];
+              const chg = r?.changePct ?? null;
               return (
                 <div
                   key={id}
@@ -108,13 +109,13 @@ export default function DashboardView() {
                   className="cursor-pointer rounded-md border border-slate-200 p-2 hover:bg-slate-50"
                 >
                   <div className="text-[12px] font-medium text-slate-900">{id}</div>
-                  <div className="font-mono text-[12px] text-slate-500">{fmt(live[id], s.type)}</div>
+                  <div className="font-mono text-[12px] text-slate-500">{r?.price == null ? "--" : fmt(r.price, r.type)}</div>
                   <div
                     className={
-                      "font-mono text-[11px] " + (chg >= 0 ? "text-emerald-500" : "text-rose-500")
+                      "font-mono text-[11px] " + (chg == null ? "text-slate-400" : chg >= 0 ? "text-emerald-500" : "text-rose-500")
                     }
                   >
-                    {fmtSigned(chg, 2, "%")}
+                    {chg == null ? "--" : fmtSigned(chg, 2, "%")}
                   </div>
                 </div>
               );

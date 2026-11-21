@@ -209,13 +209,37 @@ test.describe("watchlists", () => {
     await expect(page.getByTestId("wl-result-ITC")).toBeDisabled();
   });
 
-  test("My Watchlist keeps the twelve built-in symbols: another symbol is refused with a way out", async ({ page }) => {
-    await go(page, "/app/watchlist");
+  test("My Watchlist holds any stock or ETF from the instrument list: it is added, priced, saved and opens the sheet", async ({ page }) => {
+    const { puts } = await go(page, "/app/watchlist");
     await dismissNotice(page);
     await page.getByTestId("wl-search-input").fill("itc");
     await page.getByTestId("wl-result-ITC").click();
-    await expect(page.getByTestId("wl-search-message")).toContainText("another list");
+    await expect(page.getByTestId("wl-search-message")).toContainText("added to My Watchlist");
+    await expect(page.getByTestId("wl-count")).toHaveText("6/250");
+    await expect(page.getByTestId("wl-row-ITC")).toContainText("₹400");
+    await expect.poll(() => (puts[puts.length - 1] as { watchlist?: string[] } | undefined)?.watchlist).toEqual(["RELIANCE", "TCS", "NIFTY50", "BANKNIFTY", "BTC", "ITC"]);
+    await page.getByTestId("wl-open-ITC").click();
+    await expect(page.getByTestId("sheet-buy")).toBeEnabled();
+    await expect(page.getByTestId("sheet-chart")).toBeEnabled();
+  });
+
+  test("My Watchlist still refuses an index it cannot chart, with a way out", async ({ page }) => {
+    await go(page, "/app/watchlist");
+    await dismissNotice(page);
+    await page.getByTestId("wl-search-input").fill("pvt");
+    await page.getByTestId("wl-result-IDX NIFTY PVT BANK").click();
+    await expect(page.getByTestId("wl-search-message")).toContainText("Add an index to another list");
     await expect(page.getByTestId("wl-count")).toHaveText("5/250");
+  });
+
+  test("a full My Watchlist (250) takes no 251st: the results are disabled and the count stays", async ({ page }) => {
+    const full = ["RELIANCE", ...Array.from({ length: 249 }, (_, i) => `S${String(i).padStart(3, "0")}`)];
+    await go(page, "/app/watchlist", { portfolio: { watchlist: full, cash: 1_000_000, holdings: {}, orderLog: [], alerts: [] } });
+    await dismissNotice(page);
+    await expect(page.getByTestId("wl-count")).toHaveText("250/250");
+    await page.getByTestId("wl-search-input").fill("itc");
+    await expect(page.getByTestId("wl-result-ITC")).toBeDisabled(); // a full list takes no more
+    await expect(page.getByTestId("wl-count")).toHaveText("250/250");
   });
 
   test("Edit moves rows up and down (kept, saved) and removes them; every button is 44 px", async ({ page }) => {
@@ -958,5 +982,24 @@ test.describe("any NSE symbol on a desktop", () => {
     await expect(page.getByTestId("no-price-panel")).toContainText("No recent trades");
     await expect(page.getByTestId("header-price")).toHaveText("No recent trades");
     await expect(page.getByRole("button", { name: "Paper buy", exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe("the terminal's main list on a desktop", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("a search adds any stock or ETF from the instrument list, prices it, and opens it; an index is not offered; the ticker tape shows it too", async ({ page }) => {
+    const { puts } = await go(page, "/app/trade/RELIANCE", { portfolio: anyPortfolio({ lists: [] }) });
+    await page.getByTestId("sidebar-search").fill("itc");
+    await page.getByTestId("sidebar-result-ITC").click();
+    const row = page.getByTestId("sidebar-row-ITC");
+    await expect(row).toContainText("₹400");
+    await expect.poll(() => (puts[puts.length - 1] as { watchlist?: string[] } | undefined)?.watchlist).toEqual(["RELIANCE", "TCS", "ITC"]);
+    await row.click();
+    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+    await page.getByTestId("sidebar-search").fill("pvt");
+    await page.waitForTimeout(600);
+    await expect(page.getByTestId("sidebar-result-IDX NIFTY PVT BANK")).toHaveCount(0);
+    await expect(page.locator(".ticker-strip").first()).toContainText("ITC");
   });
 });

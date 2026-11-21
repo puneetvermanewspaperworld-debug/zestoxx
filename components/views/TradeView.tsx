@@ -76,7 +76,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
   // the quote of the symbol on screen, when it is one the app does not chart on its own
-  useWatchSymbols([symbol ?? selected]);
+  useWatchSymbols([selected]);
   // no live price (a symbol with no recent trades, or a quote that has not come yet): an order has nothing to fill at, and none is made up
   const hasPrice = price > 0;
   const noTrades = quoteStateOf(selected) === "none";
@@ -151,7 +151,6 @@ export default function TradeView({ symbol }: { symbol?: string }) {
         onSelect={setSelected}
         onAdd={addToWatchlist}
         onRemove={removeFromWatchlist}
-        live={live}
       />
     </div>
   );

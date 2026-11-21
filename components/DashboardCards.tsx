@@ -1,12 +1,12 @@
 "use client";
 
+import { isTradableId } from "@/lib/dynamic-symbols";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import DataBadge from "@/components/DataBadge";
 import { useMovers } from "@/lib/useMovers";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { moversNote } from "@/lib/closed-notes";
-import { SYMBOL_MAP } from "@/lib/symbols";
 import { fmtCr } from "@/lib/format-cr";
 import { fmtINR, fmtIsoDate, fmtSigned } from "@/lib/helpers";
 import { FII_DII_EMPTY, NO_GAINERS, NO_LOSERS, equityMoversCard, fiiDiiSummary, futuresGainers } from "@/lib/dashboard-cards";
@@ -21,7 +21,7 @@ function MoverRow({ m }: { m: StockMover }) {
   return (
     <div data-testid="mover-row" className="flex items-center justify-between gap-2 py-1 text-[12px]">
       <span className="min-w-0 truncate">
-        {SYMBOL_MAP[m.symbol] ? (
+        {isTradableId(m.symbol) ? (
           <Link href={`/app/trade/${m.symbol}`} className="font-medium text-blue-600 hover:underline">
             {m.symbol}
           </Link>
