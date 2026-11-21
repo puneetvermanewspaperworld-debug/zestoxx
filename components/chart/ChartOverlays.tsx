@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
-import { Check, ChevronLeft, Magnet, PencilRuler, Pin, Redo2, Trash2, Undo2 } from "lucide-react";
+import React, { useState } from "react";
+import { Check, ChevronLeft, Magnet, PencilRuler, Pin, Redo2, Star, Trash2, Undo2 } from "lucide-react";
 import { TOOLS } from "@/lib/chart/drawings";
+import { pinFirst } from "@/lib/chart/favourites";
 import { TOOL_HINT, TOOL_ICON, tap44 } from "./toolMeta";
 import type { DrawingsApi } from "./useDrawings";
 
@@ -10,7 +11,11 @@ import type { DrawingsApi } from "./useDrawings";
  * The tool rail (left edge of the chart, collapsible) and the floating quick-tool bar (top). Both float over the chart but only their
  * buttons take touches, so the rest of the chart pans, pinches and scrolls as usual. Every button is 44 px, the size of a finger.
  */
-export function ToolRail({ api, open, onToggle }: { api: DrawingsApi; open: boolean; onToggle: () => void }) {
+export function ToolRail({ api, open, onToggle, favs, onToggleFav }: { api: DrawingsApi; open: boolean; onToggle: () => void; /** the starred tools, in the order they were starred */ favs: string[]; onToggleFav: (id: string) => void }) {
+  // Starring: a pin mode puts a 44 px star beside each tool (so the rail stays one button wide the rest of the time). Starred tools come
+  // first, right after Select, which never moves.
+  const [pinning, setPinning] = useState(false);
+  const ordered = [...TOOLS.filter((t) => t.id === "select"), ...pinFirst(TOOLS.filter((t) => t.id !== "select"), favs, (t) => t.id)];
   return (
     <div className="pointer-events-none absolute bottom-1 left-1 top-1 z-20 flex flex-col items-start gap-1" data-testid="tool-rail" data-open={open ? "1" : "0"}>
       <button type="button" aria-label={open ? "Hide drawing tools" : "Show drawing tools"} aria-expanded={open} data-testid="rail-toggle" onClick={onToggle} className={tap44(false) + " shrink-0 bg-white/95 shadow ring-1 ring-slate-200"}>
@@ -18,12 +23,24 @@ export function ToolRail({ api, open, onToggle }: { api: DrawingsApi; open: bool
       </button>
       {open && (
         <div role="toolbar" aria-label="Drawing tools" className="pointer-events-auto flex min-h-0 flex-col gap-0.5 overflow-y-auto rounded-lg bg-white/95 p-0.5 shadow ring-1 ring-slate-200">
-          {TOOLS.map((t) => {
+          <button type="button" aria-pressed={pinning} aria-label={pinning ? "Done starring tools" : "Star tools to pin them to the top"} title="Star tools to pin them to the top" data-testid="tool-pin-mode" onClick={() => setPinning((v) => !v)} className={tap44(pinning) + " shrink-0"}>
+            <Star size={18} aria-hidden fill={pinning ? "currentColor" : "none"} />
+          </button>
+          {ordered.map((t) => {
             const Icon = TOOL_ICON[t.id];
+            const starred = favs.includes(t.id);
             return (
-              <button key={t.id} type="button" title={t.label} aria-label={t.label} aria-pressed={api.tool === t.id} data-testid={`tool-${t.id}`} onClick={() => api.setTool(api.tool === t.id && t.id !== "select" ? "select" : t.id)} className={tap44(api.tool === t.id) + " shrink-0"}>
-                <Icon size={18} aria-hidden />
-              </button>
+              <div key={t.id} className="flex shrink-0 gap-0.5" data-testid={`tool-row-${t.id}`}>
+                <button type="button" title={t.label} aria-label={t.label} aria-pressed={api.tool === t.id} data-testid={`tool-${t.id}`} onClick={() => api.setTool(api.tool === t.id && t.id !== "select" ? "select" : t.id)} className={tap44(api.tool === t.id) + " relative shrink-0"}>
+                  <Icon size={18} aria-hidden />
+                  {starred && !pinning && <Star size={9} aria-hidden fill="currentColor" className="pointer-events-none absolute right-1 top-1 text-amber-500" data-testid={`tool-starred-${t.id}`} />}
+                </button>
+                {pinning && t.id !== "select" && (
+                  <button type="button" aria-pressed={starred} aria-label={`${starred ? "Unstar" : "Star"} ${t.label}`} data-testid={`tool-star-${t.id}`} onClick={() => onToggleFav(t.id)} className={tap44(starred) + " shrink-0"}>
+                    <Star size={16} aria-hidden fill={starred ? "currentColor" : "none"} />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

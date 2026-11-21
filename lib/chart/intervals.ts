@@ -2,8 +2,10 @@ import type { Candle } from "../types";
 
 /**
  * Intervals and ranges of the Trade page chart, and the maths around them. Only intervals and ranges that have real data are offered;
- * the limits below are what the Upstox candle endpoint was measured to accept (1, 5 and 15 minute bars: a month per request; 30 minute and
- * hourly: a quarter; daily: ten years; weekly and monthly: no limit; intraday data starts in January 2022, the rest in January 2000).
+ * the limits below are what the Upstox candle endpoint was measured to accept (1, 2, 3, 5, 10 and 15 minute bars: a month per request; 30 minute,
+ * hourly, 2 hour and 4 hour: a quarter; daily: ten years; weekly and monthly: no limit; intraday data starts in January 2022, the rest in
+ * January 2000). The 2 minute to 4 hour bars were checked against the feed on 14 Nov 2026 for a stock and for indices: they start at 09:15 and
+ * equal the 1 minute bars added up. 4 minute and 3 hour bars exist in the feed but are deliberately not offered.
  * The windows used are a little inside the measured limits. Pure: no network, no clock, no chart.
  *
  * Times: a bar's `t` is seconds since the epoch of its time on the Indian clock treated as if it were UTC (IST-shifted), so the chart
@@ -12,7 +14,7 @@ import type { Candle } from "../types";
 export const IST_OFFSET_S = 19_800;
 export const DAY_S = 86_400;
 
-export type IntervalId = "1m" | "5m" | "15m" | "30m" | "1h" | "1D" | "1W" | "1M";
+export type IntervalId = "1m" | "2m" | "3m" | "5m" | "10m" | "15m" | "30m" | "1h" | "2h" | "4h" | "1D" | "1W" | "1M";
 export type RangeId = "1D" | "5D" | "1M" | "3M" | "6M" | "1Y" | "5Y" | "All";
 
 export interface IntervalInfo {
@@ -32,10 +34,15 @@ export interface IntervalInfo {
 
 export const INTERVALS: IntervalInfo[] = [
   { id: "1m", label: "1 minute", unit: "minutes", n: 1, intraday: true, barSeconds: 60, maxSpanDays: 30, earliest: "2022-01-03" },
+  { id: "2m", label: "2 minutes", unit: "minutes", n: 2, intraday: true, barSeconds: 120, maxSpanDays: 30, earliest: "2022-01-03" },
+  { id: "3m", label: "3 minutes", unit: "minutes", n: 3, intraday: true, barSeconds: 180, maxSpanDays: 30, earliest: "2022-01-03" },
   { id: "5m", label: "5 minutes", unit: "minutes", n: 5, intraday: true, barSeconds: 300, maxSpanDays: 30, earliest: "2022-01-03" },
+  { id: "10m", label: "10 minutes", unit: "minutes", n: 10, intraday: true, barSeconds: 600, maxSpanDays: 30, earliest: "2022-01-03" },
   { id: "15m", label: "15 minutes", unit: "minutes", n: 15, intraday: true, barSeconds: 900, maxSpanDays: 30, earliest: "2022-01-03" },
   { id: "30m", label: "30 minutes", unit: "minutes", n: 30, intraday: true, barSeconds: 1800, maxSpanDays: 90, earliest: "2022-01-03" },
   { id: "1h", label: "1 hour", unit: "hours", n: 1, intraday: true, barSeconds: 3600, maxSpanDays: 90, earliest: "2022-01-03" },
+  { id: "2h", label: "2 hours", unit: "hours", n: 2, intraday: true, barSeconds: 7200, maxSpanDays: 90, earliest: "2022-01-03" },
+  { id: "4h", label: "4 hours", unit: "hours", n: 4, intraday: true, barSeconds: 14400, maxSpanDays: 90, earliest: "2022-01-03" },
   { id: "1D", label: "1 day", unit: "days", n: 1, intraday: false, barSeconds: null, maxSpanDays: 3600, earliest: "2000-01-01" },
   { id: "1W", label: "1 week", unit: "weeks", n: 1, intraday: false, barSeconds: null, maxSpanDays: null, earliest: "2000-01-01" },
   { id: "1M", label: "1 month", unit: "months", n: 1, intraday: false, barSeconds: null, maxSpanDays: null, earliest: "2000-01-01" },
@@ -69,17 +76,17 @@ export const isRangeId = (v: unknown): v is RangeId => RANGES.some((r) => r.id =
 
 /** Which intervals make sense for each range (and have real data for it). */
 export const VALID_INTERVALS: Record<RangeId, IntervalId[]> = {
-  "1D": ["1m", "5m", "15m"],
-  "5D": ["1m", "5m", "15m", "30m", "1h"],
-  "1M": ["5m", "15m", "30m", "1h", "1D"],
-  "3M": ["15m", "30m", "1h", "1D"],
-  "6M": ["30m", "1h", "1D"],
-  "1Y": ["1h", "1D", "1W"],
+  "1D": ["1m", "2m", "3m", "5m", "10m", "15m"],
+  "5D": ["1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "2h", "4h"],
+  "1M": ["5m", "10m", "15m", "30m", "1h", "2h", "4h", "1D"],
+  "3M": ["15m", "30m", "1h", "2h", "4h", "1D"],
+  "6M": ["30m", "1h", "2h", "4h", "1D"],
+  "1Y": ["1h", "2h", "4h", "1D", "1W"],
   "5Y": ["1D", "1W"],
   All: ["1D", "1W", "1M"],
 };
 export const DEFAULT_INTERVAL: Record<RangeId, IntervalId> = { "1D": "5m", "5D": "15m", "1M": "1h", "3M": "1D", "6M": "1D", "1Y": "1D", "5Y": "1W", All: "1M" };
-export const DEFAULT_RANGE: Record<IntervalId, RangeId> = { "1m": "1D", "5m": "1D", "15m": "5D", "30m": "1M", "1h": "1M", "1D": "1Y", "1W": "5Y", "1M": "All" };
+export const DEFAULT_RANGE: Record<IntervalId, RangeId> = { "1m": "1D", "2m": "1D", "3m": "1D", "5m": "1D", "10m": "5D", "15m": "5D", "30m": "1M", "1h": "1M", "2h": "1M", "4h": "3M", "1D": "1Y", "1W": "5Y", "1M": "All" };
 
 export interface Selection {
   interval: IntervalId;

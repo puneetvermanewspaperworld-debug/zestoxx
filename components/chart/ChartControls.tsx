@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, CandlestickChart, ChevronDown, Crosshair, Grid3x3, LineChart, Maximize2, Minimize2, Mountain, RefreshCw, Smartphone, TrendingUp, Waves } from "lucide-react";
+import { BarChart3, CandlestickChart, ChevronDown, Crosshair, Grid3x3, LineChart, Maximize2, Minimize2, Mountain, RefreshCw, Settings, Smartphone, TrendingUp, Waves } from "lucide-react";
 import { CHART_TYPES, MAX_BRICKS, chartTypeInfo, suggestBrickSize, toRenko, type ChartType } from "@/lib/chart/charttypes";
 import { INTERVALS, RANGES, intervalInfo, pickInterval, pickRange, type IntervalId, type RangeId, type Selection } from "@/lib/chart/intervals";
 import type { TimedCandle } from "@/lib/chart/series";
 import type { ChartSettings, ScaleMode } from "@/lib/chart/settings";
 import Sheet, { Badge, controlBtn, rowClass } from "./Sheet";
 import StudiesMenu, { type StudiesApi } from "./StudiesMenu";
+import type { PrefsApi } from "./useChartPrefs";
 import type { SettingsUpdate } from "./useChartSettings";
 
 const TYPE_ICON: Record<ChartType, React.ComponentType<{ size?: number; "aria-hidden"?: boolean }>> = {
@@ -60,6 +61,7 @@ export interface ChartControlsProps {
   /** open the type menu straight on the brick size (set from outside when Renko has no size yet) */
   sizingRequest: number;
   studies: StudiesApi;
+  prefs: PrefsApi;
   /** open the Studies menu on this study's parameters (asked for by the legend) */
   studyRequest: { uid: number; n: number } | null;
   onStudyMenuClosed: () => void;
@@ -74,6 +76,7 @@ export default function ChartControls(p: ChartControlsProps) {
         <IntervalMenu {...p} />
         <StudiesMenu api={p.studies} openFor={p.studyRequest} onClosed={p.onStudyMenuClosed} />
         <ViewControls {...p} />
+        <SettingsMenu {...p} />
         {p.feed.indian && (
           <span data-testid="tz-note" className="text-[10.5px] text-slate-400">
             Times in IST
@@ -141,6 +144,104 @@ function ViewControls({ settings, update, fullscreen }: ChartControlsProps) {
               </button>
             ))}
           </div>
+        </Sheet>
+      )}
+    </>
+  );
+}
+
+/** The chart settings: the theme, the inverted price scale, and saving or resetting preferences (all kept in this browser only). */
+function SettingsMenu({ settings, update, prefs }: ChartControlsProps) {
+  const [open, setOpen] = useState(false);
+  // which reset is waiting for a second tap to confirm it
+  const [confirming, setConfirming] = useState<"saved" | "defaults" | null>(null);
+  const when = prefs.savedAt ? new Date(prefs.savedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : null;
+  const close = () => {
+    setOpen(false);
+    setConfirming(null);
+  };
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Chart settings" title="Chart settings" data-testid="settings-button" className={controlBtn()}>
+        <Settings size={18} aria-hidden />
+      </button>
+      {open && (
+        <Sheet title="Chart settings" onClose={close} testId="settings-sheet">
+          <section aria-label="Appearance">
+            <h3 className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Theme</h3>
+            <div role="radiogroup" aria-label="Theme">
+              {(["light", "dark"] as const).map((id) => (
+                <button key={id} type="button" role="radio" aria-checked={settings.theme === id} data-testid={`theme-${id}`} onClick={() => update({ theme: id })} className={rowClass(settings.theme === id)}>
+                  <span className="flex-1 capitalize">{id}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section aria-label="Price scale" className="mt-1 border-t border-slate-100 pt-1">
+            <h3 className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Price scale</h3>
+            <button type="button" role="switch" aria-checked={settings.invert} data-testid="invert-switch" onClick={() => update({ invert: !settings.invert })} className={rowClass(settings.invert)}>
+              <span className="flex-1">
+                Invert price scale
+                <span className="block text-[11px] text-slate-400">Higher prices lower on the screen</span>
+              </span>
+              <span className="text-[12px] font-semibold">{settings.invert ? "On" : "Off"}</span>
+            </button>
+          </section>
+          <section aria-label="Preferences" className="mt-1 border-t border-slate-100 pt-1">
+            <h3 className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Preferences</h3>
+            <p data-testid="prefs-status" className="px-3 pb-1 text-[12px] text-slate-500">
+              {when ? `Saved ${when}.` : "Nothing saved yet."}
+            </p>
+            <p className="px-3 pb-2 text-[11px] leading-relaxed text-slate-400">Chart type, interval and range, studies and their settings, price scale, grid, crosshair, theme and starred items. Kept in this browser only.</p>
+            <div className="flex flex-wrap gap-2 px-3 pb-2">
+              <button type="button" onClick={prefs.save} data-testid="prefs-save" className="min-h-[44px] rounded-lg bg-blue-600 px-4 text-[13px] font-semibold text-white">
+                Save preferences
+              </button>
+              {!confirming ? (
+                <>
+                  {when && (
+                    <button type="button" onClick={() => setConfirming("saved")} data-testid="prefs-reset-saved" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] font-medium text-slate-700">
+                      Reset to saved
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setConfirming("defaults")} data-testid="prefs-reset-defaults" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] font-medium text-slate-700">
+                    Reset to defaults
+                  </button>
+                </>
+              ) : (
+                <span className="flex flex-wrap items-center gap-2" role="group" aria-label="Confirm reset">
+                  <span className="text-[12px] text-slate-500" data-testid="prefs-reset-question">
+                    {confirming === "saved" ? "Go back to the saved preferences?" : "Go back to the app's defaults?"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirming === "saved") prefs.resetToSaved();
+                      else prefs.resetToDefaults();
+                      setConfirming(null);
+                    }}
+                    data-testid="prefs-reset-confirm"
+                    className="min-h-[44px] rounded-lg bg-rose-600 px-4 text-[13px] font-semibold text-white"
+                  >
+                    {confirming === "saved" ? "Reset to saved" : "Reset to defaults"}
+                  </button>
+                  <button type="button" onClick={() => setConfirming(null)} data-testid="prefs-reset-cancel" className="min-h-[44px] rounded-lg border border-slate-200 px-4 text-[13px] text-slate-600">
+                    Cancel
+                  </button>
+                </span>
+              )}
+              {when && (
+                <button type="button" onClick={prefs.forget} data-testid="prefs-forget" className="min-h-[44px] rounded-lg px-3 text-[12.5px] text-slate-500 underline-offset-2 hover:underline">
+                  Delete saved preferences
+                </button>
+              )}
+            </div>
+            {prefs.message && (
+              <p role="status" data-testid="prefs-message" className="px-3 pb-2 text-[12px] text-emerald-600">
+                {prefs.message}
+              </p>
+            )}
+          </section>
         </Sheet>
       )}
     </>

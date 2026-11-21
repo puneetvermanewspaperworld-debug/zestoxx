@@ -39,6 +39,10 @@ test("choosing 5 minutes fetches that interval's candles for its usual range and
   await plotted(page, 55);
   await expect(page.getByTestId("range-1D")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("interval-button")).toHaveText(/5m/);
+  // The live price starts the 13:50 bar a couple of seconds after the page opens, and that shifts the view by one bar. Wait for it
+  // before working out where a bar is on screen, or the pointer can end up on the neighbouring bar.
+  await expect.poll(async () => (await series(page)).bars, { timeout: 15_000 }).toBe(rows.length + 1);
+  await page.waitForTimeout(500);
   // the crosshair readout shows the time of day on the Indian clock: bar 10 of the session is 10:05
   const s = await spot(page, 10, 1);
   const box = await layerBox(page);
@@ -151,7 +155,7 @@ test("crypto is daily only: other intervals are listed but cannot be chosen, and
   await expect(page.getByTestId("range-row")).toHaveCount(0);
   await expect(page.getByTestId("tz-note")).toHaveCount(0); // crypto is UTC, not IST
   await page.getByTestId("interval-button").click();
-  for (const id of ["1m", "5m", "15m", "30m", "1h", "1W", "1M"]) {
+  for (const id of ["1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "2h", "4h", "1W", "1M"]) {
     await expect(page.getByTestId(`interval-${id}`)).toBeDisabled();
     await expect(page.getByTestId(`interval-${id}`)).toContainText("Daily data only");
   }
@@ -165,7 +169,7 @@ test("a symbol on the simulated series has no intraday: those intervals say 'Nee
   await page.getByTestId("drawing-layer").waitFor({ timeout: 15_000 });
   await expect(page.getByTestId("range-row")).toHaveCount(0);
   await page.getByTestId("interval-button").click();
-  for (const id of ["1m", "5m", "15m", "30m", "1h"]) {
+  for (const id of ["1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "2h", "4h"]) {
     await expect(page.getByTestId(`interval-${id}`)).toBeDisabled();
     await expect(page.getByTestId(`interval-${id}`)).toContainText("Needs live data");
   }
@@ -183,7 +187,7 @@ test("controls and menu rows are 44 px targets", async ({ page }) => {
     expect(b.width, id).toBeGreaterThanOrEqual(44);
   }
   await page.getByTestId("interval-button").click();
-  for (const id of ["1m", "5m", "15m", "30m", "1h", "1D", "1W", "1M"]) expect((await page.getByTestId(`interval-${id}`).boundingBox())!.height, id).toBeGreaterThanOrEqual(44);
+  for (const id of ["1m", "2m", "3m", "5m", "10m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"]) expect((await page.getByTestId(`interval-${id}`).boundingBox())!.height, id).toBeGreaterThanOrEqual(44);
 });
 
 test("a drawing made on the daily chart lands on the right day on an intraday chart", async ({ page }) => {

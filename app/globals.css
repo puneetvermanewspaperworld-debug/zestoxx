@@ -161,3 +161,90 @@ body {
     background: #fff;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------
+   The Trade page chart's dark theme (lib/chart/theme.ts has the same palette for the chart canvas).
+   Everything inside an element with .zx-dark, that is the chart, its controls, menus, legend and
+   property bar, is re-coloured here. These rules are not in a layer, so they win over the utilities.
+   ------------------------------------------------------------------------------------------------ */
+.zx-dark {
+  --zx-bg: #0e1626;
+  --zx-panel: #152033;
+  --zx-panel-2: #1b2940;
+  --zx-line: #26354d;
+  --zx-text: #c9d5e6;
+  --zx-strong: #eef3fa;
+  --zx-muted: #8da0b8;
+  --zx-accent: #8ab8ff;
+  --zx-accent-bg: #1b3358;
+  background-color: var(--zx-bg);
+  color: var(--zx-text);
+  color-scheme: dark;
+}
+.zx-dark .bg-white,
+.zx-dark .bg-white\/95,
+.zx-dark .bg-white\/80 {
+  background-color: var(--zx-panel);
+}
+.zx-dark .bg-slate-50,
+.zx-dark .hover\:bg-slate-50:hover,
+.zx-dark .hover\:bg-slate-100:hover {
+  background-color: var(--zx-panel-2);
+}
+.zx-dark .border-slate-100,
+.zx-dark .border-slate-200,
+.zx-dark .border-blue-50 {
+  border-color: var(--zx-line);
+}
+.zx-dark .ring-slate-200 {
+  --tw-ring-color: var(--zx-line);
+}
+.zx-dark .text-slate-900,
+.zx-dark .hover\:text-slate-900:hover {
+  color: var(--zx-strong);
+}
+.zx-dark .text-slate-700,
+.zx-dark .text-slate-600 {
+  color: var(--zx-text);
+}
+.zx-dark .text-slate-500,
+.zx-dark .text-slate-400 {
+  color: var(--zx-muted);
+}
+.zx-dark .bg-blue-50 {
+  background-color: var(--zx-accent-bg);
+}
+.zx-dark .text-blue-700,
+.zx-dark .text-blue-600 {
+  color: var(--zx-accent);
+}
+.zx-dark .border-blue-300 {
+  border-color: #3b6bb3;
+}
+.zx-dark .bg-amber-50,
+.zx-dark .bg-amber-50\/50 {
+  background-color: #3a2d12;
+}
+.zx-dark .border-amber-200,
+.zx-dark .border-amber-300 {
+  border-color: #7a5a1c;
+}
+.zx-dark .text-amber-700,
+.zx-dark .text-amber-800 {
+  color: #f3c46b;
+}
+.zx-dark .hover\:bg-rose-50:hover {
+  background-color: #3b1a24;
+}
+.zx-dark input,
+.zx-dark select {
+  background-color: var(--zx-panel-2);
+  color: var(--zx-strong);
+  border-color: var(--zx-line);
+}
+.zx-dark input::placeholder {
+  color: var(--zx-muted);
+}
+.zx-dark a {
+  color: var(--zx-accent);
+}

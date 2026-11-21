@@ -90,6 +90,7 @@ const addStudy = async (page: Page, id: string) => {
   await page.getByTestId("studies-button").click();
   await page.getByTestId(`add-${id}`).click();
   await page.keyboard.press("Escape");
+  await expect(page.getByTestId("studies-sheet")).toHaveCount(0); // fail here, not 90 seconds later, if the menu did not close
 };
 const removeStudy = (page: Page, uid: number) => page.getByTestId(`legend-remove-${uid}`).click();
 

@@ -26,6 +26,7 @@ import {
 import { ORDINAL_BASE, displayBars, drawingsAllowed, type ChartType, type DisplayBar } from "@/lib/chart/charttypes";
 import { fmtBarStamp } from "@/lib/chart/readout";
 import type { ScaleMode } from "@/lib/chart/settings";
+import { THEMES, type ThemeId } from "@/lib/chart/theme";
 import { PATTERNS, patternMarks } from "@/lib/chart/patterns";
 import { REQUIRES_VOLUME, computeStudies, outputColor, type Num, type StudyInstance, type StudyOutput, type StudyResult } from "@/lib/chart/studies";
 import { ATTRIBUTION_LINK_TEXT, ATTRIBUTION_NOTICE, TRADINGVIEW_URL } from "@/lib/chart/notice";
@@ -44,6 +45,10 @@ export interface TradeChartProps {
   timeframe: string;
   /** how the price axis is scaled: normal, logarithmic, or as per cent from the first visible bar */
   scale: ScaleMode;
+  /** the price axis upside down */
+  invert: boolean;
+  /** the chart's light or dark look */
+  theme: ThemeId;
   /** grid lines */
   grid: boolean;
   /** the crosshair sticks to the open, high, low or close of the candle (the library's MagnetOHLC mode) */
@@ -265,25 +270,31 @@ export default function TradeChart(p: TradeChartProps) {
     };
   }, []);
 
-  // How the chart looks: the price scale, the grid, the crosshair. Changing these never moves the view or reloads the data.
+  // How the chart looks: the price scale (and whether it is inverted), the grid, the crosshair, the theme. Changing these never moves the view or reloads the data.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
+    const th = THEMES[p.theme];
     chart.applyOptions({
-      rightPriceScale: { mode: p.scale === "log" ? PriceScaleMode.Logarithmic : p.scale === "percent" ? PriceScaleMode.Percentage : PriceScaleMode.Normal },
-      grid: { vertLines: { visible: p.grid }, horzLines: { visible: p.grid } },
-      crosshair: { mode: p.magnet ? CrosshairMode.MagnetOHLC : CrosshairMode.Normal },
+      layout: { textColor: th.text },
+      rightPriceScale: { mode: p.scale === "log" ? PriceScaleMode.Logarithmic : p.scale === "percent" ? PriceScaleMode.Percentage : PriceScaleMode.Normal, invertScale: p.invert, borderColor: th.border },
+      timeScale: { borderColor: th.border },
+      grid: { vertLines: { visible: p.grid, color: th.grid }, horzLines: { visible: p.grid, color: th.grid } },
+      crosshair: { mode: p.magnet ? CrosshairMode.MagnetOHLC : CrosshairMode.Normal, vertLine: { color: th.crosshair, labelBackgroundColor: th.crosshairLabel }, horzLine: { color: th.crosshair, labelBackgroundColor: th.crosshairLabel } },
     });
     const el = box.current;
     if (el) {
       el.dataset.scale = p.scale;
       el.dataset.grid = p.grid ? "1" : "0";
       el.dataset.magnet = p.magnet ? "1" : "0";
+      el.dataset.invert = p.invert ? "1" : "0";
+      el.dataset.theme = p.theme;
+      el.dataset.textColor = chart.options().layout.textColor;
       const o = chart.options();
       el.dataset.priceMode = String(o.rightPriceScale.mode);
       el.dataset.crosshairMode = String(o.crosshair.mode);
     }
-  }, [p.scale, p.grid, p.magnet]);
+  }, [p.scale, p.grid, p.magnet, p.invert, p.theme]);
 
   const input = useMemo(() => ({ ...p }), [p]);
 
