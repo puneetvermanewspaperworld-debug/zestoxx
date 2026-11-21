@@ -77,7 +77,8 @@ test.describe("with the secret set", () => {
     await expect(page.getByTestId("claim-replace")).toHaveCount(0);
     await page.getByTestId("claim-submit").click();
     await expect(page.getByTestId("claim-error")).toContainText("would replace it");
-    expect((await page.getByTestId("claim-replace").boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+    // the whole label is the target (the box inside it is the usual small checkbox)
+    expect((await page.locator("label", { has: page.getByTestId("claim-replace") }).boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
     await page.getByTestId("claim-replace").check();
     await page.getByTestId("claim-submit").click();
     await expect(page.getByTestId("claim-success")).toBeVisible();
