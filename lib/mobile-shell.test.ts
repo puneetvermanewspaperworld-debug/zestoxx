@@ -248,7 +248,7 @@ describe("the next-visit check is bounded", () => {
     assert.equal(GTT_CATCHUP_GAP_MS, 30_000);
     assert.equal(MAX_OPEN_GTT, 20);
   });
-  const provider = fs.readFileSync(path.join(process.cwd(), "components", "ZestoxxProvider.tsx"), "utf8");
+  const provider = fs.readFileSync(path.join(process.cwd(), "components", "ZestoxxProvider.tsx"), "utf8").replace(/\r\n/g, "\n");
   it("a pass groups orders by symbol: one candle request per symbol, not per order, and no more than the cap", () => {
     assert.match(provider, /bySymbol\.set\(o\.symbol/);
     assert.match(provider, /if \(n\+\+ >= GTT_CATCHUP_SYMBOLS\) break/);
