@@ -35,7 +35,7 @@ function report(scale: number[]): Report {
     if (!ok.has(px) && strays.length < 5) strays.push(`${px}px <${el.tagName.toLowerCase()}> "${t.slice(0, 28)}"`);
   }
   const fields = Array.from(document.querySelectorAll<HTMLElement>("input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea")).filter((e) => e.getBoundingClientRect().width > 0);
-  const cells = Array.from(document.querySelectorAll<HTMLElement>("td")).filter((e) => e.getBoundingClientRect().width > 0).slice(0, 40);
+  const cells = Array.from(document.querySelectorAll<HTMLElement>("td")).filter((e) => e.getBoundingClientRect().width > 0 && !e.closest(".tv-lightweight-charts")).slice(0, 40); // the chart library lays itself out with a table of its own
   const scroller = (document.querySelector('[data-testid="app-content"]')?.closest(".overflow-y-auto") as HTMLElement | null) ?? document.documentElement;
   return {
     smallest,
