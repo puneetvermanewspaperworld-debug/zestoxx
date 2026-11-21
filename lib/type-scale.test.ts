@@ -44,7 +44,7 @@ describe("the phone rules", () => {
   it("set a font size only through a token", () => {
     const sizes = [...phone.matchAll(/font-size:\s*([^;]+);/g)].map((m) => m[1].trim());
     assert.ok(sizes.length >= 8);
-    for (const s of sizes) assert.match(s, /^var\(--text-[a-z]+\)( !important)?$/, `font-size: ${s}`);
+    for (const s of sizes) assert.match(s, /^var\(--text-[a-z-]+\)( !important)?$/, `font-size: ${s}`);
   });
   it("are all inside the media query for a phone, so a wide screen is not touched", () => {
     assert.ok(css.indexOf("@media (max-width: 767px) {") < css.indexOf(".text-\\[8\\.5px\\]"));
@@ -82,5 +82,31 @@ describe("every size a component uses is on the scale", () => {
     for (const f of files) for (const m of fs.readFileSync(f, "utf8").matchAll(/(^|[\s"'`{])text-\[([\d.]+)px\]/g)) used.add(m[2]);
     const dead = [...mapped].filter((s) => !used.has(s));
     assert.ok(dead.length <= 3, `rules for sizes nothing uses: ${dead.join(", ")}`);
+  });
+});
+
+describe("the density tokens (measured from a phone trading app at 390px: sizes and spacing only)", () => {
+  it("hold the measured numbers", () => {
+    assert.equal(token("row-min"), "65px"); // a watchlist row is 66px with its hairline
+    assert.equal(token("tab-strip"), "36px");
+    assert.equal(token("chip-h"), "28px");
+    assert.equal(token("search-h"), "50px");
+    assert.equal(token("btn-primary-h"), "49.5px");
+    assert.equal(token("nav-h"), "47px"); // 48px with the bar's edge
+    assert.equal(token("sheet-sub"), "31px");
+    assert.equal(token("depth-row"), "28px");
+    assert.equal(token("text-sheet-title"), "19px");
+    assert.equal(token("weight-strong"), "500"); // font-semibold reads as medium on a phone
+    assert.equal(token("weight-heavy"), "600");
+  });
+  it("keep a primary control at 44px or more", () => {
+    const px = (n: string) => parseFloat(token(n) ?? "NaN");
+    assert.ok(px("btn-primary-h") >= 44);
+    assert.ok(px("nav-h") + 1 >= 44);
+  });
+  it("a compact control opts out of the 44px height with data-compact, and keeps a 44px hit area", () => {
+    assert.match(phone, /button\[aria-pressed\]:not\(\[data-compact\]\)/);
+    assert.match(phone, /\[role="tab"\]:not\(\[data-compact\]\)/);
+    assert.match(phone, /button::after[\s\S]*?width: max\(100%, 44px\);[\s\S]*?height: max\(100%, 44px\);/);
   });
 });

@@ -28,9 +28,15 @@ test("a short notice says the app uses a cookie to keep a guest's paper account;
   await expect(notice).toBeVisible();
   await expect(notice).toContainText("cookie");
   await expect(notice).toContainText("paper account");
-  const x = (await page.getByTestId("guest-notice-dismiss").boundingBox())!;
-  expect(x.width).toBeGreaterThanOrEqual(43.5);
-  expect(x.height).toBeGreaterThanOrEqual(43.5);
+  // one line, with a small close button that has a 44 px hit area
+  expect((await notice.boundingBox())!.height).toBeLessThanOrEqual(40);
+  const hit = await page.getByTestId("guest-notice-dismiss").evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const ps = getComputedStyle(el, "::after");
+    return { w: Math.max(r.width, parseFloat(ps.width) || 0), h: Math.max(r.height, parseFloat(ps.height) || 0) };
+  });
+  expect(hit.w).toBeGreaterThanOrEqual(43.5);
+  expect(hit.h).toBeGreaterThanOrEqual(43.5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await hydrated(page.getByTestId("guest-notice-dismiss"));
   await page.getByTestId("guest-notice-dismiss").click();

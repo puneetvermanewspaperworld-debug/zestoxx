@@ -40,7 +40,7 @@ export default function BottomNav() {
         const Icon = t.icon;
         const on = active === t.id;
         return (
-          <Link key={t.id} href={t.href} data-testid={`nav-${t.id}`} aria-current={on ? "page" : undefined} className={"flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[12px] font-medium short:min-h-[48px] short:flex-row short:gap-1.5 " + (on ? "text-blue-600" : "text-slate-600")}>
+          <Link key={t.id} href={t.href} data-testid={`nav-${t.id}`} aria-current={on ? "page" : undefined} className={"flex min-h-[var(--nav-h)] flex-1 flex-col items-center justify-center gap-0.5 text-[13px] font-medium short:min-h-[48px] short:flex-row short:gap-1.5 " + (on ? "text-blue-600" : "text-slate-600")}>
             <span className="relative">
               <Icon size={20} aria-hidden />
               {(badge[t.id] ?? 0) > 0 && <span className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-blue-600" aria-label={`${badge[t.id]} open`} />}

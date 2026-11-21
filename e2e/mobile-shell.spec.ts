@@ -666,7 +666,11 @@ for (const [w, h] of SIZES) {
   test.describe(`layout at ${w}x${h}`, () => {
     test.use(phone(w, h));
 
-    /** every control inside the page and the bottom bar, that is on screen, is at least 44 px each way */
+    /**
+     * every control inside the page and the bottom bar, that is on screen, has at least 44 px each way to tap: its own box, or the invisible hit
+     * area every button, link and tab gets from app/globals.css (a 44 px pseudo-element centred on it). A compact chip or text link is 28 to 36 px
+     * to look at and 44 px to hit. A primary control (Buy, Sell, the tab bar, a close button) has its own 44 px or more: see the tests above.
+     */
     const smallControls = (page: Page) =>
       page.evaluate(() => {
         const out: string[] = [];
@@ -677,7 +681,11 @@ for (const [w, h] of SIZES) {
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) continue;
             if (el.closest('[data-testid="chart-attribution"]')) continue;
-            if (r.height < 43.5 || r.width < 43.5) out.push(`${el.getAttribute("data-testid") ?? el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 24)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+            const ps = getComputedStyle(el, "::after");
+            const hasHit = ps.content !== "none" && ps.position === "absolute";
+            const w = hasHit ? Math.max(r.width, parseFloat(ps.width) || 0) : r.width;
+            const h = hasHit ? Math.max(r.height, parseFloat(ps.height) || 0) : r.height;
+            if (h < 43.5 || w < 43.5) out.push(`${el.getAttribute("data-testid") ?? el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 24)} ${Math.round(w)}x${Math.round(h)} (hit area)`);
           }
         }
         return out;

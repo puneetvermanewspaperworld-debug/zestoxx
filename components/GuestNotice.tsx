@@ -7,6 +7,8 @@ const KEY = "zestoxx:guest-notice:v1";
 const EVENT = "zestoxx:guest-notice";
 
 /** What the notice says, one short sentence, also shown in the account panel. */
+/** The one line shown at the top of a page; the whole explanation is on the Account page. */
+export const GUEST_NOTICE_SHORT = "Your paper account is kept in a cookie on this device.";
 export const GUEST_COOKIE_NOTICE = "Zestoxx has no sign-up yet. It keeps your paper account in a cookie on this device, so clearing cookies starts a new account.";
 
 function dismissed(): boolean {
@@ -31,8 +33,8 @@ export default function GuestNotice() {
   const hide = useSyncExternalStore(subscribe, dismissed, () => true);
   if (hide) return null;
   return (
-    <div role="note" data-testid="guest-notice" className="mb-3 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-[12px] leading-relaxed text-slate-600">
-      <p className="min-w-0 flex-1">{GUEST_COOKIE_NOTICE}</p>
+    <div role="note" data-testid="guest-notice" className="mb-2 flex h-9 items-center gap-1 rounded-lg border border-blue-100 bg-blue-50/60 pl-3 pr-1 text-[12px] text-slate-600">
+      <p className="min-w-0 flex-1 truncate">{GUEST_NOTICE_SHORT}</p>
       <button
         type="button"
         aria-label="Dismiss this notice"
@@ -45,7 +47,8 @@ export default function GuestNotice() {
           }
           window.dispatchEvent(new Event(EVENT));
         }}
-        className="-my-1.5 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:text-slate-900"
+        data-compact
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:text-slate-900"
       >
         <X size={16} aria-hidden />
       </button>

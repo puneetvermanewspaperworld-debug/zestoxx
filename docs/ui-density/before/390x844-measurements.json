@@ -1,0 +1,351 @@
+{
+  "watchlistWithNote": {
+    "banner": {
+      "top": 87.5,
+      "height": 70.2,
+      "width": 366,
+      "font": "12px",
+      "weight": "400",
+      "lh": "17.4px"
+    },
+    "topBar": null,
+    "ticker": {
+      "top": 43.5,
+      "height": 32,
+      "width": 390,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "title": {
+      "top": 179.3,
+      "height": 24.8,
+      "width": 82.2,
+      "font": "18px",
+      "weight": "600",
+      "lh": "24.84px"
+    },
+    "search": {
+      "top": 223.7,
+      "height": 46,
+      "width": 366,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "chips": {
+      "top": 279.7,
+      "height": 46,
+      "width": 265.9,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "count": {
+      "top": 335.7,
+      "height": 16.5,
+      "width": 33.5,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "row1": {
+      "top": 363.3,
+      "height": 49,
+      "width": 364,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "row2": {
+      "top": 412.3,
+      "height": 49,
+      "width": 364,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "symbol": {
+      "top": 370,
+      "height": 19.3,
+      "width": 98.4,
+      "font": "14px",
+      "weight": "600",
+      "lh": "19.32px"
+    },
+    "name": {
+      "top": 389.3,
+      "height": 15.2,
+      "width": 98.4,
+      "font": "11px",
+      "weight": "400",
+      "lh": "15.18px"
+    },
+    "price": {
+      "top": 369.3,
+      "height": 19.3,
+      "width": 48.4,
+      "font": "14px",
+      "weight": "600",
+      "lh": "19.32px"
+    },
+    "change": {
+      "top": 388.6,
+      "height": 16.5,
+      "width": 48.4,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "edit": {
+      "top": 169.7,
+      "height": 44,
+      "width": 69.6,
+      "font": "13px",
+      "weight": "500",
+      "lh": "17.94px"
+    },
+    "nav": {
+      "top": 787,
+      "height": 57,
+      "width": 390,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "navItem": {
+      "top": 788,
+      "height": 56,
+      "width": 78,
+      "font": "12px",
+      "weight": "500",
+      "lh": "16.56px"
+    }
+  },
+  "watchlist": {
+    "title": {
+      "top": 97.1,
+      "height": 24.8,
+      "width": 82.2,
+      "font": "18px",
+      "weight": "600",
+      "lh": "24.84px"
+    },
+    "search": {
+      "top": 141.5,
+      "height": 46,
+      "width": 366,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "chips": {
+      "top": 197.5,
+      "height": 46,
+      "width": 265.9,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "count": {
+      "top": 253.5,
+      "height": 16.5,
+      "width": 33.5,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "row1": {
+      "top": 281.1,
+      "height": 49,
+      "width": 364,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "row2": {
+      "top": 330.1,
+      "height": 49,
+      "width": 364,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "nav": {
+      "top": 787,
+      "height": 57,
+      "width": 390,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    }
+  },
+  "rowSheet": {
+    "panel": {
+      "top": 247.7,
+      "height": 596.3,
+      "width": 390,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "titleBar": {
+      "top": 260,
+      "height": 19.3,
+      "width": 62.9,
+      "font": "14px",
+      "weight": "600",
+      "lh": "19.32px"
+    },
+    "name": {
+      "top": 300.7,
+      "height": 17.9,
+      "width": 116.3,
+      "font": "13px",
+      "weight": "400",
+      "lh": "17.94px"
+    },
+    "price": {
+      "top": 300.7,
+      "height": 24.8,
+      "width": 62.2,
+      "font": "18px",
+      "weight": "600",
+      "lh": "24.84px"
+    },
+    "change": {
+      "top": 325.5,
+      "height": 16.5,
+      "width": 62.2,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "buy": {
+      "top": 350,
+      "height": 44,
+      "width": 171,
+      "font": "14px",
+      "weight": "600",
+      "lh": "19.32px"
+    },
+    "sell": {
+      "top": 350,
+      "height": 44,
+      "width": 171,
+      "font": "14px",
+      "weight": "600",
+      "lh": "19.32px"
+    },
+    "chart": {
+      "top": 402,
+      "height": 48,
+      "width": 111.3,
+      "font": "12px",
+      "weight": "500",
+      "lh": "15px"
+    },
+    "gtt": {
+      "top": 458,
+      "height": 44,
+      "width": 111.3,
+      "font": "12px",
+      "weight": "500",
+      "lh": "15px"
+    },
+    "depth": {
+      "top": 647.1,
+      "height": 121.9,
+      "width": 328,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "depthRow": {
+      "top": 666.3,
+      "height": 20.5,
+      "width": 158,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "depthRow2": {
+      "top": 686.8,
+      "height": 20.5,
+      "width": 158,
+      "font": "12px",
+      "weight": "400",
+      "lh": "16.56px"
+    },
+    "day": {
+      "top": 510,
+      "height": 96.9,
+      "width": 350,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    }
+  },
+  "portfolio": {
+    "tabs": {
+      "top": 292.3,
+      "height": 45,
+      "width": 364,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "tab": {
+      "top": 292.3,
+      "height": 44,
+      "width": 102.6,
+      "font": "13px",
+      "weight": "600",
+      "lh": "17.94px"
+    },
+    "row": {
+      "top": 406.1,
+      "height": 64.5,
+      "width": 366,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "cardLabel": null,
+    "title": {
+      "top": 97.1,
+      "height": 24.8,
+      "width": 75.5,
+      "font": "18px",
+      "weight": "600",
+      "lh": "24.84px"
+    }
+  },
+  "orders": {
+    "tabs": {
+      "top": 123.4,
+      "height": 45,
+      "width": 364,
+      "font": "16px",
+      "weight": "400",
+      "lh": "22.08px"
+    },
+    "tab": {
+      "top": 123.4,
+      "height": 44,
+      "width": 78.4,
+      "font": "13px",
+      "weight": "600",
+      "lh": "17.94px"
+    },
+    "row": null,
+    "title": {
+      "top": 87.5,
+      "height": 24.8,
+      "width": 366,
+      "font": "18px",
+      "weight": "600",
+      "lh": "24.84px"
+    }
+  }
+}

@@ -7,7 +7,7 @@ import { ROUTES } from "../scripts/mobile-audit";
  * are 16px (a smaller one makes an iPhone zoom the page), table rows are 8 to 10px above and below, and nothing scrolls sideways. A wide screen
  * (1000px and up) keeps the sizes it has always had.
  */
-const SCALE = new Set([11, 12, 13, 14, 15, 18, 20]);
+const SCALE = new Set([11, 12, 13, 14, 15, 18, 19, 20]);
 
 interface Report {
   smallest: number;

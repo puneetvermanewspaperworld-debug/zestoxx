@@ -8,7 +8,7 @@ import { useDialogFocus } from "@/components/useDialogFocus";
  * A menu sheet over the chart: a bottom sheet on a phone, a centred panel on a wide screen. Escape, the close button and a tap outside
  * close it. Rendered in place (not in a portal) so it also shows inside the chart's fullscreen view. Every control in it is 44 px.
  */
-export default function Sheet({ title, onClose, children, testId }: { title: string; onClose: () => void; children: React.ReactNode; testId?: string }) {
+export default function Sheet({ title, onClose, children, testId, large }: { title: string; onClose: () => void; children: React.ReactNode; testId?: string; large?: boolean }) {
   const panel = useRef<HTMLDivElement | null>(null);
   useDialogFocus(panel, onClose);
   return (
@@ -16,7 +16,7 @@ export default function Sheet({ title, onClose, children, testId }: { title: str
       <button type="button" aria-label="Close menu" tabIndex={-1} onClick={onClose} className="absolute inset-0 bg-slate-900/40" data-testid="sheet-backdrop" />
       <div ref={panel} tabIndex={-1} className="relative z-10 flex max-h-[85dvh] w-full flex-col rounded-t-2xl bg-white shadow-2xl outline-none sm:w-[460px] sm:rounded-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-4">
-          <h2 className="font-display text-[14px] font-semibold text-slate-900">{title}</h2>
+          <h2 className={large ? "text-[19px] font-normal text-slate-900" : "font-display text-[14px] font-semibold text-slate-900"}>{title}</h2>
           <button type="button" aria-label="Close" onClick={onClose} data-testid="sheet-close" className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:text-slate-900">
             <X size={18} aria-hidden />
           </button>

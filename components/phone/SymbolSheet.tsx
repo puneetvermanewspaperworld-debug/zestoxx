@@ -76,27 +76,23 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
   };
 
   return (
-    <Sheet title={symbol.replace(/^IDX /, "")} onClose={onClose} testId="symbol-sheet">
-      <div className="space-y-2 px-1 pb-1">
-        <header className="flex items-start justify-between gap-3 px-2">
-          <div className="min-w-0">
-            <p data-testid="sheet-name" className="truncate text-[13px] text-slate-500">
-              {quote.name}
-            </p>
-            {showExpiry && (
-              <span data-testid="expiry-today" className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
-                Expiry today
-              </span>
-            )}
-          </div>
-          <div className="shrink-0 text-right">
-            <div data-testid="sheet-price" className="font-mono text-[20px] font-semibold text-slate-900">
-              {price == null ? "--" : fmt(price, type)}
-            </div>
-            <div data-testid="sheet-change" className={"font-mono text-[12.5px] " + tone(quote.changePct)}>
-              {quote.changePct == null ? "--" : fmtSigned(quote.changePct, 2, "%")}
-            </div>
-          </div>
+    <Sheet title={symbol.replace(/^IDX /, "")} large onClose={onClose} testId="symbol-sheet">
+      <div className="flex flex-col gap-2 px-1 pb-1">
+        <header className="flex h-[var(--sheet-sub)] items-center gap-2 px-2">
+          <p data-testid="sheet-name" className="min-w-0 flex-1 truncate text-[12px] text-slate-500">
+            {quote.name}
+          </p>
+          {showExpiry && (
+            <span data-testid="expiry-today" className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
+              Expiry today
+            </span>
+          )}
+          <span data-testid="sheet-price" className={"shrink-0 font-mono text-[15px] " + tone(quote.changePct)}>
+            {price == null ? "--" : fmt(price, type)}
+          </span>
+          <span data-testid="sheet-change" className={"shrink-0 font-mono text-[13px] " + tone(quote.changePct)}>
+            {quote.changePct == null ? "--" : fmtSigned(quote.changePct, 2, "%")}
+          </span>
         </header>
 
         {!charted && (
@@ -105,11 +101,11 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
           </p>
         )}
 
-        <div className="grid grid-cols-2 gap-2 px-2">
-          <button type="button" disabled={!charted} onClick={() => (setOrderSide("buy"), open("order"))} data-testid="sheet-buy" className="min-h-[44px] rounded-lg bg-emerald-500 text-[14px] font-semibold text-white disabled:opacity-40">
+        <div className="mt-[var(--sheet-gap)] grid grid-cols-2 gap-5 px-2">
+          <button type="button" disabled={!charted} onClick={() => (setOrderSide("buy"), open("order"))} data-testid="sheet-buy" className="h-[var(--btn-primary-h)] rounded-lg bg-emerald-500 text-[14px] font-semibold text-white disabled:opacity-40">
             Buy
           </button>
-          <button type="button" disabled={!charted} onClick={() => (setOrderSide("sell"), open("order"))} data-testid="sheet-sell" className="min-h-[44px] rounded-lg bg-rose-500 text-[14px] font-semibold text-white disabled:opacity-40">
+          <button type="button" disabled={!charted} onClick={() => (setOrderSide("sell"), open("order"))} data-testid="sheet-sell" className="h-[var(--btn-primary-h)] rounded-lg bg-rose-500 text-[14px] font-semibold text-white disabled:opacity-40">
             Sell
           </button>
         </div>
@@ -122,12 +118,18 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2 px-2">
-          <ActionButton icon={<BarChart3 size={16} aria-hidden />} label="View chart" testId="sheet-chart" disabled={!charted} onClick={() => router.push(`/app/trade/${symbol}`)} />
-          <ActionButton icon={<SlidersHorizontal size={16} aria-hidden />} label="Option chain" testId="sheet-chain" disabled={!OPTION_CHAIN_SYMBOLS.has(symbol)} onClick={() => (setSelected(symbol), router.push("/app/options"))} />
-          <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!charted} pressed={panel === "alert"} onClick={() => open("alert")} />
-          <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" pressed={panel === "notes"} onClick={() => open("notes")} />
-          <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!charted} pressed={panel === "gtt"} onClick={() => open("gtt")} />
+        {/* text links, two rows with a hairline between: 44 px each, 71 px from one row's centre to the next */}
+        <div className="px-2">
+          <div className="mt-1 flex h-11 items-center justify-between">
+            <ActionButton icon={<BarChart3 size={16} aria-hidden />} label="View chart" testId="sheet-chart" disabled={!charted} onClick={() => router.push(`/app/trade/${symbol}`)} />
+            <ActionButton icon={<SlidersHorizontal size={16} aria-hidden />} label="Option chain" testId="sheet-chain" disabled={!OPTION_CHAIN_SYMBOLS.has(symbol)} onClick={() => (setSelected(symbol), router.push("/app/options"))} />
+          </div>
+          <div className="my-[var(--link-gap)] h-px bg-slate-200" />
+          <div className="flex h-11 items-center justify-between">
+            <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!charted} pressed={panel === "alert"} onClick={() => open("alert")} />
+            <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" pressed={panel === "notes"} onClick={() => open("notes")} />
+            <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!charted} pressed={panel === "gtt"} onClick={() => open("gtt")} />
+          </div>
         </div>
 
         {panel === "alert" && charted && price != null && <AlertForm symbol={symbol} price={price} type={type} onDone={() => setPanel(null)} setAlerts={setAlerts} />}
@@ -148,7 +150,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
 
 function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; testId: string }) {
   return (
-    <button type="button" disabled={disabled} aria-pressed={pressed} onClick={onClick} data-testid={testId} className={"flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[12px] font-medium leading-tight disabled:opacity-40 " + (pressed ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-700")}>
+    <button type="button" disabled={disabled} aria-pressed={pressed} onClick={onClick} data-testid={testId} className={"flex h-11 items-center gap-2 rounded-md text-[14px] font-medium disabled:opacity-40 " + (pressed ? "bg-blue-50 px-2 text-blue-700" : "text-blue-700")}>
       {icon}
       {label}
     </button>
@@ -331,7 +333,7 @@ function Side({ title, rows, type, tone }: { title: string; rows: DepthLevel[]; 
         <span>Qty</span>
       </div>
       {rows.map((l, i) => (
-        <div key={i} className="flex justify-between py-0.5">
+        <div key={i} className="flex h-[var(--depth-row)] items-center justify-between">
           <span className={tone}>{fmt(l.price, type)}</span>
           <span className="text-slate-600">{l.qty}</span>
         </div>
