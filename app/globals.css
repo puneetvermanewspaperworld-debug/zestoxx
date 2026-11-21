@@ -13,6 +13,25 @@
 /* "short": a phone turned sideways (short and wide). */
 @custom-variant short (@media (max-height: 500px) and (max-width: 950px) and (orientation: landscape));
 
+/* ------------------------------------------------------------------------------------------------
+   THE PHONE TYPE SCALE: every size the phone layout uses, in one place. They are theme tokens, so a component can also
+   use them as utilities (text-body, text-title ...), and the rules under "PHONES" below map the pixel sizes the components
+   were written with onto them, so no page has a size of its own. Desktop (768px and up) is not touched by any of it.
+   ------------------------------------------------------------------------------------------------ */
+@theme static {
+  --text-caption: 11px; /* labels, units, fine print: never smaller than this */
+  --text-secondary: 12px; /* secondary text: names under a symbol, helper lines */
+  --text-body: 13px; /* running text, table cells, most buttons */
+  --text-row: 14px; /* row titles (the symbol in a list), primary buttons such as Buy and Sell */
+  --text-price: 15px; /* prices and amounts */
+  --text-title: 18px; /* page titles, the big number in a card */
+  --text-display: 20px; /* the largest figure on a page */
+  --text-input: 16px; /* form fields: smaller makes a phone zoom the page when one is focused */
+  --row-pad-y: 9px; /* vertical padding of a table row */
+  --row-min: 48px; /* a list row you tap (a watchlist symbol, an order) */
+  --card-pad: 12px; /* the padding of a card */
+}
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
@@ -74,7 +93,8 @@ body {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Nothing smaller than 12px; running text and buttons at 14px. Dense table cells keep 12–13px. */
+  /* The type scale. Components were written with pixel sizes (text-[11.5px] ...); each is mapped onto a token, so the sizes live in the
+     theme block at the top and nowhere else. Nothing is smaller than --text-caption. */
   .text-\[8\.5px\],
   .text-\[9px\],
   .text-\[9\.5px\],
@@ -82,11 +102,59 @@ body {
   .text-\[10\.5px\],
   .text-\[11px\],
   .text-\[11\.5px\] {
-    font-size: 12px;
+    font-size: var(--text-caption);
   }
-  .text-\[12\.5px\]:not(td):not(th),
-  .text-\[13px\]:not(td):not(th) {
-    font-size: 14px;
+  .text-\[12px\],
+  .text-\[12\.5px\],
+  .text-xs {
+    font-size: var(--text-secondary);
+  }
+  .text-\[13px\],
+  .text-\[13\.5px\] {
+    font-size: var(--text-body);
+  }
+  .text-\[14px\],
+  .text-sm {
+    font-size: var(--text-row);
+  }
+  .text-\[15px\],
+  .text-\[16px\],
+  .text-\[17px\],
+  .text-base {
+    font-size: var(--text-price);
+  }
+  .text-\[18px\],
+  .text-\[20px\],
+  .text-lg,
+  .text-xl {
+    font-size: var(--text-title);
+  }
+  .text-\[22px\],
+  .text-\[24px\],
+  .text-2xl {
+    font-size: var(--text-display);
+  }
+  /* Tighter lines: 1.5 is for paragraphs on a desktop; a trading list wants about 1.35. */
+  .zx-app {
+    line-height: 1.38;
+  }
+  .zx-app .leading-relaxed {
+    line-height: 1.45;
+  }
+  /* Table rows: 9px above and below the text (8 on the header); a card is 12px inside. */
+  .zx-app td {
+    padding-top: var(--row-pad-y);
+    padding-bottom: var(--row-pad-y);
+  }
+  .zx-app th {
+    padding-top: calc(var(--row-pad-y) - 1px);
+    padding-bottom: calc(var(--row-pad-y) - 1px);
+  }
+  .zx-app .p-4 {
+    padding: var(--card-pad);
+  }
+  .zx-app .p-5 {
+    padding: calc(var(--card-pad) + 2px);
   }
 
   /* Inputs at 16px or more (smaller makes phones zoom the page on focus) and a 44px touch height. */
@@ -95,7 +163,7 @@ body {
   input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    font-size: 16px !important;
+    font-size: var(--text-input) !important;
     min-height: 44px;
   }
   input[type="range"] {

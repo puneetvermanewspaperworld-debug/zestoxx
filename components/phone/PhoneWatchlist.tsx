@@ -113,7 +113,7 @@ export default function PhoneWatchlist() {
             const q = quotes[s];
             return (
               <li key={s} data-testid={`wl-row-${s}`} className="flex items-center border-b border-slate-100 last:border-b-0">
-                <button type="button" onClick={() => !editing && setOpened(s)} data-testid={`wl-open-${s}`} disabled={editing} className="flex min-h-[56px] min-w-0 flex-1 items-center justify-between gap-3 px-3 text-left disabled:cursor-default">
+                <button type="button" onClick={() => !editing && setOpened(s)} data-testid={`wl-open-${s}`} disabled={editing} className="flex min-h-[var(--row-min)] min-w-0 flex-1 items-center justify-between gap-3 px-3 text-left disabled:cursor-default">
                   <span className="min-w-0">
                     <span className="block truncate text-[14px] font-semibold text-slate-900">{s.replace(/^IDX /, "")}</span>
                     <span className="block truncate text-[11.5px] text-slate-400">{q.name}</span>

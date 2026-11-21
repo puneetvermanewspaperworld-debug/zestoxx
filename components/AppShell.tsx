@@ -19,7 +19,7 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
     <div
       // Phones: exactly the visible height (dvh), so the page itself never scrolls and carries the top bar and
       // ticker off the top edge; only the content area below them scrolls. Desktop keeps its old sizing.
-      className="flex h-full min-h-screen w-full bg-slate-50 text-slate-900 max-md:h-dvh max-md:min-h-0 max-md:overflow-hidden"
+      className="zx-app flex h-full min-h-screen w-full bg-slate-50 text-slate-900 max-md:h-dvh max-md:min-h-0 max-md:overflow-hidden"
       style={{ fontFamily: "var(--font-inter), ui-sans-serif, system-ui" }}
     >
       {/* the sidebar is for tablets and desktops: a phone has the bottom bar */}

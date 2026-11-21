@@ -1,0 +1,152 @@
+{
+  "360x800": {
+    "watchlist": {
+      "hist": {
+        "11px": 172,
+        "13px": 142,
+        "12px": 191,
+        "18px": 9,
+        "14px": 95
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 1,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 724,
+      "viewHeight": 724
+    },
+    "rowSheet": {
+      "scrollHeight": 820,
+      "clientHeight": 635,
+      "scrollsBy": 185,
+      "panelHeight": 680,
+      "viewport": 800
+    },
+    "rowSheetStats": {
+      "hist": {
+        "11px": 228,
+        "13px": 181,
+        "12px": 591,
+        "18px": 15,
+        "14px": 120
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 3,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 724,
+      "viewHeight": 724
+    },
+    "portfolio": {
+      "hist": {
+        "11px": 398,
+        "13px": 160,
+        "12px": 144,
+        "18px": 9,
+        "15px": 41,
+        "14px": 23
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 0,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 724,
+      "viewHeight": 724
+    },
+    "fno": {
+      "hist": {
+        "11px": 2134,
+        "13px": 243,
+        "12px": 6951,
+        "15px": 88,
+        "14px": 251,
+        "18px": 1
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 19,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 8529,
+      "viewHeight": 724
+    }
+  },
+  "390x844": {
+    "watchlist": {
+      "hist": {
+        "11px": 172,
+        "13px": 142,
+        "12px": 316,
+        "18px": 9,
+        "14px": 95
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 1,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 768,
+      "viewHeight": 768
+    },
+    "rowSheet": {
+      "scrollHeight": 803,
+      "clientHeight": 672,
+      "scrollsBy": 131,
+      "panelHeight": 717.390625,
+      "viewport": 844
+    },
+    "rowSheetStats": {
+      "hist": {
+        "11px": 228,
+        "13px": 181,
+        "12px": 716,
+        "18px": 15,
+        "14px": 120
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 3,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 768,
+      "viewHeight": 768
+    },
+    "portfolio": {
+      "hist": {
+        "11px": 398,
+        "13px": 160,
+        "12px": 269,
+        "18px": 9,
+        "15px": 43,
+        "14px": 23
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 0,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 771,
+      "viewHeight": 768
+    },
+    "fno": {
+      "hist": {
+        "11px": 2134,
+        "13px": 245,
+        "12px": 7076,
+        "15px": 88,
+        "14px": 251,
+        "18px": 1
+      },
+      "smallest": 11,
+      "below11": [],
+      "inputs": 19,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 8411,
+      "viewHeight": 768
+    }
+  }
+}

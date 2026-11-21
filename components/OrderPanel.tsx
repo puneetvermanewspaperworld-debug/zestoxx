@@ -23,7 +23,9 @@ interface OrderPanelProps {
 }
 
 export default function OrderPanel({ symId, price, type, cash, holdings, onTrade }: OrderPanelProps) {
-  const [qty, setQty] = useState(1);
+  // the field holds what is typed (it may be empty on the way to a new number); the quantity is worked out from it
+  const [qtyText, setQtyText] = useState("1");
+  const qty = Math.max(0, Math.floor(Number(qtyText)) || 0);
   const [orderType, setOrderType] = useState<"market" | "limit" | "gtd">("market");
   const [expiry, setExpiry] = useState("");
   const isClient = useIsClient();
@@ -35,6 +37,10 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
   const cost = (effPrice || 0) * qty;
 
   const submit = (side: "buy" | "sell") => {
+    if (qty < 1) {
+      setMsg({ t: "err", text: "Enter a quantity of 1 or more." });
+      return;
+    }
     if (orderType === "market") {
       if (side === "buy" && cost > cash) {
         setMsg({ t: "err", text: "Not enough virtual cash for this order." });
@@ -105,9 +111,12 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
           <label className="text-[11px] text-slate-500">Qty</label>
           <input
             type="number"
+            inputMode="numeric"
             min="1"
-            value={qty}
-            onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+            aria-label="Quantity"
+            value={qtyText}
+            onChange={(e) => setQtyText(e.target.value)}
+            onBlur={() => qty < 1 && setQtyText("1")}
             className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 phone:min-h-[44px] text-[13px] text-slate-900 outline-none focus:border-blue-400"
           />
         </div>

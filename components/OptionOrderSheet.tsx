@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { useDialogFocus } from "@/components/useDialogFocus";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import {
   makeContractId,
@@ -236,12 +237,7 @@ export default function OptionOrderSheet({
   const [lots, setLots] = useState(1);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; text: string } | null>(null);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialogFocus(closeRef, onClose);
 
   const row = chain.rows.find((r) => r.strike === strike);
   const leg = row ? (type === "CE" ? row.call : row.put) : null;

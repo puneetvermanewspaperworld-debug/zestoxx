@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import { X } from "lucide-react";
+import { useDialogFocus } from "@/components/useDialogFocus";
 
 /**
  * A menu sheet over the chart: a bottom sheet on a phone, a centred panel on a wide screen. Escape, the close button and a tap outside
@@ -9,14 +10,7 @@ import { X } from "lucide-react";
  */
 export default function Sheet({ title, onClose, children, testId }: { title: string; onClose: () => void; children: React.ReactNode; testId?: string }) {
   const panel = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    panel.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialogFocus(panel, onClose);
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title} data-testid={testId}>
       <button type="button" aria-label="Close menu" tabIndex={-1} onClick={onClose} className="absolute inset-0 bg-slate-900/40" data-testid="sheet-backdrop" />

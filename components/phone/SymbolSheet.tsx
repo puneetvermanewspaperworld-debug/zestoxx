@@ -77,7 +77,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
 
   return (
     <Sheet title={symbol.replace(/^IDX /, "")} onClose={onClose} testId="symbol-sheet">
-      <div className="space-y-3 px-1 pb-2">
+      <div className="space-y-2 px-1 pb-1">
         <header className="flex items-start justify-between gap-3 px-2">
           <div className="min-w-0">
             <p data-testid="sheet-name" className="truncate text-[13px] text-slate-500">
@@ -122,7 +122,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 px-2">
+        <div className="grid grid-cols-3 gap-2 px-2">
           <ActionButton icon={<BarChart3 size={16} aria-hidden />} label="View chart" testId="sheet-chart" disabled={!charted} onClick={() => router.push(`/app/trade/${symbol}`)} />
           <ActionButton icon={<SlidersHorizontal size={16} aria-hidden />} label="Option chain" testId="sheet-chain" disabled={!OPTION_CHAIN_SYMBOLS.has(symbol)} onClick={() => (setSelected(symbol), router.push("/app/options"))} />
           <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!charted} pressed={panel === "alert"} onClick={() => open("alert")} />
@@ -148,7 +148,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
 
 function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; testId: string }) {
   return (
-    <button type="button" disabled={disabled} aria-pressed={pressed} onClick={onClick} data-testid={testId} className={"flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border px-2 text-[13px] font-medium disabled:opacity-40 " + (pressed ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-700")}>
+    <button type="button" disabled={disabled} aria-pressed={pressed} onClick={onClick} data-testid={testId} className={"flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[12px] font-medium leading-tight disabled:opacity-40 " + (pressed ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-700")}>
       {icon}
       {label}
     </button>
@@ -164,7 +164,7 @@ function AlertForm({ symbol, price, type, onDone, setAlerts }: { symbol: string;
   return (
     <form
       data-testid="alert-form"
-      className="mx-2 space-y-2 rounded-lg border border-slate-200 p-3"
+      className="mx-2 space-y-2 rounded-lg border border-slate-200 p-2.5"
       onSubmit={(e) => {
         e.preventDefault();
         const t = parseFloat(target);
@@ -215,7 +215,7 @@ function GttForm({ symbol, price, type, onPlaced, createGtt }: { symbol: string;
   return (
     <form
       data-testid="gtt-form"
-      className="mx-2 space-y-2 rounded-lg border border-slate-200 p-3"
+      className="mx-2 space-y-2 rounded-lg border border-slate-200 p-2.5"
       onSubmit={(e) => {
         e.preventDefault();
         const err = createGtt({ symbol, side, qty: Number(qty), trigger: t });
@@ -223,8 +223,8 @@ function GttForm({ symbol, price, type, onPlaced, createGtt }: { symbol: string;
         onPlaced();
       }}
     >
-      <p className="text-[12px] leading-relaxed text-slate-500">
-        A GTT waits for {symbol} to reach your trigger, then trades at once (now {fmt(price, type)}). A sell below the price is a stop-loss; above it, a target. It fires while Zestoxx is open; if it is shut, the next visit checks the candles and fills at the first one that crossed, marked as simulated.
+      <p className="text-[12px] leading-snug text-slate-500">
+        Trades once {symbol} reaches your trigger (now {fmt(price, type)}): a sell below the price is a stop-loss, above it a target. It fires while Zestoxx is open; otherwise the next visit checks the candles and marks the fill as simulated.
       </p>
       <div className="flex gap-2" role="radiogroup" aria-label="GTT side">
         {(["sell", "buy"] as const).map((s) => (
@@ -254,8 +254,8 @@ function DayRange({ symbol, type, price }: { symbol: string; type: RowQuote["typ
   const res = useSymbolDetail(symbol);
   const range = res?.source === "live" && res.detail.ohlc.high > 0 && res.detail.ohlc.low > 0 ? res.detail.ohlc : null;
   return (
-    <section aria-label="Day's range" data-testid="day-range" className="mx-2 rounded-lg border border-slate-200 p-3">
-      <h3 className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Day&apos;s range</h3>
+    <section aria-label="Day's range" data-testid="day-range" className="mx-2 rounded-lg border border-slate-200 p-2.5">
+      <h3 className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Day&apos;s range</h3>
       {res === undefined ? (
         <div className="h-8 animate-pulse rounded bg-slate-50" aria-busy="true" />
       ) : range ? (
@@ -302,8 +302,8 @@ function Depth({ symbol, type }: { symbol: string; type: RowQuote["type"] }) {
       );
   }
   return (
-    <section aria-label="Market depth" data-testid="depth" className="mx-2 rounded-lg border border-slate-200 p-3">
-      <h3 className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Market depth · 5 levels</h3>
+    <section aria-label="Market depth" data-testid="depth" className="mx-2 rounded-lg border border-slate-200 p-2.5">
+      <h3 className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-400">Market depth · 5 levels</h3>
       {body}
       <button type="button" aria-expanded={twenty} data-testid="show-20-depth" onClick={() => setTwenty((v) => !v)} className="mt-2 min-h-[44px] w-full rounded-lg border border-slate-200 text-[13px] font-medium text-slate-700">
         Show 20 depth
@@ -318,7 +318,7 @@ function Depth({ symbol, type }: { symbol: string; type: RowQuote["type"] }) {
 }
 
 const Message = ({ text }: { text: string }) => (
-  <p data-testid="depth-message" className="py-3 text-center text-[12.5px] text-slate-500">
+  <p data-testid="depth-message" className="py-2 text-center text-[12.5px] text-slate-500">
     {text}
   </p>
 );

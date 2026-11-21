@@ -1,8 +1,9 @@
 "use client";
 
 import DataBadge from "@/components/DataBadge";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { CircleHelp, X } from "lucide-react";
+import { useDialogFocus } from "@/components/useDialogFocus";
 import OptionsStatsStrip from "@/components/OptionsStatsStrip";
 import TimeRangeBar from "@/components/TimeRangeBar";
 import { useZestoxx } from "@/components/ZestoxxProvider";
@@ -43,12 +44,7 @@ function fallbackSpot(id: string, live: Record<string, number>): number {
 function HelpModal({ onClose }: { onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialogFocus(closeRef, onClose);
 
   return (
     <div

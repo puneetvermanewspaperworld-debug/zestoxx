@@ -1,0 +1,140 @@
+{
+  "360x800": {
+    "watchlist": {
+      "hist": {
+        "12px": 488,
+        "14px": 240,
+        "20px": 9
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 1,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 771,
+      "viewHeight": 723
+    },
+    "rowSheet": {
+      "scrollHeight": 975,
+      "clientHeight": 635,
+      "scrollsBy": 340,
+      "panelHeight": 680,
+      "viewport": 800
+    },
+    "rowSheetStats": {
+      "hist": {
+        "12px": 930,
+        "14px": 379,
+        "20px": 15
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 3,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 781,
+      "viewHeight": 723
+    },
+    "portfolio": {
+      "hist": {
+        "12px": 667,
+        "14px": 183,
+        "20px": 9,
+        "16px": 41
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 0,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 818,
+      "viewHeight": 723
+    },
+    "fno": {
+      "hist": {
+        "12px": 5485,
+        "14px": 4012,
+        "17px": 28,
+        "18px": 1,
+        "12.5px": 209,
+        "15px": 60
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 19,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 9324,
+      "viewHeight": 723
+    }
+  },
+  "390x844": {
+    "watchlist": {
+      "hist": {
+        "12px": 488,
+        "14px": 237,
+        "20px": 9
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 1,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 771,
+      "viewHeight": 767
+    },
+    "rowSheet": {
+      "scrollHeight": 956,
+      "clientHeight": 672,
+      "scrollsBy": 284,
+      "panelHeight": 717.390625,
+      "viewport": 844
+    },
+    "rowSheetStats": {
+      "hist": {
+        "12px": 930,
+        "14px": 376,
+        "20px": 15
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 3,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 781,
+      "viewHeight": 767
+    },
+    "portfolio": {
+      "hist": {
+        "12px": 666,
+        "14px": 182,
+        "20px": 9,
+        "16px": 43
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 0,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 818,
+      "viewHeight": 767
+    },
+    "fno": {
+      "hist": {
+        "12px": 5485,
+        "14px": 4012,
+        "17px": 28,
+        "18px": 1,
+        "12.5px": 209,
+        "15px": 60
+      },
+      "smallest": 12,
+      "below11": [],
+      "inputs": 19,
+      "inputsUnder16": 0,
+      "sidewaysScroll": 0,
+      "pageHeight": 9108,
+      "viewHeight": 767
+    }
+  }
+}
