@@ -8,6 +8,13 @@ import { MAX_LISTS, MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, isNseSymbol, type Custom
  * `savePortfolio` decomposes it back. Keeping this shape identical is what lets the
  * React components stay untouched.
  */
+/** A saved portfolio over this size is refused: guests write their own, so it has to be bounded. */
+export const MAX_BODY_BYTES = 1_000_000;
+const MAX_HOLDINGS = 500;
+const MAX_ORDERS = 500;
+const MAX_ALERTS = 200;
+const MAX_WATCHLIST = 500;
+
 export interface PortfolioBlob {
   watchlist: string[];
   /** custom watchlists beside the primary one; absent in blobs saved before they existed */
@@ -147,7 +154,7 @@ export async function loadPortfolio(userId: string): Promise<PortfolioBlob | nul
  * one transaction is simplest and race-free.
  */
 export async function savePortfolio(userId: string, blob: PortfolioBlob): Promise<void> {
-  const watchlist = Array.isArray(blob.watchlist) ? blob.watchlist : [];
+  const watchlist = (Array.isArray(blob.watchlist) ? blob.watchlist : []).filter((x): x is string => typeof x === "string").slice(0, MAX_WATCHLIST);
   // Custom lists are user input from the client: keep only well-formed, de-duplicated ones.
   const seenNames = new Set<string>([PRIMARY_LIST.toLowerCase()]);
   const lists: CustomList[] = [];
@@ -160,8 +167,8 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
       .slice(0, MAX_SYMBOLS_PER_LIST);
     lists.push({ name, symbols });
   }
-  const holdings = blob.holdings ?? {};
-  const orderLog = Array.isArray(blob.orderLog) ? blob.orderLog : [];
+  const holdings = Object.fromEntries(Object.entries(blob.holdings && typeof blob.holdings === "object" ? blob.holdings : {}).slice(0, MAX_HOLDINGS));
+  const orderLog = (Array.isArray(blob.orderLog) ? blob.orderLog : []).slice(0, MAX_ORDERS);
   const ISO = /^\d{4}-\d{2}-\d{2}$/;
   // Resting orders and SIPs are client input too — keep only well-formed ones.
   const openOrders = (Array.isArray(blob.openOrders) ? blob.openOrders : []).filter(
@@ -187,7 +194,7 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
     )
     .slice(0, MAX_SIPS);
   const placedBase = Date.now();
-  const alerts = Array.isArray(blob.alerts) ? blob.alerts : [];
+  const alerts = (Array.isArray(blob.alerts) ? blob.alerts : []).slice(0, MAX_ALERTS);
 
   await prisma.$transaction([
     prisma.user.update({
