@@ -504,6 +504,42 @@ test.describe("orders: GTT and stop-loss", () => {
     await expect(page.locator('[data-testid^="log-order-"]').first()).toContainText("Cancelled", { timeout: 15_000 });
     await expect(page.locator('[data-testid^="simulated-"]')).toHaveCount(0);
   });
+
+  test("two tabs opened together, then a reload, fill it once: one candle request, one filled order, cash credited once", async ({ browser }) => {
+    const ctx = await browser.newContext(phone(390, 844));
+    const candles = { source: "live" as const, bars: [bar("2026-11-10T11:00:00", 1410, 1412, 1395, 1396)] };
+    let requests = 0;
+    const puts: Record<string, unknown>[][] = [];
+    const tab = async () => {
+      const p = await ctx.newPage();
+      const m = await mock(p, { portfolio: { ...seed, orderLog: [], openOrders: [gtt] }, candles });
+      puts.push(m.puts);
+      await p.route("**/api/candles**", (r) => {
+        requests++;
+        return r.fulfill({ json: candles });
+      });
+      return p;
+    };
+    const [a, b] = [await tab(), await tab()];
+    await Promise.all([a.goto("/app/orders", { waitUntil: "domcontentloaded" }), b.goto("/app/orders", { waitUntil: "domcontentloaded" })]);
+    await Promise.all([a.getByTestId("app-content").waitFor(), b.getByTestId("app-content").waitFor()]);
+    await a.waitForTimeout(7000);
+    expect(requests).toBe(1);
+    const filledIn = async (p: Page) => {
+      await p.getByTestId("orders-tab-executed").click();
+      return p.locator('[data-testid^="simulated-"]').count();
+    };
+    expect((await filledIn(a)) + (await filledIn(b))).toBe(1);
+    const saved = puts.flat().filter((x) => ((x as { orderLog?: unknown[] }).orderLog ?? []).length > 0);
+    expect(saved.length).toBeGreaterThan(0);
+    for (const s of saved) expect(((s as { orderLog: unknown[] }).orderLog).length).toBe(1);
+    // a reload soon after does not check again
+    await a.reload({ waitUntil: "domcontentloaded" });
+    await a.getByTestId("app-content").waitFor();
+    await a.waitForTimeout(4000);
+    expect(requests).toBe(1);
+    await ctx.close();
+  });
 });
 
 test.describe("portfolio: Holdings, Positions and privacy", () => {
