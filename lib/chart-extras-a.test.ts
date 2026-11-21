@@ -13,19 +13,22 @@ const memory = () => {
 };
 
 describe("invert price scale, theme and favourites in the settings", () => {
-  it("start as: not inverted, light, nothing starred", () => {
+  it("start as: not inverted, dark (the chart page is dark unless the light theme is chosen), nothing starred", () => {
     const s = parseSettings(null);
-    assert.deepEqual([s.invert, s.theme, s.favTools, s.favStudies], [false, "light", [], []]);
+    assert.deepEqual([s.invert, s.theme, s.favTools, s.favStudies], [false, "dark", [], []]);
+  });
+  it("a stored light theme stays light", () => {
+    assert.equal(parseSettings({ theme: "light" }).theme, "light");
   });
   it("are remembered", () => {
     const st = memory();
-    const s: ChartSettings = { ...parseSettings(null), invert: true, theme: "dark", favTools: ["fib", "trend"], favStudies: ["rsi", "macd"] };
+    const s: ChartSettings = { ...parseSettings(null), invert: true, theme: "light", favTools: ["fib", "trend"], favStudies: ["rsi", "macd"] };
     saveSettings(st, s);
     assert.deepEqual(loadSettings(st), s);
   });
   it("are checked: a wrong type or an unknown id gives the default, and a list keeps only known ids once each, in order", () => {
     const s = parseSettings({ invert: "yes", theme: "sepia", favTools: ["fib", "nope", "fib", "select", "trend", 7], favStudies: ["macd", "rsi", "macd", "zzz"] });
-    assert.deepEqual([s.invert, s.theme], [false, "light"]);
+    assert.deepEqual([s.invert, s.theme], [false, "dark"]);
     assert.deepEqual(s.favTools, ["fib", "trend"]); // Select cannot be starred: it is always first
     assert.deepEqual(s.favStudies, ["macd", "rsi"]);
     assert.deepEqual(parseSettings({ favTools: "fib", favStudies: { a: 1 } }).favTools, []);
@@ -39,7 +42,7 @@ describe("invert price scale, theme and favourites in the settings", () => {
     const st = memory();
     st.setItem(SETTINGS_KEY, JSON.stringify({ type: "hollow", scale: "log" }));
     const s = loadSettings(st);
-    assert.deepEqual([s.type, s.scale, s.invert, s.theme, s.favTools], ["hollow", "log", false, "light", []]);
+    assert.deepEqual([s.type, s.scale, s.invert, s.theme, s.favTools], ["hollow", "log", false, "dark", []]);
   });
 });
 

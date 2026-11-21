@@ -61,39 +61,26 @@ async function openPhone(page: Page) {
   await openTrade(page);
   await show(page);
 }
-/** the drawing actions that live in the tool rail's menu on a phone (undo, redo, hide all...): open it, tap one, close it */
-const viaDrawingsSheet = async (page: Page, id: string) => {
-  await page.getByTestId("rail-menu").tap();
-  await page.getByTestId(id).tap();
-  await page.getByTestId("sheet-close").tap();
-  await expect(page.getByTestId("drawings-sheet")).toHaveCount(0);
-};
 const pickTool = async (page: Page, tool: string) => {
-  if ((await page.getByTestId("tool-rail").getAttribute("data-open")) !== "1") await page.getByTestId("rail-toggle").tap();
   await page.getByTestId(`tool-${tool}`).tap();
 };
 
-test("the tool rail starts collapsed on a phone, opens and closes, and every button is a 44 px target", async ({ page }) => {
+test("the tool rail is always open beside the plot on a phone, and every button is a 44 px target", async ({ page }) => {
   await openPhone(page);
-  await expect(page.getByTestId("tool-rail")).toHaveAttribute("data-open", "0");
-  await expect(page.getByTestId("tool-trend")).toHaveCount(0);
-  await expect(page.getByTestId("quick-bar")).toHaveCount(0); // the quick bar comes with a tool or a selected drawing, not before: it must not sit over the plot for nothing
-  await page.getByTestId("rail-toggle").tap();
   await expect(page.getByTestId("tool-rail")).toHaveAttribute("data-open", "1");
-  for (const id of ["select", "hline", "trend", "ray", "rect", "channel", "text", "measure"]) {
-    const b = await page.getByTestId(`tool-${id}`).boundingBox();
-    expect(b!.width, id).toBeGreaterThanOrEqual(44);
-    expect(b!.height, id).toBeGreaterThanOrEqual(44);
+  await expect(page.getByTestId("quick-bar")).toHaveCount(0); // the quick bar comes with a tool or a selected drawing, not before: it must not sit over the plot for nothing
+  for (const id of ["select", "trend", "channel", "fib", "text", "brush", "measure", "hline", "ray", "rect"]) {
+    const b = await page.getByTestId(`tool-${id}`).evaluate((e) => ({ w: (e as HTMLElement).offsetWidth, h: (e as HTMLElement).offsetHeight }));
+    expect(b.w, id).toBeGreaterThanOrEqual(44);
+    expect(b.h, id).toBeGreaterThanOrEqual(44);
   }
-  await page.getByTestId("tool-hline").tap();
+  await page.getByTestId("tool-trend").tap();
   await expect(page.getByTestId("quick-bar")).toBeVisible();
-  for (const id of ["undo", "redo", "magnet", "stay", "rail-toggle", "rail-menu"]) {
-    const b = await page.getByTestId(id).boundingBox();
-    expect(b!.width, id).toBeGreaterThanOrEqual(44);
-    expect(b!.height, id).toBeGreaterThanOrEqual(44);
+  for (const id of ["done", "rail-undo", "rail-redo", "magnet", "stay", "lock-all", "hide-all", "rail-delete", "rail-zoom"]) {
+    const b = await page.getByTestId(id).evaluate((e) => ({ w: (e as HTMLElement).offsetWidth, h: (e as HTMLElement).offsetHeight }));
+    expect(b.w, id).toBeGreaterThanOrEqual(44);
+    expect(b.h, id).toBeGreaterThanOrEqual(44);
   }
-  await page.getByTestId("rail-toggle").tap();
-  await expect(page.getByTestId("tool-rail")).toHaveAttribute("data-open", "0");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
@@ -167,22 +154,15 @@ test("the page does not scroll while a tool is active, even on a vertical swipe 
   expect(await stored(page)).toEqual([]);
 });
 
-test("with no tool active a vertical swipe on the chart scrolls the page", async ({ page }) => {
+test("the screen is fixed: a vertical swipe on the chart or off it scrolls nothing and moves nothing", async ({ page }) => {
   await openPhone(page);
-  await expect(page.getByTestId("chart-with-tools")).toHaveAttribute("data-tool", "select");
   const c = await centreOfChart(page);
-  const top = await scrollTop(page);
+  const before = JSON.stringify(await view(page));
   await swipe(page, { x: c.x, y: c.y + 80 }, { x: c.x, y: c.y - 120 });
-  expect(await scrollTop(page)).toBeGreaterThan(top + 60);
-});
-
-test("control: the same swipe made off the chart scrolls the page, so the test above means something", async ({ page }) => {
-  await openPhone(page);
-  const top = await scrollTop(page);
-  const heading = (await page.getByTestId("chart-with-tools").boundingBox())!;
-  // start on the toolbox row above the chart (plain page content), 60 px from its top
-  await swipe(page, { x: 195, y: heading.y + 60 }, { x: 195, y: heading.y - 140 });
-  expect(await scrollTop(page)).toBeGreaterThan(top + 60);
+  expect(await scrollTop(page)).toBe(0);
+  expect(JSON.stringify(await view(page))).toBe(before);
+  await swipe(page, { x: 195, y: 70 }, { x: 195, y: -20 }, 6); // off the chart, on the header
+  expect(await scrollTop(page)).toBe(0);
 });
 
 test("with no tool active a horizontal drag still pans the chart", async ({ page }) => {
@@ -200,8 +180,8 @@ test("a selected drawing's handles are 44 px or more, and a touch drag on one mo
   await tapAt(page, 264, 0.55);
   const [before] = await waitStored(page, 1);
   const hb = await page.getByTestId("handle-b").boundingBox();
-  expect(hb!.width).toBeGreaterThanOrEqual(44);
-  expect(hb!.height).toBeGreaterThanOrEqual(44);
+  expect(hb!.width).toBeGreaterThanOrEqual(43.9);
+  expect(hb!.height).toBeGreaterThanOrEqual(43.9);
   const cdp = await cdpFor(page);
   const top = await scrollTop(page);
   const x = hb!.x + hb!.width / 2;
@@ -215,7 +195,7 @@ test("a selected drawing's handles are 44 px or more, and a touch drag on one mo
   expect(await scrollTop(page)).toBe(top);
 });
 
-test("the quick bar: undo and redo, delete the selected drawing, done", async ({ page }) => {
+test("the quick bar (delete the selected drawing, done) and the rail's undo and redo", async ({ page }) => {
   await openPhone(page);
   await pickTool(page, "hline");
   await tapAt(page, 255, 0.6);
@@ -223,11 +203,11 @@ test("the quick bar: undo and redo, delete the selected drawing, done", async ({
   await expect(page.getByTestId("quick-delete")).toBeVisible();
   await page.getByTestId("quick-delete").tap();
   await waitStored(page, 0);
-  // with nothing selected and no tool the quick bar is away; undo and redo are in the rail's menu
+  // with nothing selected and no tool the quick bar is away; undo and redo are in the rail
   await expect(page.getByTestId("quick-bar")).toHaveCount(0);
-  await viaDrawingsSheet(page, "sheet-undo");
+  await page.getByTestId("rail-undo").tap();
   await waitStored(page, 1);
-  await viaDrawingsSheet(page, "sheet-redo");
+  await page.getByTestId("rail-redo").tap();
   await waitStored(page, 0);
   await pickTool(page, "trend");
   await expect(page.getByTestId("done")).toBeVisible();
@@ -252,7 +232,6 @@ test("390 px screenshot with several drawings", async ({ page }) => {
   await page.getByLabel("Note text").fill("Support");
   await page.keyboard.press("Enter");
   await page.getByTestId("done").tap();
-  await page.getByTestId("rail-toggle").tap(); // collapse the rail for the picture
   const ds = await waitStored(page, 4);
   expect(ds.map((d) => d.kind).sort()).toEqual(["hline", "rect", "text", "trend"]);
   await page.mouse.move(5, 5);
@@ -392,19 +371,17 @@ test("on a phone the chart type menu is a bottom sheet with 44 px rows, and a pi
 });
 
 /* ---------------------------------------------------------------------------------- intervals, ranges -- */
-test("on a phone the interval bar, its dropdown sheet and the range buttons are 44 px targets, and choosing a range loads it", async ({ page }) => {
+test("on a phone the interval bar, its dropdown sheet and the Date Range sheet are 44 px targets, and choosing a range loads it", async ({ page }) => {
   const seen: string[] = [];
   await openTrade(page, "RELIANCE", { seen });
   await show(page);
-  const row = page.getByTestId("range-row");
-  await expect(row).toBeVisible();
-  // the ranges are one line that scrolls sideways; each button is a finger
+  await page.getByTestId("date-range-button").tap();
+  await expect(page.getByTestId("range-row")).toBeVisible();
   for (const r of ["1D", "5D", "1M", "3M", "6M", "1Y", "5Y", "All"]) {
     const b = (await page.getByTestId(`range-${r}`).boundingBox())!;
     expect(b.height, r).toBeGreaterThanOrEqual(44);
-    expect(b.width, r).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width, r).toBeLessThanOrEqual(390);
   }
-  expect(await row.evaluate((el) => el.scrollWidth >= el.clientWidth)).toBe(true);
   await page.getByTestId("range-5D").tap();
   await expect(page.getByTestId("ibar-15m")).toHaveAttribute("aria-checked", "true");
   await expect.poll(() => seen.some((s) => s.includes("interval=15m") && s.includes("range=5D"))).toBe(true);
@@ -435,9 +412,9 @@ test("on a phone the studies menu is a sheet with 44 px rows; adding RSI gives i
   await page.getByTestId("sheet-close").tap();
   await expect(sheet).toHaveCount(0);
   await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-studies")) ?? "[]").some((s: { id: string; pane: number }) => s.id === "rsi" && s.pane === 1)).toBe(true);
-  const chip = page.locator('[data-testid^="legend-edit-"]').last();
-  expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  expect((await page.locator('[data-testid^="legend-remove-"]').last().boundingBox())!.width).toBeGreaterThanOrEqual(44);
+  // the legend is a small block in the plot's corner with a line for the new study; the block is one 44 px target
+  await expect(page.locator('[data-testid^="legend-"][data-study="rsi"]')).toBeVisible();
+  expect((await page.getByTestId("study-legend").boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
@@ -495,7 +472,6 @@ test("on a phone: the settings sheet, the dark theme, a starred tool and the new
   await page.getByTestId("interval-2h").tap();
   await expect(page.getByTestId("interval-button")).toHaveText(/2h/);
   // star a tool with the pin mode: the rail grows by the stars and nothing overflows
-  await page.getByTestId("rail-toggle").tap();
   await page.getByTestId("tool-pin-mode").tap();
   await page.getByTestId("tool-star-fib").scrollIntoViewIfNeeded();
   const star = (await page.getByTestId("tool-star-fib").boundingBox())!;

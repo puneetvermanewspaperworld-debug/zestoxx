@@ -42,7 +42,7 @@ export const DEFAULT_STUDIES: StudyInstance[] = [
   { uid: 3, id: "volume", params: {} },
 ];
 
-export const DEFAULT_SETTINGS: ChartSettings = { type: "candle", renko: {}, studies: DEFAULT_STUDIES, scale: "normal", grid: true, magnet: false, interval: null, range: null, invert: false, theme: "light", favTools: [], favStudies: [] };
+export const DEFAULT_SETTINGS: ChartSettings = { type: "candle", renko: {}, studies: DEFAULT_STUDIES, scale: "normal", grid: true, magnet: false, interval: null, range: null, invert: false, theme: "dark", favTools: [], favStudies: [] };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 

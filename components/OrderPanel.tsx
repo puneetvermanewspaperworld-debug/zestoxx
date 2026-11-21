@@ -92,7 +92,7 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
               if (ot === "gtd" && !expiry) setExpiry(addDaysIso(istClock().date, 7));
             }}
             className={
-              "flex-1 rounded px-2 py-1 text-[11.5px] font-medium " +
+              "flex-1 rounded px-2 py-1 text-[11.5px] font-medium phone:min-h-[44px] " +
               (orderType === ot ? "bg-blue-600 text-slate-50" : "text-slate-500")
             }
           >
@@ -108,7 +108,7 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
             min="1"
             value={qty}
             onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-            className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] text-slate-900 outline-none focus:border-blue-400"
+            className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 phone:min-h-[44px] text-[13px] text-slate-900 outline-none focus:border-blue-400"
           />
         </div>
         <div>
@@ -120,10 +120,10 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
               type="number"
               value={limitPrice}
               onChange={(e) => setLimitPrice(e.target.value)}
-              className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] text-slate-900 outline-none focus:border-blue-400"
+              className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 phone:min-h-[44px] font-mono text-[13px] text-slate-900 outline-none focus:border-blue-400"
             />
           ) : (
-            <div className="mt-0.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] text-slate-900">
+            <div className="mt-0.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] text-slate-900 phone:flex phone:min-h-[44px] phone:items-center">
               {fmt(cost, type)}
             </div>
           )}
@@ -141,7 +141,7 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
             min={isClient ? gtdBounds(istClock().date).min : undefined}
             max={isClient ? gtdBounds(istClock().date).max : undefined}
             onChange={(e) => setExpiry(e.target.value)}
-            className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-[13px] text-slate-900 outline-none focus:border-blue-400"
+            className="mt-0.5 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 phone:min-h-[44px] font-mono text-[13px] text-slate-900 outline-none focus:border-blue-400"
           />
         </div>
       )}
@@ -151,13 +151,13 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
       <div className="flex gap-2">
         <button
           onClick={() => submit("buy")}
-          className="flex-1 rounded-md bg-emerald-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+          className="flex-1 rounded-md bg-emerald-500 py-2 phone:min-h-[44px] text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
         >
           {PAPER_BUY}
         </button>
         <button
           onClick={() => submit("sell")}
-          className="flex-1 rounded-md bg-rose-500 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+          className="flex-1 rounded-md bg-rose-500 py-2 phone:min-h-[44px] text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
         >
           {PAPER_SELL}
         </button>

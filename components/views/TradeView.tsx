@@ -28,6 +28,7 @@ import { useCandles } from "@/components/chart/useCandles";
 import type { FeedInfo } from "@/components/chart/ChartControls";
 import { useScreenMode } from "@/lib/useScreenMode";
 import TradePhone from "@/components/views/TradePhone";
+import { OpenOrdersTab, PositionsTab, positionIdsFor } from "@/components/views/TradeDrawerTabs";
 import { intervalAvailability, isIntraday, selectionFrom, type DataKind } from "@/lib/chart/intervals";
 import type { Candle, Timeframe } from "@/lib/types";
 
@@ -57,6 +58,8 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     addToWatchlist,
     removeFromWatchlist,
     orderLog,
+    openOrders,
+    cancelOrder,
     onAddAlert,
     formula,
     setFormula,
@@ -70,6 +73,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
 
+  const symOpenOrders = openOrders.filter((o) => o.symbol === selected);
   const symOrders = orderLog.filter((o) => o.symbol === selected).slice(0, 6);
   const pulseState = pulseFor({
     symId: selected,
@@ -214,14 +218,18 @@ export default function TradeView({ symbol }: { symbol?: string }) {
           pulse: pulsePill,
         }}
         renderChart={(layout) => <ChartWithTools {...chartProps} phone={layout} />}
-        orderPanel={orderPanel}
-        below={
-          <>
-            {recentOrdersCard}
-            {orderBookCard}
-            {watchlistCard}
-          </>
-        }
+        theme={chartSettings.theme}
+        counts={{ orders: symOpenOrders.length, positions: positionIdsFor(selected, holdings).length }}
+        tabs={{
+          trade: (
+            <div className="space-y-3">
+              {orderPanel}
+              {orderBookCard}
+            </div>
+          ),
+          orders: <OpenOrdersTab symbol={selected} orders={symOpenOrders} onCancel={cancelOrder} recent={recentOrdersCard} />,
+          positions: <PositionsTab symbol={selected} holdings={holdings} live={live} />,
+        }}
       />
     );
   }

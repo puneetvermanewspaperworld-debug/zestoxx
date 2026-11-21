@@ -245,7 +245,12 @@ export default function TradeChart(p: TradeChartProps) {
       }
     };
     // what is in sight, for tests and for anyone reading the page: the first and last visible bar (as positions in the data)
+    // the width of the price axis at the right edge, so what floats over the plot can stay clear of it (and tests can check that it does)
+    const publishAxis = () => {
+      el.dataset.axisWidth = String(Math.round(chart.priceScale("right").width()));
+    };
     const onRange = (r: { from: number; to: number } | null) => {
+      publishAxis();
       if (r) el.dataset.view = JSON.stringify({ from: Math.round(r.from * 10) / 10, to: Math.round(r.to * 10) / 10 });
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
@@ -255,6 +260,7 @@ export default function TradeChart(p: TradeChartProps) {
       if (h > 0) chart.priceScale("right").applyOptions({ scaleMargins: { top: Math.min(0.3, Math.max(0.08, 60 / h)), bottom: 0.08 } });
     };
     const ro = new ResizeObserver(() => {
+      publishAxis();
       reserveTop();
       applyPending();
     });

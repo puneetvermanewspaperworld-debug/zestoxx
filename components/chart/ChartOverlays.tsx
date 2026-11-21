@@ -59,10 +59,10 @@ export function ToolRail({ api, open, onToggle, favs, onToggleFav, menu }: { /**
   );
 }
 
-export function QuickBar({ api, offset = "top-1" }: { api: DrawingsApi; /** where it sits (a Tailwind top class): lower when a legend line is above it */ offset?: string }) {
+export function QuickBar({ api, offset = "top-1", flow = false, minimal = false }: { api: DrawingsApi; /** where it sits (a Tailwind top class): lower when a legend line is above it */ offset?: string; /** not floating: laid out where it is put (the phone's stack at the foot of the plot) */ flow?: boolean; /** phones: only done and delete (undo, redo, magnet and stay are in the tool rail) */ minimal?: boolean }) {
   const Active = TOOL_ICON[api.tool];
   return (
-    <div className={"pointer-events-none absolute inset-x-0 z-20 flex flex-col items-end gap-1 pl-14 pr-16 " + offset} data-testid="quick-bar-wrap">
+    <div className={flow ? "pointer-events-none flex flex-col items-center gap-1" : "pointer-events-none absolute inset-x-0 z-20 flex flex-col items-end gap-1 pl-14 pr-16 " + offset} data-testid="quick-bar-wrap">
       <div role="toolbar" aria-label="Quick tools" data-testid="quick-bar" className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-white/95 p-0.5 shadow ring-1 ring-slate-200">
         {api.tool !== "select" && (
           <button type="button" aria-label="Done drawing" title="Done: back to select" data-testid="done" onClick={() => api.setTool("select")} className={tap44(true) + " rounded-full"}>
@@ -70,18 +70,18 @@ export function QuickBar({ api, offset = "top-1" }: { api: DrawingsApi; /** wher
             <Check size={14} aria-hidden />
           </button>
         )}
-        <button type="button" aria-label="Undo" title="Undo" disabled={!api.canUndo} onClick={api.undo} data-testid="undo" className={tap44() + " rounded-full"}>
+        {!minimal && <button type="button" aria-label="Undo" title="Undo" disabled={!api.canUndo} onClick={api.undo} data-testid="undo" className={tap44() + " rounded-full"}>
           <Undo2 size={18} aria-hidden />
-        </button>
-        <button type="button" aria-label="Redo" title="Redo" disabled={!api.canRedo} onClick={api.redo} data-testid="redo" className={tap44() + " rounded-full"}>
+        </button>}
+        {!minimal && <button type="button" aria-label="Redo" title="Redo" disabled={!api.canRedo} onClick={api.redo} data-testid="redo" className={tap44() + " rounded-full"}>
           <Redo2 size={18} aria-hidden />
-        </button>
-        <button type="button" aria-label="Magnet" aria-pressed={api.magnet} title="Snap to a candle's open, high, low or close" onClick={api.toggleMagnet} data-testid="magnet" className={tap44(api.magnet) + " rounded-full"}>
+        </button>}
+        {!minimal && <button type="button" aria-label="Magnet" aria-pressed={api.magnet} title="Snap to a candle's open, high, low or close" onClick={api.toggleMagnet} data-testid="magnet" className={tap44(api.magnet) + " rounded-full"}>
           <Magnet size={18} aria-hidden />
-        </button>
-        <button type="button" aria-label="Stay in drawing mode" aria-pressed={api.stay} title="Keep the tool after each drawing" onClick={api.toggleStay} data-testid="stay" className={tap44(api.stay) + " rounded-full"}>
+        </button>}
+        {!minimal && <button type="button" aria-label="Stay in drawing mode" aria-pressed={api.stay} title="Keep the tool after each drawing" onClick={api.toggleStay} data-testid="stay" className={tap44(api.stay) + " rounded-full"}>
           <Pin size={18} aria-hidden />
-        </button>
+        </button>}
         {api.selectedId && (
           <button type="button" aria-label="Delete selected drawing" title="Delete" data-testid="quick-delete" onClick={() => api.selectedId && api.remove(api.selectedId)} className={tap44(false, true) + " rounded-full"}>
             <Trash2 size={18} aria-hidden />

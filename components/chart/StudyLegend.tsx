@@ -9,11 +9,8 @@ import { outputColor, studyTitle, type Num, type StudyResult } from "@/lib/chart
 import { fmtOi } from "@/lib/helpers";
 import type { AssetType } from "@/lib/types";
 
-/**
- * One chip for each study on the chart, with its values on the bar under the crosshair (or the latest bar when there is no crosshair). A
- * study that cannot be shown says why instead of a value. Tapping the name opens its parameters; the cross removes it. 44 px targets.
- */
-export default function StudyLegend({ results, bars, chart, type, onEdit, onRemove, line = false }: { line?: boolean; results: StudyResult[]; bars: readonly TimedCandle[]; chart: IChartApi | null; type: AssetType; onEdit: (uid: number) => void; onRemove: (uid: number) => void }) {
+/** the bar under the crosshair, else the latest */
+function useLegendIndex(chart: IChartApi | null, bars: readonly TimedCandle[]): number {
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   useEffect(() => {
     if (!chart) return;
@@ -21,8 +18,6 @@ export default function StudyLegend({ results, bars, chart, type, onEdit, onRemo
     chart.subscribeCrosshairMove(onMove);
     return () => chart.unsubscribeCrosshairMove(onMove);
   }, [chart]);
-  if (results.length === 0) return null;
-  // the bar under the crosshair, else the latest
   let index = bars.length - 1;
   if (hoverTime !== null) {
     let lo = 0;
@@ -37,7 +32,59 @@ export default function StudyLegend({ results, bars, chart, type, onEdit, onRemo
       else hi = mid - 1;
     }
   }
-  const fmt = (key: string, v: Num | undefined) => (v === null || v === undefined ? "–" : key === "volume" ? fmtOi(v) : Math.abs(v) >= 1000 ? fmtPrice(v, type) : v.toFixed(2));
+  return index;
+}
+const legendFormat = (type: AssetType) => (key: string, v: Num | undefined) => (v === null || v === undefined ? "–" : key === "volume" ? fmtOi(v) : Math.abs(v) >= 1000 ? fmtPrice(v, type) : v.toFixed(2));
+
+/**
+ * The phone's legend: a small block of text at the top-left corner of the plot, a line for each study with its name and its values on the
+ * bar under the crosshair (or the latest bar). One tap target as a whole (44 px at least): it opens the Studies sheet, where a study's
+ * parameters are edited and it is removed. It is narrow and short, so it never reaches the price axis, and it takes no touches elsewhere.
+ */
+export function LegendCorner({ results, bars, chart, type, onOpen, maxLines = 4 }: { results: StudyResult[]; bars: readonly TimedCandle[]; chart: IChartApi | null; type: AssetType; onOpen: () => void; maxLines?: number }) {
+  const index = useLegendIndex(chart, bars);
+  if (results.length === 0) return null;
+  const fmt = legendFormat(type);
+  const shown = results.slice(0, maxLines);
+  const more = results.length - shown.length;
+  return (
+    <button type="button" onClick={onOpen} data-testid="study-legend" data-line="corner" aria-label={`Studies on the chart: ${results.length}. Tap to edit or remove`} className="pointer-events-auto flex min-h-[44px] max-w-full flex-col items-start justify-start rounded-md bg-white/80 px-1.5 py-1 text-left font-mono text-[10.5px] leading-[14px] backdrop-blur-[1px]">
+      {shown.map((r) => {
+        const title = studyTitle(r.def, r.instance.params);
+        return (
+          <span key={r.instance.uid} data-testid={`legend-${r.instance.uid}`} data-study={r.def.id} className="flex max-w-full gap-1.5 whitespace-nowrap">
+            <span className="truncate font-medium text-slate-600">{title}</span>
+            {r.availability.ok ? (
+              r.def.outputs.map((o) => (
+                <span key={o.key} data-testid={`legend-value-${r.instance.uid}-${o.key}`} style={{ color: outputColor(r.instance, r.def, o) }}>
+                  {fmt(o.key, r.values[o.key]?.[index])}
+                </span>
+              ))
+            ) : (
+              <span data-testid={`legend-reason-${r.instance.uid}`} className="truncate text-amber-700">
+                {r.availability.reason}
+              </span>
+            )}
+          </span>
+        );
+      })}
+      {more > 0 && (
+        <span data-testid="legend-more" className="text-slate-400">
+          and {more} more
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * One chip for each study on the chart, with its values on the bar under the crosshair (or the latest bar when there is no crosshair). A
+ * study that cannot be shown says why instead of a value. Tapping the name opens its parameters; the cross removes it. 44 px targets.
+ */
+export default function StudyLegend({ results, bars, chart, type, onEdit, onRemove, line = false }: { line?: boolean; results: StudyResult[]; bars: readonly TimedCandle[]; chart: IChartApi | null; type: AssetType; onEdit: (uid: number) => void; onRemove: (uid: number) => void }) {
+  const index = useLegendIndex(chart, bars);
+  if (results.length === 0) return null;
+  const fmt = legendFormat(type);
   return (
     <div className={line ? "flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain" : "mb-1.5 flex flex-wrap gap-1.5"} data-testid="study-legend" data-line={line ? "1" : "0"} aria-label="Studies on the chart">
       {results.map((r) => {
