@@ -39,7 +39,8 @@ async function mockQuotes(page: Page) {
   await page.route("**/api/market-data?asset=*-ohlc", (r) => r.fulfill({ json: {} }));
 }
 
-test("2.1 the Watchlist page has a Watchlist | Options toggle that switches to /app/options", async ({ page }) => {
+test("2.1 the Watchlist page has a Watchlist | Options toggle that switches to /app/options (tablet and desktop: a phone has Options in Explore)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
   await mockQuotes(page);
   await page.route("**/api/options-chain**", (r) => r.fulfill({ json: chain("NIFTY50", "2026-11-17") }));
   await page.goto("/app/watchlist", { waitUntil: "domcontentloaded" });

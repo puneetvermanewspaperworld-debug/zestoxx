@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { MAX_SIPS, type OrderStatus, type OrderType, type SipFrequency, type SipStatus } from "@/lib/orders";
-import { MAX_LISTS, MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, isNseSymbol, type CustomList } from "@/lib/watchlists";
+import { MAX_LISTS, MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, isWatchSymbol, type CustomList } from "@/lib/watchlists";
 
 /**
  * The single blob the terminal reads/writes through `storage` (was one localStorage
@@ -14,6 +14,9 @@ const MAX_HOLDINGS = 500;
 const MAX_ORDERS = 500;
 const MAX_ALERTS = 200;
 const MAX_WATCHLIST = 500;
+const MAX_NOTES = 100;
+const MAX_OPEN_GTT = 20;
+const MAX_NOTE_LENGTH = 500;
 
 export interface PortfolioBlob {
   watchlist: string[];
@@ -33,18 +36,27 @@ export interface PortfolioBlob {
     orderType?: OrderType;
     status?: OrderStatus;
     expiryDate?: string;
+    /** YYYY-MM-DD (IST) it was filled; absent in blobs saved before dates were kept */
+    date?: string;
+    /** a GTT filled from candles on a later visit */
+    simulated?: boolean;
   }[];
-  /** resting LIMIT / GTD orders */
+  /** resting LIMIT / GTD / GTT orders */
   openOrders?: {
     symbol: string;
     side: "buy" | "sell";
     qty: number;
     limitPrice: number;
     time: string;
-    orderType: "LIMIT" | "GTD";
+    orderType: "LIMIT" | "GTD" | "GTT";
     placedDate: string;
     expiryDate?: string;
+    /** GTT: which way the price has to cross limitPrice (the trigger), and when the order was placed (epoch ms) */
+    trigger?: "above" | "below";
+    placedAtMs?: number;
   }[];
+  /** the guest's notes on symbols */
+  notes?: Record<string, string>;
   sips?: {
     symbol: string;
     amount: number;
@@ -64,6 +76,17 @@ export interface PortfolioBlob {
   }[];
 }
 
+/** The notes column as a clean { symbol: text } map: anything else in it is dropped. */
+export function noteMap(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (Object.keys(out).length >= MAX_NOTES) break;
+    if (typeof v === "string" && v.trim() && isWatchSymbol(k)) out[k] = v.slice(0, MAX_NOTE_LENGTH);
+  }
+  return out;
+}
+
 /** Returns null when the user has never saved anything, so the client keeps its defaults. */
 export async function loadPortfolio(userId: string): Promise<PortfolioBlob | null> {
   const [user, watchlist, holdings, orders, alerts, sips] = await Promise.all([
@@ -76,7 +99,9 @@ export async function loadPortfolio(userId: string): Promise<PortfolioBlob | nul
   ]);
 
   if (!user) return null;
+  const notes = noteMap(user.notes);
   const isEmpty =
+    Object.keys(notes).length === 0 &&
     watchlist.length === 0 &&
     holdings.length === 0 &&
     orders.length === 0 &&
@@ -115,6 +140,8 @@ export async function loadPortfolio(userId: string): Promise<PortfolioBlob | nul
         orderType: (o.orderType === "MARKET" && o.mode === "limit" ? "LIMIT" : o.orderType) as OrderType,
         status: o.status as OrderStatus,
         expiryDate: o.expiryDate ?? undefined,
+        date: o.placedDate ?? undefined,
+        simulated: o.simulated || undefined,
       })),
     openOrders: orders
       .filter((o) => o.status === "open" && o.limitPrice != null)
@@ -124,10 +151,13 @@ export async function loadPortfolio(userId: string): Promise<PortfolioBlob | nul
         qty: o.qty,
         limitPrice: o.limitPrice as number,
         time: o.timeLabel ?? "",
-        orderType: (o.orderType === "GTD" ? "GTD" : "LIMIT") as "LIMIT" | "GTD",
+        orderType: (o.orderType === "GTD" ? "GTD" : o.orderType === "GTT" ? "GTT" : "LIMIT") as "LIMIT" | "GTD" | "GTT",
         placedDate: o.placedDate ?? "",
         expiryDate: o.expiryDate ?? undefined,
+        trigger: o.triggerSide === "above" || o.triggerSide === "below" ? o.triggerSide : undefined,
+        placedAtMs: o.placedAtMs ?? undefined,
       })),
+    notes,
     sips: sips.map((p) => ({
       symbol: p.symbol,
       amount: p.amount,
@@ -163,7 +193,7 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
     if (!name || seenNames.has(name.toLowerCase()) || lists.length >= MAX_LISTS) continue;
     seenNames.add(name.toLowerCase());
     const symbols = [...new Set(Array.isArray(l.symbols) ? l.symbols : [])]
-      .filter((x): x is string => typeof x === "string" && isNseSymbol(x))
+      .filter((x): x is string => typeof x === "string" && isWatchSymbol(x))
       .slice(0, MAX_SYMBOLS_PER_LIST);
     lists.push({ name, symbols });
   }
@@ -171,16 +201,20 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
   const orderLog = (Array.isArray(blob.orderLog) ? blob.orderLog : []).slice(0, MAX_ORDERS);
   const ISO = /^\d{4}-\d{2}-\d{2}$/;
   // Resting orders and SIPs are client input too — keep only well-formed ones.
-  const openOrders = (Array.isArray(blob.openOrders) ? blob.openOrders : []).filter(
+  const openOrdersValid = (Array.isArray(blob.openOrders) ? blob.openOrders : []).filter(
     (o) =>
       typeof o?.symbol === "string" &&
       (o.side === "buy" || o.side === "sell") &&
       o.qty > 0 &&
       o.limitPrice > 0 &&
-      (o.orderType === "LIMIT" || o.orderType === "GTD") &&
+      (o.orderType === "LIMIT" || o.orderType === "GTD" || o.orderType === "GTT") &&
       ISO.test(o.placedDate) &&
-      (o.orderType === "LIMIT" || (typeof o.expiryDate === "string" && ISO.test(o.expiryDate)))
+      (o.orderType !== "GTD" || (typeof o.expiryDate === "string" && ISO.test(o.expiryDate))) &&
+      (o.orderType !== "GTT" || ((o.trigger === "above" || o.trigger === "below") && typeof o.placedAtMs === "number" && Number.isFinite(o.placedAtMs)))
   );
+  // a paper account keeps at most MAX_OPEN_GTT trigger orders open
+  let gttKept = 0;
+  const openOrders = openOrdersValid.filter((o) => o.orderType !== "GTT" || ++gttKept <= MAX_OPEN_GTT);
   const sips = (Array.isArray(blob.sips) ? blob.sips : [])
     .filter(
       (p) =>
@@ -199,7 +233,7 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
-      data: { cash: typeof blob.cash === "number" ? blob.cash : 1000000 },
+      data: { cash: typeof blob.cash === "number" ? blob.cash : 1000000, notes: noteMap(blob.notes) },
     }),
 
     prisma.watchlist.deleteMany({ where: { userId } }),
@@ -242,6 +276,8 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
           timeLabel: o.time,
           placedDate: o.placedDate,
           expiryDate: o.orderType === "GTD" ? o.expiryDate : null,
+          triggerSide: o.orderType === "GTT" ? o.trigger : null,
+          placedAtMs: o.orderType === "GTT" ? o.placedAtMs : null,
         })),
         ...orderLog.map((o) => {
           const status = o.status === "cancelled" || o.status === "expired" ? o.status : "filled";
@@ -257,6 +293,8 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
             status,
             timeLabel: o.time,
             expiryDate: o.expiryDate ?? null,
+            placedDate: typeof o.date === "string" && ISO.test(o.date) ? o.date : null,
+            simulated: o.simulated === true,
           };
         }),
       ].map((row, i) => ({ ...row, placedAt: new Date(placedBase - i * 1000) })),

@@ -1,5 +1,9 @@
 "use client";
 
+import PhoneOrders from "@/components/phone/PhoneOrders";
+import { usePrivacy } from "@/components/usePrivacy";
+import { maskPnl, maskValue } from "@/lib/privacy";
+import { useScreenMode } from "@/lib/useScreenMode";
 import React, { useState } from "react";
 import PromoCard from "@/components/PromoCard";
 import { useZestoxx } from "@/components/ZestoxxProvider";
@@ -192,7 +196,7 @@ function SipForm({ onDone }: { onDone: () => void }) {
   const { min, max } = gtdBounds(istClock().date);
 
   const field =
-    "mt-0.5 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[13px] text-slate-900 outline-none focus:border-blue-400";
+    "mt-0.5 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[13px] text-slate-900 outline-none focus:border-blue-400 phone:min-h-[44px]";
 
   const submit = () => {
     const err = createSip({ symbol, amount: Number(amount), frequency, startDate });
@@ -264,10 +268,10 @@ function SipForm({ onDone }: { onDone: () => void }) {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={submit} className="rounded-md bg-blue-600 px-3.5 py-1.5 text-[12.5px] font-semibold text-white">
+        <button type="button" onClick={submit} className="phone:min-h-[44px] phone:min-w-[44px] rounded-md bg-blue-600 px-3.5 py-1.5 text-[12.5px] font-semibold text-white">
           Start SIP
         </button>
-        <button type="button" onClick={onDone} className="text-[12.5px] text-slate-500">
+        <button type="button" onClick={onDone} className="phone:min-h-[44px] phone:min-w-[44px] text-[12.5px] text-slate-500">
           Cancel
         </button>
         {error && <span className="text-[12px] text-rose-500">{error}</span>}
@@ -276,7 +280,7 @@ function SipForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function SipTab() {
+export function SipTab() {
   const { sips, setSipStatus, cancelSip } = useZestoxx();
   const [creating, setCreating] = useState(false);
 
@@ -292,7 +296,7 @@ function SipTab() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="rounded-md border border-blue-200 px-3 py-1.5 text-[12px] font-medium text-blue-600 hover:bg-blue-50"
+            className="rounded-md border border-blue-200 px-3 py-1.5 text-[12px] font-medium text-blue-600 hover:bg-blue-50 phone:min-h-[44px]"
           >
             + New SIP
           </button>
@@ -360,6 +364,7 @@ function SipTab() {
 /* ---------------------------------------------------------------- positions -- */
 
 function PositionsTab() {
+  const { hidden } = usePrivacy();
   const { holdings, live, exitPosition } = useZestoxx();
   const [confirming, setConfirming] = useState<string | null>(null);
   const rows = Object.entries(holdings);
@@ -387,9 +392,9 @@ function PositionsTab() {
       <div className="grid grid-cols-3 gap-3 px-4 pt-3">
         {(
           [
-            ["Invested", fmtINR(invested), "text-slate-900"],
-            ["Current", fmtINR(current), "text-slate-900"],
-            ["P&L", `${pnl >= 0 ? "+" : ""}${fmtINR(pnl)}`, pnl >= 0 ? "text-emerald-500" : "text-rose-500"],
+            ["Invested", maskValue(fmtINR(invested), hidden), "text-slate-900"],
+            ["Current", maskValue(fmtINR(current), hidden), "text-slate-900"],
+            ["P&L", maskPnl(`${pnl >= 0 ? "+" : ""}${fmtINR(pnl)}`, hidden), pnl >= 0 ? "text-emerald-500" : "text-rose-500"],
           ] as const
         ).map(([k, v, cls]) => (
           <div key={k}>
@@ -468,7 +473,7 @@ function PositionsTab() {
 
 /* ------------------------------------------------------------------ the view -- */
 
-export default function OrdersView() {
+function DesktopOrdersView() {
   const { orderLog, openOrders, cancelOrder, setActiveView } = useZestoxx();
   const [top, setTop] = useState<Top>("orderbook");
   const [sub, setSub] = useState<Sub>("open");
@@ -565,4 +570,10 @@ export default function OrdersView() {
       )}
     </div>
   );
+}
+
+/** A phone gets the phone layout (components/phone); a tablet or desktop keeps this page. */
+export default function OrdersView() {
+  const mode = useScreenMode();
+  return mode === "wide" ? <DesktopOrdersView /> : <PhoneOrders />;
 }

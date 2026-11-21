@@ -22,7 +22,24 @@ import type {
  */
 
 const MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz";
-const MASTER_TTL = 6 * 3_600_000;
+/** The master is rebuilt by Upstox before each market day (about 6 AM IST); a copy is kept for at most this long as well. */
+const MASTER_MAX_AGE = 24 * 3_600_000;
+/** From this time of day (IST, minutes after midnight) the day's master is the one to use. */
+const MASTER_PUBLISHED_AT = 6 * 60 + 30;
+
+/**
+ * Whether a copy of the master loaded at `loadedAt` is still the right one at `now`: loaded after the latest 06:30 IST (when the day's
+ * file is out) and not older than a day. So it is fetched again once a day, soon after Upstox refreshes it, and not on every request.
+ */
+export function masterIsFresh(loadedAt: number, now: number): boolean {
+  if (now - loadedAt >= MASTER_MAX_AGE) return false;
+  const ist = (ms: number) => ms + 5.5 * 3_600_000;
+  const day = Math.floor(ist(now) / 86_400_000) * 86_400_000;
+  const minutes = (ist(now) - day) / 60_000;
+  // the most recent 06:30 IST at or before `now`
+  const boundary = day - 5.5 * 3_600_000 + MASTER_PUBLISHED_AT * 60_000 - (minutes < MASTER_PUBLISHED_AT ? 86_400_000 : 0);
+  return loadedAt >= boundary;
+}
 
 const MIN_TURNOVER = EQUITY_FILTER.minTurnoverCr * 1e7; // ₹ Cr -> ₹
 const TOP_N = 20;
@@ -67,6 +84,10 @@ interface OptionSeries {
 
 export interface Universe {
   allEq: StockInfo[];
+  /** every NSE index (Nifty 50 and Bank Nifty under the ids the app charts), keyed by watchlist symbol */
+  indices: Map<string, StockInfo>;
+  /** the underlyings that have futures and options: stocks and indices, by watchlist symbol */
+  fnoSymbols: Set<string>;
   bySymbol: Map<string, StockInfo>;
   fnoStocks: StockInfo[];
   futures: FutInfo[];
@@ -91,6 +112,9 @@ interface MasterItem {
 
 const gunzipAsync = promisify(gunzip);
 
+/** The two indices the app already charts keep their ids; the master calls them NIFTY and BANKNIFTY. */
+const INDEX_IDS: Record<string, string> = { NIFTY: "NIFTY50", BANKNIFTY: "BANKNIFTY" };
+
 async function buildUniverse(): Promise<Universe> {
   // Not run through Next's data cache: ~2 MB body, and we keep the parsed result ourselves.
   const res = await fetch(MASTER_URL, { cache: "no-store" });
@@ -98,6 +122,8 @@ async function buildUniverse(): Promise<Universe> {
   const raw = JSON.parse((await gunzipAsync(Buffer.from(await res.arrayBuffer()))).toString("utf8")) as MasterItem[];
 
   const allEq: StockInfo[] = [];
+  const indices = new Map<string, StockInfo>();
+  const fnoSymbols = new Set<string>();
   const fno = new Map<string, StockInfo>();
   const futures: FutInfo[] = [];
   const options = new Map<string, OptionSeries>();
@@ -113,9 +139,15 @@ async function buildUniverse(): Promise<Universe> {
       });
       continue;
     }
+    if (i.segment === "NSE_INDEX" && i.instrument_type === "INDEX" && i.trading_symbol) {
+      const id = INDEX_IDS[i.trading_symbol] ?? `IDX ${i.trading_symbol}`;
+      if (/^[A-Z0-9& -]{1,35}$/.test(id)) indices.set(id, { symbol: id, name: i.name ?? i.trading_symbol, key: i.instrument_key });
+      continue;
+    }
     if (i.segment !== "NSE_FO" || !i.expiry || !i.underlying_symbol) continue;
 
     const sym = i.underlying_symbol;
+    fnoSymbols.add(INDEX_IDS[sym] ?? sym);
     const expiry = new Date(i.expiry).toISOString().slice(0, 10);
     const isIndex = i.underlying_type === "INDEX";
 
@@ -137,6 +169,8 @@ async function buildUniverse(): Promise<Universe> {
 
   return {
     allEq,
+    indices,
+    fnoSymbols,
     bySymbol: new Map(allEq.map((s) => [s.symbol, s])),
     fnoStocks: [...fno.values()],
     futures,
@@ -147,11 +181,11 @@ async function buildUniverse(): Promise<Universe> {
 let universe: { at: number; promise: Promise<Universe> } | null = null;
 
 export function getUniverse(): Promise<Universe> {
-  if (universe && Date.now() - universe.at < MASTER_TTL) return universe.promise;
+  if (universe && masterIsFresh(universe.at, Date.now())) return universe.promise;
   const promise = buildUniverse();
   const entry = { at: Date.now(), promise };
   universe = entry;
-  // A failed load must not be remembered for six hours.
+  // A failed load must not be remembered for the day.
   promise.catch(() => {
     if (universe === entry) universe = null;
   });

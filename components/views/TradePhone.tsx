@@ -156,9 +156,14 @@ export default function TradePhone(p: TradePhoneProps) {
       {chain ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-3">
-            <span className="flex items-center gap-2 text-[12px] text-slate-500">
+            <span className="flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
               Spot {fmt(chain.spot ?? p.price, p.type)}
               <DataBadge source={chain.source === "live" ? "live" : "sim"} />
+              {chain.expiry === istDateString() && (
+                <span data-testid="chain-expiry-today" className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
+                  Expiry today
+                </span>
+              )}
             </span>
             <select
               aria-label="Expiry"

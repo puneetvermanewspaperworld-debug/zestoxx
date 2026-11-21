@@ -41,9 +41,9 @@ test("a short notice says the app uses a cookie to keep a guest's paper account;
   await expect(page.getByTestId("guest-notice")).toHaveCount(0);
 });
 
-test("the Portfolio page has a Paper account panel with the notice and Reset my paper account, which asks first", async ({ page }) => {
+test("the Account page has a Paper account panel with the notice and Reset my paper account, which asks first", async ({ page }) => {
   const seen = await mock(page);
-  await page.goto("/app/portfolio", { waitUntil: "domcontentloaded" });
+  await page.goto("/app/account", { waitUntil: "domcontentloaded" }); // on a phone the reset is under Account
   const panel = page.getByTestId("account-panel");
   await expect(panel).toBeVisible();
   await expect(panel).toContainText("cookie on this device");
@@ -63,7 +63,7 @@ test("the Portfolio page has a Paper account panel with the notice and Reset my 
 
 test("confirming the reset asks the server once and reloads the page; nothing is saved over it in between", async ({ page }) => {
   const seen = await mock(page);
-  await page.goto("/app/portfolio", { waitUntil: "domcontentloaded" });
+  await page.goto("/app/account", { waitUntil: "domcontentloaded" }); // on a phone the reset is under Account
   await hydrated(page.getByTestId("reset-account"));
   await page.getByTestId("reset-account").click();
   const reload = page.waitForNavigation({ waitUntil: "domcontentloaded" });
@@ -78,7 +78,7 @@ test("confirming the reset asks the server once and reloads the page; nothing is
 
 test("if the server cannot reset the account the page says so and stays as it was", async ({ page }) => {
   await mock(page, { resetStatus: 500 });
-  await page.goto("/app/portfolio", { waitUntil: "domcontentloaded" });
+  await page.goto("/app/account", { waitUntil: "domcontentloaded" }); // on a phone the reset is under Account
   await hydrated(page.getByTestId("reset-account"));
   await page.getByTestId("reset-account").click();
   await page.getByTestId("reset-account-confirm").click();

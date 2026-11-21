@@ -93,10 +93,13 @@ export async function resolveGuest(request: Request, opts: { create?: boolean; n
     if (recent >= GUEST_CREATES_PER_IP) return { ok: false, reason: "rate_limited" };
   }
   const fresh = newToken();
-  await prisma.guestCreation.create({ data: { ipHash } });
-  const user = await prisma.user.create({
-    data: { email: `guest-${randomBytes(12).toString("hex")}@guest.zestoxx.local`, name: "Guest", kind: "guest", tokenHash: hashToken(fresh), lastSeenAt: now },
-  });
+  // One transaction: if the account cannot be made (a database from before a migration), no creation record is left counting against the address.
+  const [, user] = await prisma.$transaction([
+    prisma.guestCreation.create({ data: { ipHash } }),
+    prisma.user.create({
+      data: { email: `guest-${randomBytes(12).toString("hex")}@guest.zestoxx.local`, name: "Guest", kind: "guest", tokenHash: hashToken(fresh), lastSeenAt: now },
+    }),
+  ]);
   return { ok: true, user, setToken: fresh };
 }
 

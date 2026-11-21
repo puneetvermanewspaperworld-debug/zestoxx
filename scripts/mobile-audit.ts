@@ -29,6 +29,8 @@ export const ROUTES: { path: string; name: string; ready?: string }[] = [
   { path: "/app/alerts", name: "alerts" },
   { path: "/app/orders", name: "orders" },
   { path: "/app/portfolio", name: "portfolio" },
+  { path: "/app/explore", name: "explore" },
+  { path: "/app/account", name: "account" },
 ];
 
 export const VIEWPORTS = [

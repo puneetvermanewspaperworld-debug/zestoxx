@@ -22,17 +22,20 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
       className="flex h-full min-h-screen w-full bg-slate-50 text-slate-900 max-md:h-dvh max-md:min-h-0 max-md:overflow-hidden"
       style={{ fontFamily: "var(--font-inter), ui-sans-serif, system-ui" }}
     >
-      <div className={hideOnPhone}>
+      {/* the sidebar is for tablets and desktops: a phone has the bottom bar */}
+      <div className="contents phone:hidden">
         <Sidebar />
       </div>
       <div className="flex min-w-0 flex-1 flex-col phone:h-dvh phone:overflow-hidden">
         <div className={hideOnPhone}>
           <TopBar />
-          <TickerTape />
+          <div className="contents short:hidden">
+            <TickerTape />
+          </div>
         </div>
         <div
           data-testid="app-content"
-          className={"flex-1 overflow-y-auto p-3 pb-[calc(76px+env(safe-area-inset-bottom))] sm:p-4 md:pb-4" + (chartScreen ? " phone:overflow-x-hidden phone:p-0 phone:pb-0 phone:sm:p-0 phone:md:pb-0" : "")}
+          className={"flex-1 overflow-y-auto p-3 pb-[calc(76px+env(safe-area-inset-bottom))] sm:p-4 md:pb-4 phone:md:pb-[calc(64px+env(safe-area-inset-bottom))]" + (chartScreen ? " phone:overflow-x-hidden phone:p-0 phone:pb-0 phone:sm:p-0 phone:md:pb-0" : "")}
         >
           {!chartScreen && <GuestNotice />}
           {children}

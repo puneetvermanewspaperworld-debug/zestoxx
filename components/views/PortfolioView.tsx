@@ -1,13 +1,17 @@
 "use client";
 
+import PhonePortfolio from "@/components/phone/PhonePortfolio";
+import { useScreenMode } from "@/lib/useScreenMode";
 import React from "react";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { typeOf } from "@/lib/symbols";
 import { displayName } from "@/lib/contract";
 import { fmt, fmtINR } from "@/lib/helpers";
 import AccountPanel from "@/components/AccountPanel";
+import { usePrivacy } from "@/components/usePrivacy";
+import { maskPnl, maskValue } from "@/lib/privacy";
 
-export default function PortfolioView() {
+function DesktopPortfolioView() {
   const { cash, holdings, live } = useZestoxx();
   const rows = Object.entries(holdings);
   // An option contract with no mark yet (feed still loading) counts at cost, not NaN.
@@ -15,17 +19,18 @@ export default function PortfolioView() {
   const holdingsValue = rows.reduce((sum, [id, h]) => sum + h.qty * markOf(id, h.avgPrice), 0);
   const totalPnl = rows.reduce((sum, [id, h]) => sum + (markOf(id, h.avgPrice) - h.avgPrice) * h.qty, 0);
   const totalValue = cash + holdingsValue;
+  const { hidden } = usePrivacy();
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {(
           [
-            ["Virtual Cash", fmtINR(cash), "text-slate-900"],
-            ["Holdings Value", fmtINR(holdingsValue), "text-slate-900"],
-            ["Total Value", fmtINR(totalValue), "text-slate-900"],
+            ["Virtual Cash", maskValue(fmtINR(cash), hidden), "text-slate-900"],
+            ["Holdings Value", maskValue(fmtINR(holdingsValue), hidden), "text-slate-900"],
+            ["Total Value", maskValue(fmtINR(totalValue), hidden), "text-slate-900"],
             [
               "Unrealised P&L",
-              (totalPnl >= 0 ? "+" : "") + fmtINR(totalPnl),
+              maskPnl((totalPnl >= 0 ? "+" : "") + fmtINR(totalPnl), hidden),
               totalPnl >= 0 ? "text-emerald-500" : "text-rose-500",
             ],
           ] as const
@@ -63,8 +68,7 @@ export default function PortfolioView() {
                     <span
                       className={"font-mono " + (pnl >= 0 ? "text-emerald-500" : "text-rose-500")}
                     >
-                      {pnl >= 0 ? "+" : ""}
-                      {fmtINR(pnl)}
+                      {maskPnl((pnl >= 0 ? "+" : "") + fmtINR(pnl), hidden)}
                     </span>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-blue-50">
@@ -79,4 +83,10 @@ export default function PortfolioView() {
       <AccountPanel />
     </div>
   );
+}
+
+/** A phone gets the phone layout (components/phone); a tablet or desktop keeps this page. */
+export default function PortfolioView() {
+  const mode = useScreenMode();
+  return mode === "wide" ? <DesktopPortfolioView /> : <PhonePortfolio />;
 }

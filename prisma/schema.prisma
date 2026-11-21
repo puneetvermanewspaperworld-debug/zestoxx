@@ -36,6 +36,8 @@ model User {
   lastSeenAt DateTime  @default(now())
   // Set on the old shared "demo" user once its data was claimed into a guest account.
   claimedAt  DateTime?
+  // The guest's notes on symbols, { "RELIANCE": "text" }; null until one is written.
+  notes      Json?
 
   watchlist Watchlist[]
   holdings  Holding[]
@@ -88,20 +90,23 @@ model Holding {
 
 /// Every order the paper engine has seen: resting ("open"), filled, cancelled or expired.
 model Order {
-  id         String   @id @default(cuid())
-  userId     String
-  symbol     String
-  side       String // "buy" | "sell"
-  mode       String // "market" | "limit"
-  orderType  String   @default("MARKET") // "MARKET" | "LIMIT" | "GTD" | "SIP"
-  expiryDate String? // YYYY-MM-DD — GTD orders only
-  placedDate String? // YYYY-MM-DD (IST) — what makes a LIMIT a day order
-  qty        Float
-  price      Float? // fill price — set once the order is filled
-  limitPrice Float? // trigger price — set for resting limit orders
-  status     String   @default("filled") // "filled" | "open" | "cancelled" | "expired"
-  timeLabel  String? // the "h:mm:ss AM/PM" label the terminal renders
-  placedAt   DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  symbol      String
+  side        String // "buy" | "sell"
+  mode        String // "market" | "limit"
+  orderType   String   @default("MARKET") // "MARKET" | "LIMIT" | "GTD" | "SIP"
+  expiryDate  String? // YYYY-MM-DD — GTD orders only
+  placedDate  String? // YYYY-MM-DD (IST) — what makes a LIMIT a day order
+  qty         Float
+  price       Float? // fill price — set once the order is filled
+  limitPrice  Float? // trigger price — set for resting limit orders
+  status      String   @default("filled") // "filled" | "open" | "cancelled" | "expired"
+  timeLabel   String? // the "h:mm:ss AM/PM" label the terminal renders
+  triggerSide String? // "above" | "below" — GTT orders: which way the price has to cross limitPrice (the trigger)
+  placedAtMs  Float? // epoch ms the order was really placed — GTT orders, so the next visit knows which candles to check
+  simulated   Boolean  @default(false) // a GTT filled from candles on a later visit, not watched live
+  placedAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

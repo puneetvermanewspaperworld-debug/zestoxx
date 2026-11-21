@@ -8,7 +8,7 @@ import OptionOrderSheet from "@/components/OptionOrderSheet";
 import OptionsStatsStrip from "@/components/OptionsStatsStrip";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { SYMBOLS } from "@/lib/symbols";
-import { fmt, fmtIsoDate } from "@/lib/helpers";
+import { fmt, fmtIsoDate, istDateString } from "@/lib/helpers";
 import { useOptionChain } from "@/lib/useOptionChain";
 import { atmContract } from "@/lib/sell-shortcut";
 import { PAPER_SELL } from "@/lib/labels";
@@ -44,7 +44,14 @@ export default function OptionsView() {
       <div className="rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
           <div>
-            <h2 className="font-display text-[15px] font-semibold text-slate-900">Options Chain</h2>
+            <h2 className="flex flex-wrap items-center gap-2 font-display text-[15px] font-semibold text-slate-900">
+              Options Chain
+              {chain && chain.expiry === istDateString() && (
+                <span data-testid="chain-expiry-today" className="rounded-full bg-amber-100 px-2 py-0.5 font-sans text-[10.5px] font-semibold text-amber-800">
+                  Expiry today
+                </span>
+              )}
+            </h2>
             <p className="flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
               <span>
                 {sym.name} · Spot {fmt(chain?.spot ?? price, sym.type)}

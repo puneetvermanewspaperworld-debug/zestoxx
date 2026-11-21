@@ -162,11 +162,9 @@ test("MTF is in the navigation", async ({ page }) => {
   await page.goto("/app/dashboard", { waitUntil: "domcontentloaded" });
   // The tab bar is part of the server-rendered page and only works once the page has hydrated: a tap before that is lost (it is not
   // queued), which is what made this test fail now and then on a busy machine. So wait for hydration, then tap once.
-  const more = page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /More/ });
-  await hydrated(more);
-  await more.click();
-  const sheet = page.getByRole("dialog", { name: "All pages" });
-  await expect(sheet).toBeVisible();
-  await sheet.getByRole("link", { name: "MTF", exact: true }).click();
+  const explore = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /Explore/ });
+  await hydrated(explore);
+  await explore.click();
+  await page.getByTestId("explore-mtf").click();
   await expect(page).toHaveURL(/\/app\/mtf$/, { timeout: 20_000 });
 });
