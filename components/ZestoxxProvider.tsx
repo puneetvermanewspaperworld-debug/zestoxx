@@ -111,6 +111,8 @@ interface ZestoxxContextValue {
   tradeContract: (t: { id: string; side: "buy" | "sell"; qty: number; price: number }) => void;
   onAddAlert: (symId: string) => void;
   cancelOrder: (id: number) => void;
+  /** "Reset my paper account": the starting balance and nothing else, for this guest. Reloads the page on success; false when it failed. */
+  resetPaperAccount: () => Promise<boolean>;
   sips: SipPlan[];
   /** Returns an error message, or null when the plan was created. */
   createSip: (s: NewSip) => string | null;
@@ -471,6 +473,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated.current) return;
     const t = setTimeout(() => {
+      if (!hydrated.current) return; // a reset is under way
       storage
         .set("zestoxx:portfolio", JSON.stringify({
             watchlist,
@@ -626,6 +629,23 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     (id: number) => closeOrders(openOrdersRef.current.filter((o) => o.id === id), "cancelled"),
     [closeOrders]
   );
+
+  const resetPaperAccount = useCallback(async (): Promise<boolean> => {
+    // stop the autosave first: it must not write the old account back after the reset
+    hydrated.current = false;
+    try {
+      const res = await fetch("/api/account/reset", { method: "POST" });
+      if (!res.ok) {
+        hydrated.current = true;
+        return false;
+      }
+      window.location.reload();
+      return true;
+    } catch {
+      hydrated.current = true;
+      return false;
+    }
+  }, []);
 
   // A day LIMIT dies when the IST date turns; a GTD after its expiry date. Checked once the
   // saved orders have loaded, then every 30 s (the terminal can stay open across midnight).
@@ -840,6 +860,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     tradeContract,
     onAddAlert,
     cancelOrder,
+    resetPaperAccount,
     sips,
     createSip,
     setSipStatus,

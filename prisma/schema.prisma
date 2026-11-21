@@ -26,11 +26,35 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Guest accounts (lib/guest.ts). Until real sign-up exists every visitor gets a guest account, kept by a cookie.
+  // "guest" or "member". Rows that existed before guest accounts are members (so the cleanup never touches them).
+  kind       String    @default("member")
+  // SHA-256 (hex) of the guest's cookie token. The cookie holds the token; the database only ever holds this hash.
+  // A later sign-up adopts the account: it sets email, kind = "member" and clears this (see adoptGuest in lib/guest.ts).
+  tokenHash  String?   @unique
+  // The last day the guest was seen: guests unseen for 90 days are deleted by the daily cron.
+  lastSeenAt DateTime  @default(now())
+  // Set on the old shared "demo" user once its data was claimed into a guest account.
+  claimedAt  DateTime?
+
   watchlist Watchlist[]
   holdings  Holding[]
   orders    Order[]
   alerts    Alert[]
   sips      Sip[]
+
+  @@index([kind, lastSeenAt])
+}
+
+/// One row each time a guest account is created, with a hash of the visitor's network address, to rate-limit guest creation per address.
+/// Rows older than two days are deleted by the daily cron. The address itself is never stored.
+model GuestCreation {
+  id        String   @id @default(cuid())
+  ipHash    String
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
 }
 
 /// One watched symbol in one of a user's watchlists. `listName` is "My Watchlist" for the
