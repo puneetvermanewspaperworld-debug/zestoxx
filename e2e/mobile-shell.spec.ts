@@ -509,13 +509,18 @@ test.describe("orders: GTT and stop-loss", () => {
     const ctx = await browser.newContext(phone(390, 844));
     const candles = { source: "live" as const, bars: [bar("2026-11-10T11:00:00", 1410, 1412, 1395, 1396)] };
     let requests = 0;
+    // which tab asked, and when (by its own clock and by the wall clock): if a second request ever shows up, the failure says where it came from
+    const asked: string[] = [];
     const puts: Record<string, unknown>[][] = [];
     const tab = async () => {
       const p = await ctx.newPage();
+      const name = `tab${ctx.pages().length}`;
       const m = await mock(p, { portfolio: { ...seed, orderLog: [], openOrders: [gtt] }, candles });
       puts.push(m.puts);
-      await p.route("**/api/candles**", (r) => {
+      await p.route("**/api/candles**", async (r) => {
         requests++;
+        const clock = await p.evaluate(() => `${Date.now()} stamp=${window.localStorage.getItem("zestoxx:gtt-catchup:v1")}`).catch(() => "?");
+        asked.push(`${name} at ${Date.now() % 100000}ms, page clock ${clock}`);
         return r.fulfill({ json: candles });
       });
       return p;
@@ -525,9 +530,14 @@ test.describe("orders: GTT and stop-loss", () => {
     await Promise.all([a.getByTestId("app-content").waitFor(), b.getByTestId("app-content").waitFor()]);
     // Wait for the check to happen rather than for a fixed time: it starts only once the page has loaded and the first prices are in (a 2 s timer),
     // so on a busy machine a fixed wait can end before it began. Then give a second request time to show up: there must be none.
-    await expect.poll(() => requests, { timeout: 30_000 }).toBe(1);
+    try {
+      await expect.poll(() => requests, { timeout: 30_000 }).toBe(1);
+    } catch (e) {
+      throw new Error(`${(e as Error).message}
+candle requests: ${JSON.stringify(asked)}`);
+    }
     await a.waitForTimeout(3000);
-    expect(requests).toBe(1);
+    expect(requests, `candle requests: ${JSON.stringify(asked)}`).toBe(1);
     const filledIn = async (p: Page) => {
       await p.getByTestId("orders-tab-executed").click();
       return p.locator('[data-testid^="simulated-"]').count();

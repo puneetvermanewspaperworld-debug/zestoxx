@@ -68,3 +68,35 @@ export const GTT_CATCHUP_SYMBOLS = 5;
 /** No new pass sooner than this after the last one on the same device. */
 export const GTT_CATCHUP_GAP_MS = 30_000;
 export const GTT_CATCHUP_KEY = "zestoxx:gtt-catchup:v1";
+export const GTT_CATCHUP_LOCK = "zestoxx-gtt-catchup";
+
+/** What the gate needs from the browser: the Web Locks API (when there is one), the stamp of the last pass on this device, and the time. */
+export interface CatchUpEnv {
+  locks?: { request: (name: string, opts: { ifAvailable: boolean }, cb: (lock: unknown) => Promise<void>) => Promise<void> };
+  readStamp: () => number;
+  writeStamp: (ms: number) => void;
+  now: () => number;
+}
+
+/**
+ * Run `pass` unless another tab holds the lock, or a pass ran on this device in the last GTT_CATCHUP_GAP_MS. Returns whether it ran.
+ *
+ * The check of the stamp and the writing of it happen INSIDE the lock. Done before it, two tabs open at the same moment both read "no recent
+ * pass" before either wrote it, and a pass that finished quickly released the lock before the second tab asked for it: the second tab then
+ * ran a second pass (a second request to the candle feed). Inside the lock, the second tab either cannot get it, or gets it after the first has
+ * stamped, and sees the stamp.
+ */
+export async function catchUpOnce(env: CatchUpEnv, pass: () => Promise<void>): Promise<boolean> {
+  const run = async (): Promise<boolean> => {
+    if (env.now() - env.readStamp() < GTT_CATCHUP_GAP_MS) return false;
+    env.writeStamp(env.now());
+    await pass();
+    return true;
+  };
+  if (!env.locks) return run();
+  let ran = false;
+  await env.locks.request(GTT_CATCHUP_LOCK, { ifAvailable: true }, async (lock) => {
+    if (lock) ran = await run();
+  });
+  return ran;
+}

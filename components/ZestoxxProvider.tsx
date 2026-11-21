@@ -30,7 +30,7 @@ import {
   type SipStatus,
 } from "@/lib/orders";
 import { MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, listNameError, type CustomList } from "@/lib/watchlists";
-import { GTT_CATCHUP_GAP_MS, GTT_CATCHUP_KEY, GTT_CATCHUP_SYMBOLS, MAX_OPEN_GTT, catchUpWindow, firstCrossing, gttError, gttKind, triggerDirection } from "@/lib/gtt";
+import { GTT_CATCHUP_KEY, GTT_CATCHUP_SYMBOLS, MAX_OPEN_GTT, catchUpOnce, catchUpWindow, firstCrossing, type CatchUpEnv, gttError, gttKind, triggerDirection } from "@/lib/gtt";
 import type {
   Candle,
   Holdings,
@@ -807,17 +807,28 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
       caughtUp.current = true;
       clearInterval(timer);
       if (!openOrdersRef.current.some((o) => o.orderType === "GTT")) return;
-      // not again so soon after the last pass on this device (a reload loop)
-      try {
-        const last = Number(window.localStorage.getItem(GTT_CATCHUP_KEY) ?? 0);
-        if (Date.now() - last < GTT_CATCHUP_GAP_MS) return;
-        window.localStorage.setItem(GTT_CATCHUP_KEY, String(Date.now()));
-      } catch {
-        // storage blocked: no memory of the last pass, so the lock and the once-per-load rule are what limit it
-      }
-      const locks = (navigator as Navigator & { locks?: { request: (name: string, opts: { ifAvailable: boolean }, cb: (lock: unknown) => Promise<void>) => Promise<void> } }).locks;
-      if (locks) await locks.request("zestoxx-gtt-catchup", { ifAvailable: true }, async (lock) => (lock ? pass() : undefined));
-      else await pass();
+      // one tab at a time, and not again so soon after the last pass on this device (a reload loop): see catchUpOnce
+      await catchUpOnce(
+        {
+          locks: (navigator as Navigator & { locks?: CatchUpEnv["locks"] }).locks,
+          readStamp: () => {
+            try {
+              return Number(window.localStorage.getItem(GTT_CATCHUP_KEY) ?? 0);
+            } catch {
+              return 0; // storage blocked: no memory of the last pass, so the lock and the once-per-load rule are what limit it
+            }
+          },
+          writeStamp: (ms) => {
+            try {
+              window.localStorage.setItem(GTT_CATCHUP_KEY, String(ms));
+            } catch {
+              // see above
+            }
+          },
+          now: () => Date.now(),
+        },
+        pass
+      );
     }, 2000);
     return () => clearInterval(timer);
   }, [closeOrders, fillOrder, notify]);

@@ -256,11 +256,91 @@ describe("the next-visit check is bounded", () => {
   });
   it("it runs once per page load, in one tab at a time, not again too soon, and re-checks an order is still open before filling it", () => {
     assert.match(provider, /caughtUp\.current = true/);
-    assert.match(provider, /zestoxx-gtt-catchup/);
-    assert.match(provider, /ifAvailable: true/);
-    assert.match(provider, /GTT_CATCHUP_GAP_MS/);
+    assert.match(provider, /catchUpOnce\(/);
+    const gtt = fs.readFileSync(path.join(process.cwd(), "lib", "gtt.ts"), "utf8");
+    assert.match(gtt, /zestoxx-gtt-catchup/);
+    assert.match(gtt, /ifAvailable: true/);
+    assert.match(gtt, /GTT_CATCHUP_GAP_MS/);
     assert.match(provider, /openOrdersRef\.current\.some\(\(x\) => x\.id === o\.id\) \|\| firedOrders\.current\.has\(o\.id\)/);
     // the order is marked fired before it is filled
     assert.ok(provider.indexOf("firedOrders.current.add(o.id);\n            if (short)") > 0);
+  });
+});
+
+import { catchUpOnce, type CatchUpEnv } from "./gtt";
+
+describe("two tabs cannot both run the next-visit check", () => {
+  /** a Web Locks stand-in: a lock is held while its callback runs; with ifAvailable, a held lock gives the callback null */
+  const makeLocks = () => {
+    const held = new Set<string>();
+    return {
+      request: async (name: string, _o: { ifAvailable: boolean }, cb: (lock: unknown) => Promise<void>) => {
+        if (held.has(name)) return cb(null);
+        held.add(name);
+        try {
+          await cb({});
+        } finally {
+          held.delete(name);
+        }
+      },
+    };
+  };
+  const device = (clock: { t: number }) => {
+    let stamp = 0;
+    const locks = makeLocks();
+    const env = (): CatchUpEnv => ({ locks, readStamp: () => stamp, writeStamp: (n) => (stamp = n), now: () => clock.t });
+    return { env, stamp: () => stamp };
+  };
+
+  it("two tabs asking at the same moment, the first finishing at once: one pass, not two (the race that showed up as two candle requests)", async () => {
+    const clock = { t: 1_000_000 };
+    const d = device(clock);
+    let passes = 0;
+    const pass = async () => {
+      passes++; // finishes immediately: the lock is free again before the second tab's request is handled
+    };
+    const ran = await Promise.all([catchUpOnce(d.env(), pass), catchUpOnce(d.env(), pass)]);
+    assert.equal(passes, 1);
+    assert.deepEqual(ran.sort(), [false, true]);
+    assert.equal(d.stamp(), 1_000_000);
+  });
+  it("many tabs, any order: still one pass", async () => {
+    const clock = { t: 5_000_000 };
+    const d = device(clock);
+    let passes = 0;
+    await Promise.all(Array.from({ length: 6 }, () => catchUpOnce(d.env(), async () => void passes++)));
+    assert.equal(passes, 1);
+  });
+  it("a tab that cannot get the lock leaves the stamp alone and does not run", async () => {
+    const clock = { t: 9_000_000 };
+    const d = device(clock);
+    let inner = 0;
+    let outer = 0;
+    await catchUpOnce(d.env(), async () => {
+      outer++;
+      assert.equal(await catchUpOnce(d.env(), async () => void inner++), false); // asked while the first pass is running
+    });
+    assert.deepEqual([outer, inner], [1, 0]);
+  });
+  it("a reload soon after does not run again; one after the gap does", async () => {
+    const clock = { t: 20_000_000 };
+    const d = device(clock);
+    let passes = 0;
+    const pass = async () => void passes++;
+    assert.equal(await catchUpOnce(d.env(), pass), true);
+    clock.t += GTT_CATCHUP_GAP_MS - 1;
+    assert.equal(await catchUpOnce(d.env(), pass), false);
+    clock.t += 2;
+    assert.equal(await catchUpOnce(d.env(), pass), true);
+    assert.equal(passes, 2);
+  });
+  it("without Web Locks the stamp alone limits it", async () => {
+    const clock = { t: 30_000_000 };
+    let stamp = 0;
+    const env: CatchUpEnv = { readStamp: () => stamp, writeStamp: (n) => (stamp = n), now: () => clock.t };
+    let passes = 0;
+    await catchUpOnce(env, async () => void passes++);
+    await catchUpOnce(env, async () => void passes++);
+    assert.equal(passes, 1);
   });
 });
