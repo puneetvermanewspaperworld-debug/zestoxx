@@ -5,6 +5,7 @@ import { usePrivacy } from "@/components/usePrivacy";
 import { maskPnl, maskValue } from "@/lib/privacy";
 import { useScreenMode } from "@/lib/useScreenMode";
 import React, { useState } from "react";
+import { useActionOpener } from "@/components/action/useAction";
 import PromoCard from "@/components/PromoCard";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { displayName } from "@/lib/contract";
@@ -283,6 +284,10 @@ function SipForm({ onDone }: { onDone: () => void }) {
 export function SipTab() {
   const { sips, setSipStatus, cancelSip } = useZestoxx();
   const [creating, setCreating] = useState(false);
+  // a phone starts a SIP on its own screen (components/action); a wide screen keeps the form above the list
+  const phone = useScreenMode() !== "wide";
+  const openAction = useActionOpener();
+  const startNew = () => (phone ? openAction({ kind: "sip" }) : setCreating(true));
 
   return (
     <div>
@@ -295,7 +300,8 @@ export function SipTab() {
         {!creating && sips.length < MAX_SIPS && (
           <button
             type="button"
-            onClick={() => setCreating(true)}
+            data-testid="sip-new"
+            onClick={startNew}
             className="rounded-md border border-blue-200 px-3 py-1.5 text-[12px] font-medium text-blue-600 hover:bg-blue-50 phone:min-h-[44px]"
           >
             + New SIP
@@ -310,7 +316,7 @@ export function SipTab() {
               title="Invest a little, regularly"
               body="Set up a weekly or monthly Stock SIP and Zestoxx will place the paper trade for you on each date."
               cta="Start a Stock SIP"
-              onClick={() => setCreating(true)}
+              onClick={startNew}
             />
           </Empty>
         )
