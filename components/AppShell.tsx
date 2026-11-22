@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { ZestoxxProvider } from "./ZestoxxProvider";
 import Sidebar from "./Sidebar";
@@ -9,6 +9,7 @@ import TickerTape from "./TickerTape";
 import Toasts from "./Toasts";
 import BottomNav from "./BottomNav";
 import GuestNotice from "./GuestNotice";
+import ActionHost from "./action/ActionHost";
 
 function ShellChrome({ children }: { children: React.ReactNode }) {
   // The Trade chart page is a screen of its own on a phone (upright or sideways): no sidebar, top bar, ticker or tab bar around it, and
@@ -45,6 +46,10 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
         <BottomNav />
       </div>
       <Toasts />
+      {/* a phone's action screens (Buy/Sell, GTT, alerts ...): a layer over the page, named by the address */}
+      <Suspense fallback={null}>
+        <ActionHost />
+      </Suspense>
     </div>
   );
 }
