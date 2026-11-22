@@ -341,9 +341,10 @@ for (const [w, h] of [
       await expect(drawer.getByTestId("paper-buy")).toHaveCount(0);
       await expect(drawer.getByTestId("paper-buy-call")).toBeEnabled({ timeout: 15_000 });
       await page.getByTestId("tab-chain").click();
-      const atmRow = page.getByTestId("chain-tab").locator("tr.bg-blue-50");
-      await expect(atmRow).toHaveCount(1, { timeout: 15_000 });
-      const atm = Number((await atmRow.locator("td.font-semibold").innerText()).trim());
+      // the chain is drawn around its at-the-money strike: the middle one of the strikes shown (the spot row is a row between two of them)
+      await expect(page.getByTestId("chain-spot-row")).toBeVisible({ timeout: 15_000 });
+      const strikes = await page.locator('[data-testid^="chain-strike-"]').evaluateAll((els) => els.map((e) => Number(e.getAttribute("data-testid")!.replace("chain-strike-", ""))));
+      const atm = strikes[Math.floor(strikes.length / 2)];
       await page.getByTestId("tab-chart").click();
       for (const [id, side] of [
         ["paper-buy-call", "CE"],
@@ -465,12 +466,16 @@ for (const [w, h] of [
       await page.getByTestId("tab-chain").click();
       const chain = page.getByTestId("chain-tab");
       await expect(chain).toBeVisible();
-      const first = chain.getByRole("button").filter({ hasText: /\d/ }).first();
+      const first = chain.getByTestId("chain-scroll").getByRole("button").first();
       await expect(first).toBeVisible({ timeout: 15_000 });
       await first.click();
-      const d = await box(page, "option-sheet");
+      // the contract's sheet (a bottom sheet as wide as the screen); Buy from it is the full-screen order
+      const d = await box(page, "contract-sheet");
       expect([Math.round(d.width), Math.round(d.height)]).toEqual([w, h]);
-      await page.getByTestId("option-sheet").getByRole("button", { name: "Close" }).first().click();
+      await page.getByTestId("contract-buy").click();
+      await expect(page.getByTestId("action-screen")).toBeVisible();
+      await page.getByTestId("action-back").click();
+      await page.getByTestId("sheet-close").click();
       await page.getByTestId("tab-chart").click();
       await expect(page.getByTestId("trade-chart")).toBeVisible();
     });
@@ -603,10 +608,10 @@ test.describe("sideways 844x390", () => {
     await page.getByTestId("sheet-close").click();
     await page.getByTestId("tab-chain").click();
     await expect(page.getByTestId("chain-tab")).toBeVisible();
-    const first = page.getByTestId("chain-tab").getByRole("button").filter({ hasText: /\d/ }).first();
+    const first = page.getByTestId("chain-tab").getByTestId("chain-scroll").getByRole("button").first();
     await expect(first).toBeVisible({ timeout: 15_000 });
     await first.click();
-    const d = await box(page, "option-sheet");
+    const d = await box(page, "contract-sheet");
     expect([Math.round(d.width), Math.round(d.height)]).toEqual([844, 390]);
   });
 });

@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useAction } from "@/components/action/useAction";
 import { ArrowLeft, CandlestickChart, ChevronUp, SlidersHorizontal, TrendingDown, TrendingUp } from "lucide-react";
 import DataBadge from "@/components/DataBadge";
-import OptionOrderSheet from "@/components/OptionOrderSheet";
-import OptionsChain from "@/components/OptionsChain";
-import OptionsStatsStrip from "@/components/OptionsStatsStrip";
+import ChainView from "@/components/chain/ChainView";
+import ContractSheet from "@/components/chain/ContractSheet";
 import type { PhoneLayout } from "@/components/chart/ChartWithTools";
 import type { PhoneExtras } from "@/components/chart/PhoneBars";
 import type { ThemeId } from "@/lib/chart/theme";
+import { daysLabel, daysToExpiry } from "@/lib/chain-view";
 import { fmt, fmtIsoDate, fmtSigned, istDateString } from "@/lib/helpers";
 import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
 import { atmContract } from "@/lib/sell-shortcut";
@@ -149,44 +149,37 @@ export default function TradePhone(p: TradePhoneProps) {
   const drawer = (
     <TradeDrawer symbol={p.selected} pullUp={landscape} buttons={orderButtons(false)} tabs={p.tabs} counts={p.counts} open={drawerOpen} onOpenChange={setDrawerOpen} tab={drawerTab} onTab={setDrawerTab} />
   );
-  const optionSheet = chain && sheet && <OptionOrderSheet chain={chain} strike={sheet.strike} type={sheet.type} onPick={(strike, type) => setContract({ ...sheet, strike, type })} onClose={() => setContract(null)} />;
+  // a tap on a Call or Put opens the contract's sheet (as on the Options screen); Buy and Sell from it open the option order screen
+  const optionSheet = chain && sheet && <ContractSheet chain={chain} strike={sheet.strike} type={sheet.type} onClose={() => setContract(null)} />;
 
+  // The index chart's Option Chain tab is the same chain as the Options screen (see ChainView): the expiry dropdown on top, then the chain, which
+  // opens at the spot, and a contract sheet from a tap.
+  const prevClose = 1 + p.chg / 100 > 0 ? p.price / (1 + p.chg / 100) : p.price;
   const chainView = (
-    <section data-testid="chain-tab" aria-label="Option chain" className="min-h-0 flex-1 overflow-y-auto bg-white">
+    <section data-testid="chain-tab" aria-label="Option chain" className="flex min-h-0 flex-1 flex-col bg-white">
       {chain ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-3">
-            <span className="flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
-              Spot {fmt(chain.spot ?? p.price, p.type)}
-              <DataBadge source={chain.source === "live" ? "live" : "sim"} />
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
+            <span className="flex items-center gap-2 text-[12px] text-slate-500">
+              {p.selected.replace(/^IDX /, "")} options
               {chain.expiry === istDateString() && (
                 <span data-testid="chain-expiry-today" className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-semibold text-amber-800">
                   Expiry today
                 </span>
               )}
             </span>
-            <select
-              aria-label="Expiry"
-              value={chain.expiry}
-              onChange={(e) => setExpiryFor((m) => ({ ...m, [p.selected]: e.target.value }))}
-              className="min-h-[44px] rounded-md border border-slate-200 bg-slate-50 px-2 text-[12.5px] text-slate-900 outline-none"
-            >
+            <select aria-label="Expiry" data-testid="chain-expiry-select" value={chain.expiry} onChange={(e) => setExpiryFor((m) => ({ ...m, [p.selected]: e.target.value }))} className="h-11 w-[132px] rounded-lg border border-slate-200 bg-white px-2 text-[16px] text-slate-900">
               {chain.expiries.map((e) => (
                 <option key={e} value={e}>
-                  {fmtIsoDate(e)}
+                  {fmtIsoDate(e, false)} · {daysLabel(daysToExpiry(e, istDateString()))}
                 </option>
               ))}
             </select>
           </div>
-          <div className="border-b border-slate-100 p-3">
-            <OptionsStatsStrip chain={chain} />
-          </div>
-          <div className="overflow-auto">
-            <OptionsChain chain={chain} onPick={(strike, type) => setContract({ underlying: chain.underlying, expiry: chain.expiry, strike, type })} />
-          </div>
+          <ChainView chain={chain} price={p.source === "live" ? p.price : 0} change={p.price > 0 ? p.price - prevClose : null} pct={p.source === "live" ? p.chg : null} onPick={(strike, type) => setContract({ underlying: chain.underlying, expiry: chain.expiry, strike, type })} />
         </>
       ) : (
-        <div className="h-[420px] animate-pulse bg-slate-50" aria-busy="true" />
+        <div className="min-h-0 flex-1 animate-pulse bg-slate-50" aria-busy="true" />
       )}
     </section>
   );

@@ -93,13 +93,19 @@ test("a contract that is not in the chain says so", async ({ page }) => {
   await expect(page.getByTestId("option-missing")).toContainText("not in the option chain");
 });
 
-test("from the contract sheet: Buy and Sell open the screen, back returns to the sheet", async ({ page }) => {
-  // the contract sheet on a phone comes from the chart page's Option Chain tab (the Options page opens the order screen directly)
-  await open(page, "/app/trade/NIFTY50");
-  await page.getByTestId("tab-chain").click();
-  const cell = page.getByTestId("chain-tab").getByRole("button").filter({ hasText: /\d/ }).first();
-  await cell.waitFor({ timeout: 20_000 });
-  await cell.click();
+test("from the order sheet a Movers row opens: Buy and Sell open the screen, back returns to the sheet", async ({ page }) => {
+  // the order sheet on a phone comes from a Movers option row (the chain's own sheet is the contract sheet: see contract-sheet.spec.ts)
+  const movers = { source: "live", asOf: "2026-11-11T08:20:00Z", data: { contracts: [{ symbol: "NIFTY", expiry: EXPIRY, strike: 25250, type: "CE", ltp: 120.5, change: 5.5, changePct: 4.78, volume: 900000, value: 7.0e9, lot: LOT }], underlyings: ["NIFTY"], scanned: 100 } };
+  await open(page, "/app/movers");
+  await page.route("**/api/fno-movers**", (r) => r.fulfill({ json: new URL(r.request().url()).searchParams.get("view") === "options" ? movers : { source: "unavailable" } }));
+  await page.reload();
+  // a tap that lands before the page has hydrated does nothing, so it is repeated until the sub-tabs are there
+  await expect(async () => {
+    await page.getByRole("tab", { name: /^F&O/ }).click();
+    await expect(page.getByRole("tab", { name: /^Options/ })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
+  await page.getByRole("tab", { name: /^Options/ }).click();
+  await page.locator("tr", { hasText: "25250" }).locator("td").nth(1).click();
   await expect(page.getByTestId("option-sheet")).toBeVisible();
   await expect(page.getByTestId("option-buy")).toBeVisible();
   await page.getByTestId("option-buy").click();

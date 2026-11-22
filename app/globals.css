@@ -337,6 +337,40 @@ body {
 .zx-dark .text-blue-600 {
   color: var(--zx-accent);
 }
+/* The option chain (it is a tab of the chart screen, so it is dark here too): its tints, its in-the-money cells and its up and down figures. */
+.zx-dark .bg-slate-100 {
+  background-color: #1d2c45;
+}
+.zx-dark .bg-indigo-100\/80 {
+  background-color: rgba(99, 102, 241, 0.3);
+}
+.zx-dark .bg-amber-100\/80 {
+  background-color: rgba(245, 158, 11, 0.26);
+}
+.zx-dark .bg-amber-100 {
+  background-color: #3a2d12;
+}
+.zx-dark .bg-emerald-50 {
+  background-color: #123226;
+}
+.zx-dark .border-blue-200 {
+  border-color: #2f4f86;
+}
+.zx-dark .text-blue-800 {
+  color: #c3dbff;
+}
+.zx-dark .text-indigo-700 {
+  color: #a5b4fc;
+}
+.zx-dark .text-emerald-500,
+.zx-dark .text-emerald-600,
+.zx-dark .text-emerald-700 {
+  color: #4ade80;
+}
+.zx-dark .text-rose-500,
+.zx-dark .text-rose-600 {
+  color: #fb7185;
+}
 .zx-dark .border-blue-300 {
   border-color: #3b6bb3;
 }
