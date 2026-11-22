@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAction } from "@/components/action/useAction";
 import { ArrowLeft, CandlestickChart, ChevronUp, SlidersHorizontal, TrendingDown, TrendingUp } from "lucide-react";
 import DataBadge from "@/components/DataBadge";
 import OptionOrderSheet from "@/components/OptionOrderSheet";
@@ -62,10 +63,11 @@ export default function TradePhone(p: TradePhoneProps) {
   // an index whose nearest expiry is today
   const expiresToday = isIndex && !!chain && chain.expiries.includes(istDateString());
 
+  const { openAction } = useAction();
   const back = () => (window.history.length > 1 ? router.back() : router.push("/app/dashboard"));
   const buyAtm = (type: "CE" | "PE") => {
     const atm = chain ? atmContract(chain, type) : null;
-    if (chain && atm) setContract({ underlying: chain.underlying, expiry: chain.expiry, ...atm });
+    if (chain && atm) openAction({ kind: "option", underlying: chain.underlying, expiry: chain.expiry, strike: atm.strike, type: atm.type, side: "buy" });
   };
   const openDrawer = (tab: DrawerTab) => {
     setDrawerTab(tab);

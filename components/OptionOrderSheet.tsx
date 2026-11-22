@@ -3,6 +3,8 @@
 import React, { useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useDialogFocus } from "@/components/useDialogFocus";
+import { useAction } from "@/components/action/useAction";
+import { useScreenMode } from "@/lib/useScreenMode";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import {
   makeContractId,
@@ -233,6 +235,8 @@ export default function OptionOrderSheet({
   const { cash, holdings, tradeContract } = useZestoxx();
   const marketOpen = useMarketStatus()?.open ?? null;
   const closeRef = useRef<HTMLButtonElement>(null);
+  const { openAction } = useAction();
+  const onPhone = useScreenMode() !== "wide";
   const [tab, setTab] = useState<Tab>("charts");
   const [lots, setLots] = useState(1);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; text: string } | null>(null);
@@ -447,7 +451,24 @@ export default function OptionOrderSheet({
           )}
         </div>
 
-        {/* paper trade */}
+        {/* a phone: Buy and Sell open the order screen; a wide screen keeps the form below */}
+        {onPhone ? (
+          <div className="border-t border-slate-200 bg-white p-3 pb-[calc(12px+env(safe-area-inset-bottom))]" data-testid="option-sheet-actions">
+            {sellIntent && held === 0 && (
+              <p data-testid="sell-not-held" className="mb-2 text-[12px] text-amber-700">
+                {SELL_NOT_HELD}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-5">
+              <button type="button" disabled={!quote} data-testid="option-buy" onClick={() => openAction({ kind: "option", underlying: chain.underlying, expiry: chain.expiry, strike, type, side: "buy" })} className="h-[var(--btn-primary-h)] rounded-lg bg-emerald-600 text-[14px] font-semibold text-white disabled:opacity-40">
+                {PAPER_BUY}
+              </button>
+              <button type="button" disabled={!quote} data-testid="option-sell" onClick={() => openAction({ kind: "option", underlying: chain.underlying, expiry: chain.expiry, strike, type, side: "sell" })} className="h-[var(--btn-primary-h)] rounded-lg bg-rose-600 text-[14px] font-semibold text-white disabled:opacity-40">
+                {PAPER_SELL}
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="border-t border-slate-200 bg-slate-50 p-4">
           <div className="mb-2 flex items-center justify-between">
             <h4 className="font-display text-[12px] font-semibold uppercase tracking-[0.1em] text-slate-500">
@@ -519,6 +540,7 @@ export default function OptionOrderSheet({
             Market orders fill at the last traded price. Only market orders are supported for options.
           </p>
         </div>
+        )}
       </div>
     </div>
   );

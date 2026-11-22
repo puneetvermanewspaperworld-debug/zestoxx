@@ -345,14 +345,14 @@ for (const [w, h] of [
         ["paper-buy-put", "PE"],
       ] as const) {
         await page.getByTestId(id).click();
-        const dialog = page.getByTestId("option-sheet");
+        const dialog = page.getByTestId("action-screen"); // Paper buy Call/Put opens the full-screen order screen for the at-the-money contract
         await expect(dialog).toBeVisible();
-        const title = await dialog.getByRole("heading").first().innerText();
+        const title = await page.getByTestId("action-symbol").innerText();
         expect(Number(title.match(/(\d+) (?:CE|PE)$/)?.[1])).toBe(atm);
         expect(title).toContain(side);
         const d = (await dialog.boundingBox())!;
         expect([Math.round(d.x), Math.round(d.y), Math.round(d.width), Math.round(d.height)]).toEqual([0, 0, w, h]);
-        await dialog.getByRole("button", { name: "Close" }).first().click();
+        await page.getByTestId("action-back").click();
         await expect(dialog).toHaveCount(0);
       }
     });
@@ -568,7 +568,7 @@ test.describe("sideways 844x390", () => {
     await expect(page.getByTestId("paper-buy")).toHaveCount(0);
     await expect(page.getByTestId("paper-buy-call")).toBeEnabled({ timeout: 15_000 });
     await page.getByTestId("paper-buy-call").click();
-    await expect(page.getByTestId("option-sheet")).toBeVisible();
+    await expect(page.getByTestId("action-screen")).toBeVisible();
   });
 
   test("More and the Option Chain button work sideways", async ({ page }) => {
