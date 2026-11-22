@@ -205,7 +205,10 @@ export async function savePortfolio(userId: string, blob: PortfolioBlob): Promis
     (o) =>
       typeof o?.symbol === "string" &&
       (o.side === "buy" || o.side === "sell") &&
-      o.qty > 0 &&
+      // resting orders are for whole shares: the same quantity rule the funds check applies when one is placed
+      Number.isInteger(o.qty) &&
+      o.qty >= 1 &&
+      Number.isFinite(o.limitPrice) &&
       o.limitPrice > 0 &&
       (o.orderType === "LIMIT" || o.orderType === "GTD" || o.orderType === "GTT") &&
       ISO.test(o.placedDate) &&

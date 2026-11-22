@@ -31,6 +31,8 @@ import {
   type SipStatus,
 } from "@/lib/orders";
 import { MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, listNameError, type CustomList } from "@/lib/watchlists";
+import { fillShortfall, fundsError } from "@/lib/order-check";
+import { ORDER_TYPE_LABEL } from "@/lib/orders";
 import { GTT_CATCHUP_KEY, GTT_CATCHUP_SYMBOLS, MAX_OPEN_GTT, catchUpOnce, catchUpWindow, firstCrossing, type CatchUpEnv, gttError, gttKind, triggerDirection } from "@/lib/gtt";
 import type {
   Candle,
@@ -108,7 +110,8 @@ interface ZestoxxContextValue {
   /** True only when this symbol's candle history came from a feed. Until then `histories` holds the 250 invented starting bars. */
   hasRealHistory: (id: string) => boolean;
   setActiveView: (v: ViewId) => void;
-  onTrade: (t: TradeInput) => void;
+  /** Place a paper order for the selected symbol. Returns the reason it was refused (funds, holdings, no price), or null when it was placed or filled. */
+  onTrade: (t: TradeInput) => string | null;
   /** Market paper trade in an option contract (id from makeContractId); qty is in units, not lots. */
   tradeContract: (t: { id: string; side: "buy" | "sell"; qty: number; price: number }) => void;
   onAddAlert: (symId: string) => void;
@@ -260,6 +263,14 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   const fillOrder = useCallback(
     (symbol: string, side: "buy" | "sell", qty: number, price: number, orderType: OrderType = "MARKET", extra?: { simulated?: boolean; date?: string; time?: string }) => {
       const cost = price * qty;
+      // keep the refs the funds checks read up to date at once (state, and the refs copied from it, only catch up on the next render)
+      cashRef.current += side === "buy" ? -cost : cost;
+      const heldNow = holdingsRef.current[symbol];
+      const heldQty = (heldNow?.qty ?? 0) + (side === "buy" ? qty : -qty);
+      const nextHoldings = { ...holdingsRef.current };
+      if (heldQty <= 0) delete nextHoldings[symbol];
+      else nextHoldings[symbol] = { qty: heldQty, avgPrice: side === "buy" ? ((heldNow?.avgPrice ?? 0) * (heldNow?.qty ?? 0) + cost) / heldQty : (heldNow?.avgPrice ?? 0) };
+      holdingsRef.current = nextHoldings;
       if (side === "buy") {
         setCash((c) => c - cost);
         setHoldings((h) => {
@@ -321,20 +332,21 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           // This runs inside a state updater, which React may invoke twice in dev — fire once.
           if (crossed && !firedOrders.current.has(o.id)) {
             firedOrders.current.add(o.id);
-            if (gtt) {
-              // a GTT trades at the price that crossed its trigger, if the account can still do it
-              const short = o.side === "buy" ? o.qty * p > cashRef.current : (holdingsRef.current[o.symbol]?.qty ?? 0) < o.qty;
-              if (short) queueMicrotask(() => closeGttRef.current(o, "cancelled", `GTT ${o.side} ${o.qty} ${o.symbol} was cancelled when it triggered: ${o.side === "buy" ? "not enough virtual cash" : "you no longer hold enough"}.`));
-              else {
-                fillOrder(o.symbol, o.side, o.qty, p, "GTT");
-                setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
-                const text = `${gttKind(o.side, o.trigger ?? "above")} triggered: ${o.side} ${o.qty} ${o.symbol} @ ${fmt(p, typeOf(o.symbol))}`;
-                queueMicrotask(() => setToasts((t) => [...t, { id: Date.now() + Math.random(), text }]));
-              }
+            // Any resting order is checked again at the moment it fills (the account may have changed since it was placed): a GTT trades at the
+            // price that crossed its trigger, a limit or GTD order at its limit price. If the account cannot do it, the order is cancelled with the reason.
+            const at = gtt ? p : o.limitPrice;
+            const short = fundsError({ side: o.side, qty: o.qty, price: at, cash: cashRef.current, held: holdingsRef.current[o.symbol]?.qty ?? 0, symbol: o.symbol });
+            if (short) {
+              const label = gtt ? "GTT" : ORDER_TYPE_LABEL[o.orderType];
+              queueMicrotask(() => closeGttRef.current(o, "cancelled", `${label} ${o.side} ${o.qty} ${o.symbol} was cancelled when it triggered: ${fillShortfall(o.side)}.`));
               return;
             }
-            fillOrder(o.symbol, o.side, o.qty, o.limitPrice, o.orderType);
+            fillOrder(o.symbol, o.side, o.qty, at, o.orderType);
             setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
+            if (gtt) {
+              const text = `${gttKind(o.side, o.trigger ?? "above")} triggered: ${o.side} ${o.qty} ${o.symbol} @ ${fmt(p, typeOf(o.symbol))}`;
+              queueMicrotask(() => setToasts((t) => [...t, { id: Date.now() + Math.random(), text }]));
+            }
           }
         });
         alerts.forEach((a) => {
@@ -610,14 +622,22 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
   }, [contractIds]);
 
   const onTrade = useCallback(
-    ({ mode, side, qty, limitPrice, expiryDate }: TradeInput) => {
+    ({ mode, side, qty, limitPrice, expiryDate }: TradeInput): string | null => {
+      const symbol = selectedRef.current;
+      const held = holdingsRef.current[symbol]?.qty ?? 0;
       if (mode === "market") {
         // a paper market order fills at the live price; with none (a symbol with no recent trades) there is no order
-        const at = live[selectedRef.current];
-        if (!(at > 0)) return;
-        fillOrder(selectedRef.current, side, qty, at);
+        const at = live[symbol];
+        if (!(at > 0)) return "There is no live price for this symbol, so there is nothing to fill an order at.";
+        const err = fundsError({ side, qty, price: at, cash: cashRef.current, held, symbol });
+        if (err) return err;
+        fillOrder(symbol, side, qty, at);
+        return null;
       } else {
-        if (!isTradableId(selectedRef.current)) return;
+        if (!isTradableId(symbol)) return "Zestoxx cannot trade this symbol.";
+        // a resting order is checked now, at its limit price, and again when it fills
+        const err = fundsError({ side, qty, price: limitPrice as number, cash: cashRef.current, held, symbol });
+        if (err) return err;
         setOpenOrders((cur) => [
           {
             id: Date.now() + Math.random(),
@@ -632,6 +652,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
           },
           ...cur,
         ]);
+        return null;
       }
     },
     [live, fillOrder]
@@ -992,10 +1013,6 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
             }
             fillOrder(o.symbol, o.side, o.qty, hit.price, "GTT", { simulated: true, date, time });
             setOpenOrders((cur) => cur.filter((x) => x.id !== o.id));
-            // the refs catch up on the next render; keep the cash and holdings they hold right for the next order in this pass
-            cashRef.current += o.side === "buy" ? -o.qty * hit.price : o.qty * hit.price;
-            const held = holdingsRef.current[o.symbol];
-            if (held) holdingsRef.current = { ...holdingsRef.current, [o.symbol]: { ...held, qty: held.qty + (o.side === "buy" ? o.qty : -o.qty) } };
             notify(`${gttKind(o.side, o.trigger as "above" | "below")} filled (simulated): ${o.side} ${o.qty} ${o.symbol} @ ${fmt(hit.price, type)}. It crossed ${fmt(o.limitPrice, type)} in the ${time} candle on ${date}. Zestoxx cannot watch prices while it is closed, so this fill is worked out from the candles.`);
           }
         } catch {

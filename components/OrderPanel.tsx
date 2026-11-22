@@ -6,6 +6,7 @@ import { addDaysIso, gtdBounds } from "@/lib/orders";
 import { useIsClient } from "@/lib/useIsClient";
 import type { AssetType, Holdings } from "@/lib/types";
 import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
+import { fundsError } from "@/lib/order-check";
 
 interface OrderPanelProps {
   symId: string;
@@ -19,7 +20,7 @@ interface OrderPanelProps {
     qty: number;
     limitPrice?: number;
     expiryDate?: string;
-  }) => void;
+  }) => string | null | void;
 }
 
 export default function OrderPanel({ symId, price, type, cash, holdings, onTrade }: OrderPanelProps) {
@@ -41,16 +42,21 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
       setMsg({ t: "err", text: "Enter a quantity of 1 or more." });
       return;
     }
+    // the same funds check for every kind of order, at the price it would trade at (a resting order: its limit price)
+    const atPrice = orderType === "market" ? price : parseFloat(limitPrice);
+    if (orderType === "market" || (atPrice > 0 && (orderType !== "gtd" || expiry))) {
+      const err = fundsError({ side, qty, price: atPrice, cash, held, symbol: symId });
+      if (err) {
+        setMsg({ t: "err", text: err });
+        return;
+      }
+    }
     if (orderType === "market") {
-      if (side === "buy" && cost > cash) {
-        setMsg({ t: "err", text: "Not enough virtual cash for this order." });
+      const refused = onTrade({ mode: "market", side, qty });
+      if (refused) {
+        setMsg({ t: "err", text: refused });
         return;
       }
-      if (side === "sell" && qty > held) {
-        setMsg({ t: "err", text: `You only hold ${held} unit(s) of ${symId}.` });
-        return;
-      }
-      onTrade({ mode: "market", side, qty });
       setMsg({ t: "ok", text: `${side === "buy" ? "Bought" : "Sold"} ${qty} ${symId} @ ${fmt(price, type)}` });
     } else {
       if (!limitPrice || parseFloat(limitPrice) <= 0) {
@@ -63,13 +69,21 @@ export default function OrderPanel({ symId, price, type, cash, holdings, onTrade
           setMsg({ t: "err", text: `Pick an expiry date between ${fmtIsoDate(min)} and ${fmtIsoDate(max)}.` });
           return;
         }
-        onTrade({ mode: "gtd", side, qty, limitPrice: parseFloat(limitPrice), expiryDate: expiry });
+        const refused = onTrade({ mode: "gtd", side, qty, limitPrice: parseFloat(limitPrice), expiryDate: expiry });
+        if (refused) {
+          setMsg({ t: "err", text: refused });
+          return;
+        }
         setMsg({
           t: "ok",
           text: `GTD ${side} order placed: ${qty} ${symId} @ ${fmt(parseFloat(limitPrice), type)}, valid till ${fmtIsoDate(expiry)}`,
         });
       } else {
-        onTrade({ mode: "limit", side, qty, limitPrice: parseFloat(limitPrice) });
+        const refused = onTrade({ mode: "limit", side, qty, limitPrice: parseFloat(limitPrice) });
+        if (refused) {
+          setMsg({ t: "err", text: refused });
+          return;
+        }
         setMsg({
           t: "ok",
           text: `Limit ${side} order placed (valid today): ${qty} ${symId} @ ${fmt(parseFloat(limitPrice), type)}`,

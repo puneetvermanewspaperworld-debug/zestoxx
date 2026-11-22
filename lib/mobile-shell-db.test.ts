@@ -120,3 +120,12 @@ describe("My Watchlist holds any symbol, up to 250, in order, for its own guest"
     assert.deepEqual((await read(a))!.watchlist, moved);
   });
 });
+
+describe("resting orders are for whole shares", () => {
+  it("a saved portfolio keeps whole-share resting orders and drops a fractional, zero or non-finite one", async () => {
+    const open = (qty: number, limitPrice = 100) => ({ symbol: "RELIANCE", side: "buy" as const, qty, limitPrice, time: "10:00:00 am", orderType: "LIMIT" as const, placedDate: "2026-11-11" });
+    const a = await save({ openOrders: [open(2), open(1.5), open(0), open(-3), open(4, Infinity as number), open(5, 0)] });
+    const r = (await read(a))!;
+    assert.deepEqual((r.openOrders ?? []).map((o) => o.qty), [2]);
+  });
+});
