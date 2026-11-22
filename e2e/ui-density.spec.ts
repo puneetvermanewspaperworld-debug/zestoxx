@@ -166,9 +166,11 @@ test.describe("the row sheet", () => {
 test.describe("Portfolio and Orders", () => {
   test("their tab strips are 36px", async ({ page }) => {
     await open(page, "/app/portfolio");
+    await expect(page.getByRole("tablist").first()).toBeVisible(); // the phone layout is chosen after the page hydrates
     near((await page.getByRole("tablist").first().boundingBox())!.height, 36.1);
     await page.goto("/app/orders", { waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
+    await expect(page.getByRole("tablist").first()).toBeVisible();
     near((await page.getByRole("tablist").first().boundingBox())!.height, 36.1);
   });
 });
