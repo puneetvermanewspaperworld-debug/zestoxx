@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import { COL_META, cellFor, isItm, maxOiIn, spotSlot, windowRows, type ChainTab, type ChangeMode, type ColId } from "@/lib/chain-view";
-import { fmt, fmtSigned } from "@/lib/helpers";
+import { COL_META, cellFor, isItm, maxOiIn, signed, spotSlot, windowRows, type ChainTab, type ChangeMode, type ColId } from "@/lib/chain-view";
+import { BUILDUP_CHIP, strikeBuildup } from "@/lib/chain-buildup";
+import { fmt, fmtOiChange, fmtSigned } from "@/lib/helpers";
+import { BUILDUP_META } from "@/lib/options";
 import type { OptionChain } from "@/lib/options";
 
 /** Call LTP, Strike and Put LTP: pinned in the middle of the table. Everything else scrolls sideways under them. */
@@ -10,11 +12,16 @@ const LTP_W = 64;
 const STRIKE_W = 64;
 /** wide enough for "1.43 Cr" and "+21.52 L" with their padding: a figure is never cut off */
 const OUTER_MIN = 72;
+/** the Buildup column holds a tag, an OI change and a price change */
+const BUILDUP_MIN = 80;
+const minOf = (c: ColId) => (c === "buildup" ? BUILDUP_MIN : OUTER_MIN);
 const CENTRE_W = LTP_W * 2 + STRIKE_W;
 
 export interface ChainTableHandle {
   /** scroll the live spot's row to the middle of the table (and the pinned columns to the middle of the screen) */
   jumpToSpot: () => void;
+  /** scroll to a strike, put it in the middle, and mark its row for a moment; false when that strike is not in the table */
+  goToStrike: (strike: number) => boolean;
 }
 
 const TONE = { up: "text-emerald-700", down: "text-rose-600", flat: "text-slate-700" } as const;
@@ -35,20 +42,43 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
   const maxOi = maxOiIn(rows);
   const callSide = [...cols].reverse(); // outermost first, so the first column chosen ends up beside the LTP
   const putSide = cols;
-  const template = [...callSide.map(() => `minmax(${OUTER_MIN}px,1fr)`), `${LTP_W}px`, `${STRIKE_W}px`, `${LTP_W}px`, ...putSide.map(() => `minmax(${OUTER_MIN}px,1fr)`)].join(" ");
+  const template = [...callSide.map((c) => `minmax(${minOf(c)}px,1fr)`), `${LTP_W}px`, `${STRIKE_W}px`, `${LTP_W}px`, ...putSide.map((c) => `minmax(${minOf(c)}px,1fr)`)].join(" ");
+  const leftW = cols.reduce((n, c) => n + minOf(c), 0);
+  // the strike whose row is marked for a moment after a tap on a top entry
+  const [flash, setFlash] = useState<number | null>(null);
+  // true while the table is still being put at the spot (see below); a tap on a top entry or a touch ends it
+  const settling = useRef(true);
   const a = Math.max(0, Math.floor((cw - CENTRE_W) / 2)); // where the pinned columns start, when they are in the middle of the screen
   const slot = spotSlot(rows, spot);
 
   const jumpToSpot = useCallback(() => {
     const el = box.current;
     if (!el) return;
-    el.scrollLeft = el.scrollWidth > el.clientWidth ? Math.max(0, callSide.length * OUTER_MIN - Math.floor((el.clientWidth - CENTRE_W) / 2)) : 0;
+    el.scrollLeft = el.scrollWidth > el.clientWidth ? Math.max(0, leftW - Math.floor((el.clientWidth - CENTRE_W) / 2)) : 0;
     const row = el.querySelector<HTMLElement>('[data-spot="1"]');
     if (!row) return;
     const head = el.querySelector<HTMLElement>('[data-head="1"]')?.offsetHeight ?? 0;
     el.scrollTop = Math.max(0, row.offsetTop - head - (el.clientHeight - head - row.offsetHeight) / 2);
-  }, [callSide.length]);
-  useImperativeHandle(handle, () => ({ jumpToSpot }), [jumpToSpot]);
+  }, [leftW]);
+  const goToStrike = useCallback(
+    (strike: number): boolean => {
+      const el = box.current;
+      const cell = el?.querySelector<HTMLElement>(`[data-testid="chain-strike-${strike}"]`);
+      if (!el || !cell) return false;
+      settling.current = false; // from here the table is where this tap put it
+      const head = el.querySelector<HTMLElement>('[data-head="1"]')?.offsetHeight ?? 0;
+      el.scrollTop = Math.max(0, cell.offsetTop - head - (el.clientHeight - head - cell.offsetHeight) / 2);
+      setFlash(strike);
+      return true;
+    },
+    []
+  );
+  useImperativeHandle(handle, () => ({ jumpToSpot, goToStrike }), [jumpToSpot, goToStrike]);
+  useLayoutEffect(() => {
+    if (flash === null) return;
+    const t = setTimeout(() => setFlash(null), 1800);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   // the width of the table, to know where the middle of the screen is
   useLayoutEffect(() => {
@@ -64,7 +94,6 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
   // touches it: from then on it is where the user left it.
   const key = `${chain.underlying}|${chain.expiry}|${cols.join(",")}|${tab}`;
   const shown = useRef("");
-  const settling = useRef(true);
   useLayoutEffect(() => {
     if (cw === 0 || shown.current === key) return;
     shown.current = key;
@@ -166,11 +195,40 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
           const callItm = isItm(r.strike, spot, "CE");
           const putItm = isItm(r.strike, spot, "PE");
           const shade = (itm: boolean) => (itm ? "bg-slate-100" : "bg-white");
+          const bu = strikeBuildup(r);
           const outer = (side: "call" | "put", c: ColId) => {
             const leg = side === "call" ? r.call : r.put;
+            if (c === "buildup") {
+              const b = side === "call" ? bu.call : bu.put;
+              const meta = b.kind ? BUILDUP_META[b.kind] : null;
+              return (
+                <div key={`${side}-${c}`} data-k={r.strike} data-t={side === "call" ? "CE" : "PE"} data-col="buildup" data-flash={flash === r.strike ? "1" : undefined} className={cell + " gap-1 " + (side === "call" ? "justify-end" : "justify-start") + " " + shade(side === "call" ? callItm : putItm)}>
+                  {b.kind && meta ? (
+                    <>
+                      {side === "put" && (
+                        <span data-testid={`bu-tag-${r.strike}-PE`} data-kind={b.kind} title={meta.label + ": " + meta.meaning} className={"shrink-0 rounded px-1 text-[11px] font-semibold leading-[18px] " + BUILDUP_CHIP[b.kind]}>
+                          {meta.code}
+                        </span>
+                      )}
+                      <span className="flex min-w-0 flex-col text-[11px] leading-[13px] text-slate-700">
+                        <span data-testid={`bu-oi-${r.strike}-${side === "call" ? "CE" : "PE"}`} className={"whitespace-nowrap " + (side === "call" ? "text-right" : "text-left")}>{fmtOiChange(b.oiChange)}</span>
+                        <span data-testid={`bu-px-${r.strike}-${side === "call" ? "CE" : "PE"}`} className={"whitespace-nowrap " + (side === "call" ? "text-right" : "text-left")}>{signed(b.priceChangePct, 1)}%</span>
+                      </span>
+                      {side === "call" && (
+                        <span data-testid={`bu-tag-${r.strike}-CE`} data-kind={b.kind} title={meta.label + ": " + meta.meaning} className={"shrink-0 rounded px-1 text-[11px] font-semibold leading-[18px] " + BUILDUP_CHIP[b.kind]}>
+                          {meta.code}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-slate-400" data-testid={`bu-none-${r.strike}-${side === "call" ? "CE" : "PE"}`}>--</span>
+                  )}
+                </div>
+              );
+            }
             const v = cellFor(c, leg, mode);
             return (
-              <div key={`${side}-${c}`} data-k={r.strike} data-t={side === "call" ? "CE" : "PE"} data-col={c} className={cell + " " + (side === "call" ? "justify-end" : "justify-start") + " " + shade(side === "call" ? callItm : putItm) + " " + TONE[v.tone]}>
+              <div key={`${side}-${c}`} data-k={r.strike} data-t={side === "call" ? "CE" : "PE"} data-col={c} data-flash={flash === r.strike ? "1" : undefined} className={cell + " " + (side === "call" ? "justify-end" : "justify-start") + " " + shade(side === "call" ? callItm : putItm) + " " + TONE[v.tone]}>
                 {c === "oi" && oiBar(side, leg.oi)}
                 <span className="relative whitespace-nowrap">{v.text}</span>
               </div>
@@ -180,7 +238,7 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
             const leg = side === "call" ? r.call : r.put;
             const type = side === "call" ? "CE" : "PE";
             return (
-              <div key={`${side}-ltp`} data-k={r.strike} data-t={type} data-col="ltp" className={cell + " z-10 " + (side === "call" ? "justify-end" : "justify-start") + " " + shade(side === "call" ? callItm : putItm)} style={pinStyle(side === "call" ? 0 : 2)}>
+              <div key={`${side}-ltp`} data-k={r.strike} data-t={type} data-col="ltp" data-flash={flash === r.strike ? "1" : undefined} className={cell + " z-10 " + (side === "call" ? "justify-end" : "justify-start") + " " + shade(side === "call" ? callItm : putItm)} style={pinStyle(side === "call" ? 0 : 2)}>
                 <button type="button" aria-label={`Trade ${r.strike} ${type}`} data-testid={`chain-${type.toLowerCase()}-${r.strike}`} className="font-mono text-[13px] font-semibold text-slate-900">
                   {leg.ltp > 0 ? leg.ltp.toFixed(2) : "--"}
                 </button>
@@ -192,7 +250,7 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
               {i === slot && spotRow}
               {callSide.map((c) => outer("call", c))}
               {ltp("call")}
-              <div data-testid={`chain-strike-${r.strike}`} className={cell + " z-10 justify-center border-x border-x-slate-200 bg-slate-50 text-[13px] font-semibold text-slate-900"} style={pinStyle(1)}>
+              <div data-testid={`chain-strike-${r.strike}`} data-flash={flash === r.strike ? "1" : undefined} className={cell + " z-10 justify-center border-x border-x-slate-200 bg-slate-50 text-[13px] font-semibold text-slate-900"} style={pinStyle(1)}>
                 {r.strike}
               </div>
               {ltp("put")}

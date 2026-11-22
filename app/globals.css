@@ -371,6 +371,31 @@ body {
 .zx-dark .text-rose-600 {
   color: #fb7185;
 }
+/* the buildup tags (long buildup, short buildup, short covering, long unwinding) */
+.zx-dark .bg-emerald-100 {
+  background-color: #14392b;
+}
+.zx-dark .bg-teal-100 {
+  background-color: #0f3a3a;
+}
+.zx-dark .bg-rose-100 {
+  background-color: #4a1b2a;
+}
+.zx-dark .bg-orange-100 {
+  background-color: #4a2c12;
+}
+.zx-dark .text-emerald-800 {
+  color: #6ee7b7;
+}
+.zx-dark .text-teal-800 {
+  color: #5eead4;
+}
+.zx-dark .text-rose-800 {
+  color: #fda4af;
+}
+.zx-dark .text-orange-800 {
+  color: #fdba74;
+}
 .zx-dark .border-blue-300 {
   border-color: #3b6bb3;
 }
@@ -423,4 +448,18 @@ body {
     height: max(100%, 44px);
     transform: translate(-50%, -50%);
   }
+}
+
+/* A strike the chain was just scrolled to (from a top entry in its Summary): its row is tinted, then fades. */
+@keyframes zx-flash {
+  0%,
+  65% {
+    box-shadow: inset 0 0 0 100px rgba(37, 99, 235, 0.24);
+  }
+  100% {
+    box-shadow: inset 0 0 0 100px rgba(37, 99, 235, 0);
+  }
+}
+[data-flash="1"] {
+  animation: zx-flash 1.8s ease-out;
 }

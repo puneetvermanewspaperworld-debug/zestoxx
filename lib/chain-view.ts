@@ -6,18 +6,20 @@ import type { ChainRow, OptionChain, OptionLeg } from "./options";
  * (a feed that sends no volume gets no Volume column, and a value that is not there reads "--"): nothing is estimated or made up.
  */
 
-export type ChainTab = "oi" | "greeks";
+export type ChainTab = "oi" | "greeks" | "buildup";
 export type ChangeMode = "abs" | "pct";
-export type ColId = "oiChg" | "oi" | "volume" | "ltpChg" | "bid" | "ask" | "iv" | "delta" | "theta" | "vega" | "gamma";
+export type ColId = "oiChg" | "oi" | "volume" | "ltpChg" | "bid" | "ask" | "buildup" | "iv" | "delta" | "theta" | "vega" | "gamma";
 
 /** The columns each view can show, in the order they are offered. The first one chosen sits next to the LTP. */
 export const TAB_COLS: Record<ChainTab, ColId[]> = {
   oi: ["oiChg", "oi", "volume", "ltpChg", "bid", "ask"],
   greeks: ["iv", "delta", "theta", "vega", "gamma"],
+  // the Buildup view is one column on each side: the tag with its OI change and price change (see lib/chain-buildup.ts)
+  buildup: ["buildup"],
 };
 
 /** The fewest useful columns per side: what is shown until a choice is made. */
-export const DEFAULT_COLS: Record<ChainTab, ColId[]> = { oi: ["oi"], greeks: ["iv", "delta"] };
+export const DEFAULT_COLS: Record<ChainTab, ColId[]> = { oi: ["oi"], greeks: ["iv", "delta"], buildup: ["buildup"] };
 
 export const COL_META: Record<ColId, { label: string; hint: string }> = {
   oiChg: { label: "OI chg", hint: "Change in open interest since the previous session" },
@@ -26,6 +28,7 @@ export const COL_META: Record<ColId, { label: string; hint: string }> = {
   ltpChg: { label: "LTP chg", hint: "Change in the premium since the previous close" },
   bid: { label: "Bid", hint: "Best bid, when the feed sends it" },
   ask: { label: "Ask", hint: "Best ask, when the feed sends it" },
+  buildup: { label: "Buildup", hint: "Long buildup, short buildup, short covering or long unwinding, from the change in open interest and in the premium" },
   iv: { label: "IV", hint: "Implied volatility" },
   delta: { label: "Delta", hint: "Change in premium for a ₹1 move in the underlying" },
   theta: { label: "Theta", hint: "Premium lost per day to time decay" },
@@ -54,11 +57,13 @@ export function availableCols(rows: ChainRow[]): Set<ColId> {
 
 /** The columns to draw: the chosen ones that the chain really has, in the order they are offered. */
 export function shownCols(tab: ChainTab, chosen: ColId[] | undefined, have: Set<ColId>): ColId[] {
+  if (tab === "buildup") return ["buildup"]; // always its one column: a strike with no tag shows --
   const want = new Set(chosen ?? DEFAULT_COLS[tab]);
   return TAB_COLS[tab].filter((c) => want.has(c) && have.has(c));
 }
 
-const signed = (n: number, digits: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(digits);
+/** +12.3 or −12.3 (a true minus sign, as the OI changes use) */
+export const signed = (n: number, digits: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(digits);
 
 export interface Cell {
   text: string;
@@ -74,6 +79,8 @@ export function cellFor(col: ColId, leg: OptionLeg, mode: ChangeMode): Cell {
       const d = leg.oi - leg.prevOi;
       return { text: mode === "abs" ? fmtOiChange(d) : signed((d / leg.prevOi) * 100, 1) + "%", tone: d > 0 ? "up" : d < 0 ? "down" : "flat" };
     }
+    case "buildup":
+      return none; // drawn as a tag by the table, not as text
     case "oi":
       return leg.oi > 0 ? { text: fmtOi(leg.oi), tone: "flat" } : none;
     case "volume":

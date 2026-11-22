@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
-import { simulateChain } from "../lib/options";
+import { legBuildup, simulateChain, type OptionChain } from "../lib/options";
+import { topPerCategory } from "../lib/chain-buildup";
 import { mockMarket, openTrade } from "./chart-helpers";
 
 /**
@@ -48,6 +49,41 @@ test.describe("on a phone", () => {
     await sel.selectOption(EXPIRIES[1]);
     await expect(sel).toHaveValue(EXPIRIES[1]);
     await expect(page.getByTestId("chain-spot-row")).toBeVisible();
+  });
+
+  test("the Buildup view and the Summary's top strikes are the same as on the Options screen, from the same classification", async ({ page }) => {
+    await openChain(page);
+    const chain = { ...simulateChain("NIFTY50", 25250, EXPIRIES[0], new Date("2026-11-11T08:20:00Z")), source: "live", expiry: EXPIRIES[0], expiries: EXPIRIES } as OptionChain;
+    await page.getByTestId("chain-view-buildup").click();
+    await expect(page.getByTestId("chain-legend")).toBeVisible();
+    // every tag on screen is what the shared function says for that leg
+    const shown = await page.locator('[data-testid^="bu-tag-"]').evaluateAll((els) => els.map((e) => ({ id: e.getAttribute("data-testid")!, kind: e.getAttribute("data-kind")!, code: e.textContent })));
+    expect(shown.length).toBeGreaterThan(0);
+    for (const t of shown) {
+      const [, , k, side] = t.id.split("-");
+      const row = chain.rows.find((r) => r.strike === Number(k))!;
+      expect(legBuildup(side === "CE" ? row.call : row.put).kind, t.id).toBe(t.kind);
+    }
+    // the top strikes, from the strikes the table shows
+    const strikes = await page.locator('[data-testid^="chain-strike-"]').evaluateAll((els) => els.map((e) => Number(e.getAttribute("data-testid")!.replace("chain-strike-", ""))));
+    const rows = chain.rows.filter((r) => strikes.includes(r.strike));
+    await page.getByTestId("chain-summary-toggle").click();
+    for (const [side, key] of [["CE", "call"], ["PE", "put"]] as const) {
+      const top = topPerCategory(rows, key);
+      for (const [code, kind] of [["LB", "long-buildup"], ["SB", "short-buildup"], ["SC", "short-covering"], ["LU", "long-unwinding"]] as const) {
+        const e = top[kind];
+        if (e) await expect(page.getByTestId(`top-${side}-${code}-strike`)).toHaveText(String(e.strike));
+        else await expect(page.getByTestId(`top-${side}-${code}-none`)).toHaveText("none");
+      }
+    }
+    // a tap finds the strike in this tab's table too
+    const first = page.locator('[data-testid^="top-CE-"][data-testid$="-strike"]').first();
+    if (await first.count()) {
+      const k = (await first.innerText()).trim();
+      await first.click();
+      await expect(page.getByTestId(`chain-strike-${k}`)).toHaveAttribute("data-flash", "1");
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 
   test("a tap on a cell opens the contract sheet, and Buy from it opens the order screen for that strike and expiry", async ({ page }) => {
