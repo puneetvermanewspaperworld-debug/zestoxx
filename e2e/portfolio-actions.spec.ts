@@ -90,3 +90,12 @@ test("Exit and Add have a 44px hit area and fit a 360px screen", async ({ page }
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });
+
+test("the chart drawer's Trade tab says what is held, and its Sell opens the sell screen for the whole symbol", async ({ page }) => {
+  await openApp(page, "/app/trade/RELIANCE", held);
+  await page.getByTestId("drawer-toggle").click();
+  await expect(page.getByTestId("drawer-held")).toContainText("You hold 10 of RELIANCE");
+  await page.getByTestId("drawer-sell").click();
+  await expect(page).toHaveURL(/act=order&s=RELIANCE&side=sell/);
+  await expect(page.getByTestId("funds-available")).toHaveText("10");
+});

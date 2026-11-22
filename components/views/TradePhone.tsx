@@ -69,10 +69,6 @@ export default function TradePhone(p: TradePhoneProps) {
     const atm = chain ? atmContract(chain, type) : null;
     if (chain && atm) openAction({ kind: "option", underlying: chain.underlying, expiry: chain.expiry, strike: atm.strike, type: atm.type, side: "buy" });
   };
-  const openDrawer = (tab: DrawerTab) => {
-    setDrawerTab(tab);
-    setDrawerOpen(true);
-  };
 
   const backButton = (
     <button type="button" onClick={back} aria-label="Back" data-testid="trade-back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:text-slate-900">
@@ -141,10 +137,10 @@ export default function TradePhone(p: TradePhoneProps) {
     </>
   ) : (
     <>
-      <button type="button" disabled={!(p.price > 0)} onClick={() => openDrawer("trade")} data-testid="paper-buy" className={"min-h-[44px] rounded-md bg-emerald-500 text-[13px] font-semibold text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
+      <button type="button" disabled={!(p.price > 0)} onClick={() => openAction({ kind: "order", symbol: p.selected, side: "buy" })} data-testid="paper-buy" className={"min-h-[44px] rounded-md bg-emerald-500 text-[13px] font-semibold text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
         {PAPER_BUY}
       </button>
-      <button type="button" disabled={!(p.price > 0)} onClick={() => openDrawer("trade")} data-testid="paper-sell" className={"min-h-[44px] rounded-md bg-rose-500 text-[13px] font-semibold text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
+      <button type="button" disabled={!(p.price > 0)} onClick={() => openAction({ kind: "order", symbol: p.selected, side: "sell" })} data-testid="paper-sell" className={"min-h-[44px] rounded-md bg-rose-500 text-[13px] font-semibold text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
         {PAPER_SELL}
       </button>
     </>

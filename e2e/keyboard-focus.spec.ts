@@ -75,19 +75,12 @@ test.describe("the symbol sheet's fields keep focus and take a whole number", ()
 });
 
 test.describe("the other order forms and fields", () => {
-  test("the chart page's order drawer: quantity and, for a limit order, the limit price", async ({ page }) => {
+  test("the chart page's Buy screen: quantity and, for a limit order, the limit price", async ({ page }) => {
     await setup(page, "/app/trade/RELIANCE");
-    await page.getByTestId("paper-buy").click();
-    const drawer = page.getByRole("dialog").or(page.getByTestId("trade-drawer")).first();
-    const spin = page.getByRole("spinbutton");
-    await spin.first().waitFor();
-    expect(await typeKeepingFocus(page, spin.first(), "300")).toBe("300");
-    const limit = page.getByRole("button", { name: /^Limit$/ });
-    if (await limit.count()) {
-      await limit.first().click();
-      expect(await typeKeepingFocus(page, spin.nth(1), "1450")).toBe("1450");
-    }
-    void drawer;
+    await page.getByTestId("paper-buy").click(); // the order is the full screen now; the drawer's Trade tab only has the buttons
+    expect(await typeKeepingFocus(page, page.getByTestId("order-qty"), "300")).toBe("300");
+    await page.getByTestId("mode-limit").click();
+    expect(await typeKeepingFocus(page, page.getByTestId("order-limit"), "1450")).toBe("1450");
   });
 
   test("the Alerts page: target price", async ({ page }) => {

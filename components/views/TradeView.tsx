@@ -30,6 +30,7 @@ import { useCandles } from "@/components/chart/useCandles";
 import type { FeedInfo } from "@/components/chart/ChartControls";
 import { useScreenMode } from "@/lib/useScreenMode";
 import TradePhone from "@/components/views/TradePhone";
+import DrawerTradeButtons from "@/components/action/DrawerTradeButtons";
 import { OpenOrdersTab, PositionsTab, positionIdsFor } from "@/components/views/TradeDrawerTabs";
 import { intervalAvailability, isIntraday, selectionFrom, type DataKind } from "@/lib/chart/intervals";
 import type { Candle, Timeframe } from "@/lib/types";
@@ -245,7 +246,7 @@ export default function TradeView({ symbol }: { symbol?: string }) {
         tabs={{
           trade: (
             <div className="space-y-3">
-              {orderPanel}
+              {hasPrice ? <DrawerTradeButtons symbol={selected} /> : orderPanel}
               {orderBookCard}
             </div>
           ),

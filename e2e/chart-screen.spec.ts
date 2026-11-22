@@ -366,10 +366,12 @@ for (const [w, h] of [
       await expect(drawer).toHaveAttribute("data-open", "1");
       for (const t of ["trade", "orders", "positions"]) await expect(page.getByTestId(`drawer-tab-${t}`)).toBeVisible();
       await expect(page.getByTestId("drawer-tab-trade")).toHaveAttribute("aria-selected", "true");
-      // the order form
-      await expect(drawer.getByText("Paper Trade")).toBeVisible();
-      for (const name of ["Market", "Limit", "GTD"]) expect((await drawer.getByRole("button", { name, exact: true }).boundingBox())!.height, name).toBeGreaterThanOrEqual(43.5);
-      expect((await drawer.getByRole("button", { name: "Paper buy", exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+      // the Trade tab is a Buy and a Sell button (the order form is the full screen they open), with what is held
+      await expect(drawer.getByTestId("drawer-trade")).toBeVisible();
+      await expect(drawer.getByTestId("drawer-held")).toContainText("You don't hold RELIANCE");
+      for (const id of ["drawer-buy", "drawer-sell"]) expect((await drawer.getByTestId(id).boundingBox())!.height, id).toBeGreaterThanOrEqual(43.5);
+      await expect(drawer.getByText("Paper Trade")).toHaveCount(0);
+      for (const name of ["Market", "Limit", "GTD"]) await expect(drawer.getByRole("button", { name, exact: true })).toHaveCount(0);
       // the chart behind it is where it was
       const plot1 = await box(page, "trade-chart");
       expect([plot1.x, plot1.y, plot1.width, plot1.height]).toEqual([plot0.x, plot0.y, plot0.width, plot0.height]);
@@ -377,13 +379,17 @@ for (const [w, h] of [
       const pg = await box(page, "drawer-panel-grip");
       await swipe(page, { x: pg.x + pg.width / 2, y: pg.y + pg.height / 2 }, { x: pg.x + pg.width / 2, y: pg.y + 380 });
       await expect(page.getByTestId("drawer")).toHaveCount(0);
-      // the arrow and the Paper sell button open it too
+      // the arrow opens it again; the Paper sell button opens the sell screen, and closing that leaves the chart as it was
       await page.getByTestId("drawer-toggle").click();
       await expect(page.getByTestId("drawer")).toHaveAttribute("data-open", "1");
       await page.getByTestId("drawer-close").click();
       await expect(page.getByTestId("drawer")).toHaveCount(0);
       await page.getByTestId("paper-sell").click();
-      await expect(page.getByTestId("drawer-tab-trade")).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByTestId("action-screen")).toBeVisible();
+      await expect(page.getByTestId("action-label")).toHaveText("Sell");
+      await page.getByTestId("action-back").click();
+      await expect(page.getByTestId("action-screen")).toHaveCount(0);
+      await expect(page.getByTestId("trade-chart")).toBeVisible();
     });
 
     test("a market buy shows under Positions, a limit order under Open Orders until it is cancelled", async ({ page }) => {
@@ -391,9 +397,12 @@ for (const [w, h] of [
       await page.getByTestId("drawer-toggle").click();
       const drawer = page.getByTestId("drawer");
       await expect(page.getByTestId("drawer-tab-positions")).toHaveText("Positions");
-      await drawer.getByRole("button", { name: "Paper buy", exact: true }).click();
-      await expect(drawer.getByText(/Bought 1 RELIANCE/)).toBeVisible();
-      await expect(page.getByTestId("drawer-tab-positions")).toHaveText("Positions (1)");
+      await drawer.getByTestId("drawer-buy").click();
+      await page.getByTestId("action-submit").click();
+      await expect(page.getByTestId("result-line")).toContainText("Bought 1 RELIANCE");
+      await page.getByTestId("action-done").click();
+      await expect(page.getByTestId("action-screen")).toHaveCount(0);
+      await expect(page.getByTestId("drawer-tab-positions")).toHaveText("Positions (1)"); // the drawer was kept open underneath
       await page.getByTestId("drawer-tab-positions").click();
       const pos = page.getByTestId("position-RELIANCE");
       await expect(pos).toBeVisible();
@@ -403,9 +412,12 @@ for (const [w, h] of [
       await page.getByTestId("drawer-tab-orders").click();
       await expect(page.getByTestId("no-open-orders")).toBeVisible();
       await page.getByTestId("drawer-tab-trade").click();
-      await drawer.getByRole("button", { name: "Limit", exact: true }).click();
-      await drawer.locator('input[type="number"]').nth(1).fill("1200");
-      await drawer.getByRole("button", { name: "Paper buy", exact: true }).click();
+      await drawer.getByTestId("drawer-buy").click();
+      await page.getByTestId("mode-limit").click();
+      await page.getByTestId("order-limit").fill("1200");
+      await page.getByTestId("action-submit").click();
+      await expect(page.getByTestId("result-status")).toContainText("Order placed");
+      await page.getByTestId("action-done").click();
       await expect(page.getByTestId("drawer-tab-orders")).toHaveText("Open Orders (1)");
       await page.getByTestId("drawer-tab-orders").click();
       const row = page.locator('[data-testid^="open-order-"]');
@@ -536,11 +548,19 @@ test.describe("sideways 844x390", () => {
     await expect(page.getByTestId("chart-attribution")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
   });
 
-  test("the Paper buy button and the arrow pull the drawer up; it closes again", async ({ page }) => {
+  test("the Paper buy button opens the buy screen; the arrow pulls the drawer up, and it closes again", async ({ page }) => {
     await openTrade(page, "RELIANCE");
     await page.getByTestId("paper-buy").click();
+    await expect(page.getByTestId("action-screen")).toBeVisible();
+    await page.getByTestId("action-back").click();
+    await expect(page.getByTestId("action-screen")).toHaveCount(0);
+    await page.getByTestId("drawer-toggle").click();
     await expect(page.getByTestId("drawer")).toHaveAttribute("data-open", "1");
     await expect(page.getByTestId("drawer-tab-trade")).toHaveAttribute("aria-selected", "true");
+    await page.getByTestId("drawer-buy").click();
+    await expect(page.getByTestId("action-screen")).toBeVisible();
+    await page.getByTestId("action-back").click();
+    await expect(page.getByTestId("drawer")).toHaveAttribute("data-open", "1"); // still open underneath
     await page.getByTestId("drawer-close").click();
     await expect(page.getByTestId("drawer")).toHaveCount(0);
   });
