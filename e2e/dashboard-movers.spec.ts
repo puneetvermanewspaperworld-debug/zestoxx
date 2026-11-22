@@ -56,9 +56,9 @@ test("shows the top three real gainers and losers from the all-NSE feed, ANUP +2
   expect(lose).not.toContain("XXX");
   expect(text).not.toContain("No gainers right now");
   expect(text).not.toContain("+-");
-  // stocks the terminal charts link to their chart; the rest are plain text
+  // every stock links to its chart and order form: the twelve the terminal was built around, and any other NSE stock
   await expect(card(page).getByRole("link", { name: "RELIANCE" })).toHaveAttribute("href", "/app/trade/RELIANCE");
-  await expect(card(page).getByRole("link", { name: "ANUP" })).toHaveCount(0);
+  await expect(card(page).getByRole("link", { name: "ANUP" })).toHaveAttribute("href", "/app/trade/ANUP");
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(over).toBeLessThanOrEqual(0);
 });

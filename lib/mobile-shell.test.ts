@@ -252,7 +252,9 @@ describe("the next-visit check is bounded", () => {
   it("a pass groups orders by symbol: one candle request per symbol, not per order, and no more than the cap", () => {
     assert.match(provider, /bySymbol\.set\(o\.symbol/);
     assert.match(provider, /if \(n\+\+ >= GTT_CATCHUP_SYMBOLS\) break/);
-    assert.equal((provider.match(/fetch\(`\/api\/candles/g) ?? []).length, 1);
+    // one request per symbol in the pass (the other /api/candles request is the chart's daily history for the selected symbol)
+    const pass = provider.slice(provider.indexOf("const pass = async"), provider.indexOf("const timer = setInterval(async"));
+    assert.equal((pass.match(/fetch\(`\/api\/candles/g) ?? []).length, 1);
   });
   it("it runs once per page load, in one tab at a time, not again too soon, and re-checks an order is still open before filling it", () => {
     assert.match(provider, /caughtUp\.current = true/);

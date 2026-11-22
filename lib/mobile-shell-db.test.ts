@@ -105,3 +105,18 @@ describe("what the phone shell saves", () => {
     assert.ok(!l.symbols.includes("lower"));
   });
 });
+
+describe("My Watchlist holds any symbol, up to 250, in order, for its own guest", () => {
+  it("250 symbols that are not the built-in twelve are saved and come back in the same order; another guest sees none of them", async () => {
+    const many = ["RELIANCE", "ITC", "M&M", "BAJAJ-AUTO", ...syms(246, "S")];
+    assert.equal(many.length, 250);
+    const a = await save({ watchlist: many }, undefined, "198.51.100.1");
+    const b = await save({ watchlist: ["TCS"] }, undefined, "198.51.100.2");
+    assert.deepEqual((await read(a))!.watchlist, many);
+    assert.deepEqual((await read(b))!.watchlist, ["TCS"]);
+    // moving one is kept
+    const moved = [many[1], many[0], ...many.slice(2)];
+    await save({ watchlist: moved }, a);
+    assert.deepEqual((await read(a))!.watchlist, moved);
+  });
+});

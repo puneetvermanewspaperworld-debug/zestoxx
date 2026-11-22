@@ -1,12 +1,12 @@
 "use client";
 
+import { isTradableId } from "@/lib/dynamic-symbols";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import DataBadge from "@/components/DataBadge";
 import { useMovers } from "@/lib/useMovers";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { moversNote } from "@/lib/closed-notes";
-import { SYMBOL_MAP } from "@/lib/symbols";
 import { fmtCr } from "@/lib/format-cr";
 import { fmtINR, fmtIsoDate, fmtSigned } from "@/lib/helpers";
 import { FII_DII_EMPTY, NO_GAINERS, NO_LOSERS, equityMoversCard, fiiDiiSummary, futuresGainers } from "@/lib/dashboard-cards";
@@ -15,13 +15,13 @@ import type { FutureMovers, StockMover, StockMovers } from "@/lib/movers";
 
 const tone = (v: number) => (v >= 0 ? "text-emerald-500" : "text-rose-500");
 
-/** One mover row: the stock (a link to its chart when the terminal charts it), its price and its day change. */
+/** One mover row: the stock (a link to its chart and order form), its price and its day change. The price drops under the name when the card is too narrow for both: nothing is cut off. */
 function MoverRow({ m }: { m: StockMover }) {
   const up = m.changePct > 0;
   return (
-    <div data-testid="mover-row" className="flex items-center justify-between gap-2 py-1 text-[12px]">
-      <span className="min-w-0 truncate">
-        {SYMBOL_MAP[m.symbol] ? (
+    <div data-testid="mover-row" className="flex flex-wrap items-center justify-between gap-x-2 py-1 text-[12px]">
+      <span className="min-w-0 break-all">
+        {isTradableId(m.symbol) ? (
           <Link href={`/app/trade/${m.symbol}`} className="font-medium text-blue-600 hover:underline">
             {m.symbol}
           </Link>

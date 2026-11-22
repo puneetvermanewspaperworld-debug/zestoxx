@@ -9,6 +9,8 @@ import { useZestoxx } from "@/components/ZestoxxProvider";
 import { fmt, fmtSigned } from "@/lib/helpers";
 import { gttKind, triggerDirection } from "@/lib/gtt";
 import { SYMBOL_MAP } from "@/lib/symbols";
+import { NO_RECENT_TRADES, NO_TRADES_NOTE, isTradableId } from "@/lib/dynamic-symbols";
+import { useWatchSymbols } from "@/components/useWatchSymbols";
 import { useExpiryToday } from "@/lib/useWatchlist";
 import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
 import { DEPTH_NOT_AVAILABLE, DEPTH_WHEN_OPEN } from "@/lib/depth-state";
@@ -57,21 +59,30 @@ const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n 
 
 /**
  * The sheet that opens when a watchlist row is tapped: the name, price and change; Buy and Sell; View chart, Option chain, Set alert, Add
- * notes and Create GTT; five-level market depth (real, or a plain message: never rows of zeros); and the day's range. Trading, charts and
- * alerts are for the symbols Zestoxx can chart; any other NSE symbol is a quote with depth, range and notes.
+ * notes and Create GTT; five-level market depth (real, or a plain message: never rows of zeros); and the day's range. Any NSE equity or ETF can
+ * be charted and traded (its quote and candles are fetched on demand); an index is a quote with depth, range and notes. A symbol with no recent
+ * trades has no price, so it says so and cannot be bought or sold: a price is never made up.
  */
 export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string; quote: RowQuote; onClose: () => void }) {
   const router = useRouter();
-  const { setSelected, holdings, cash, onTrade, setAlerts, createGtt, notes, setNote, live } = useZestoxx();
-  const charted = !!SYMBOL_MAP[symbol];
+  const { setSelected, holdings, cash, onTrade, setAlerts, createGtt, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
+  const tradable = isTradableId(symbol);
+  const own = !!SYMBOL_MAP[symbol];
+  useWatchSymbols([symbol]);
+  const state = own ? undefined : quoteStateOf(symbol);
+  const noTrades = state === "none";
   const type = quote.type;
   const [panel, setPanel] = useState<"order" | "alert" | "notes" | "gtt" | null>(null);
   const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");
   const expiryToday = useExpiryToday(symbol === "NIFTY50" || symbol === "BANKNIFTY" ? symbol : "NIFTY50");
   const showExpiry = (symbol === "NIFTY50" || symbol === "BANKNIFTY") && expiryToday === true;
-  const price = charted ? (live[symbol] > 0 ? live[symbol] : null) : quote.price;
+  const price = tradable ? (live[symbol] > 0 ? live[symbol] : null) : quote.price;
+  // the day's change needs a previous close; with none (a feed that gave only a price) it is not shown rather than shown as 0
+  const changePct = !tradable ? quote.changePct : price == null ? null : own || hasFeedQuote(symbol) ? chgFor(symbol) : null;
+  const canOrder = tradable && price != null;
+  const listed = tradable && state !== "unknown";
   const open = (p: typeof panel) => {
-    if (charted && (p === "order" || p === "gtt")) setSelected(symbol);
+    if (tradable && (p === "order" || p === "gtt")) setSelected(symbol);
     setPanel((cur) => (cur === p ? null : p));
   };
 
@@ -87,29 +98,44 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
               Expiry today
             </span>
           )}
-          <span data-testid="sheet-price" className={"shrink-0 font-mono text-[15px] " + tone(quote.changePct)}>
-            {price == null ? "--" : fmt(price, type)}
+          <span data-testid="sheet-price" className={"shrink-0 font-mono text-[15px] " + tone(price == null ? null : changePct)}>
+            {price == null ? (noTrades ? NO_RECENT_TRADES : "--") : fmt(price, type)}
           </span>
-          <span data-testid="sheet-change" className={"shrink-0 font-mono text-[13px] " + tone(quote.changePct)}>
-            {quote.changePct == null ? "--" : fmtSigned(quote.changePct, 2, "%")}
+          <span data-testid="sheet-change" className={"shrink-0 font-mono text-[13px] " + tone(changePct)}>
+            {changePct == null ? "--" : fmtSigned(changePct, 2, "%")}
           </span>
         </header>
 
-        {!charted && (
+        {!tradable && (
           <p data-testid="quote-only-note" className="mx-2 rounded-lg bg-slate-50 px-3 py-2 text-[12px] leading-relaxed text-slate-500">
-            Zestoxx shows a live quote, depth and the day&apos;s range for this symbol. Paper trading, charts and alerts are for the symbols it can chart (RELIANCE, TCS, INFY, HDFCBANK, SBIN, TATAMOTORS, NIFTY50, BANKNIFTY, SENSEX, BTC, ETH, SOL).
+            An index is not something you can buy or sell: Zestoxx shows its live quote, the day&apos;s range and your notes. Charts, paper orders, alerts and GTT are for NSE stocks and ETFs.
+          </p>
+        )}
+        {noTrades && (
+          <p data-testid="no-trades-note" role="status" className="mx-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-900">
+            {NO_TRADES_NOTE}
+          </p>
+        )}
+        {state === "unknown" && (
+          <p data-testid="not-listed-note" role="status" className="mx-2 rounded-lg bg-slate-50 px-3 py-2 text-[12px] leading-relaxed text-slate-500">
+            {symbol} is not an NSE equity or ETF on Upstox&apos;s instrument list, so there is no quote and nothing to trade.
+          </p>
+        )}
+        {tradable && !own && state === "unavailable" && price == null && (
+          <p data-testid="quote-unavailable-note" role="status" className="mx-2 rounded-lg bg-slate-50 px-3 py-2 text-[12px] leading-relaxed text-slate-500">
+            The live quote is not available right now, so orders are off until it is. Zestoxx never makes a price up.
           </p>
         )}
 
         <div className="mt-[var(--sheet-gap)] grid grid-cols-2 gap-5 px-2">
-          <button type="button" disabled={!charted} onClick={() => (setOrderSide("buy"), open("order"))} data-testid="sheet-buy" className="h-[var(--btn-primary-h)] rounded-lg bg-emerald-500 text-[14px] font-semibold text-white disabled:opacity-40">
+          <button type="button" disabled={!canOrder} onClick={() => (setOrderSide("buy"), open("order"))} data-testid="sheet-buy" className="h-[var(--btn-primary-h)] rounded-lg bg-emerald-500 text-[14px] font-semibold text-white disabled:opacity-40">
             Buy
           </button>
-          <button type="button" disabled={!charted} onClick={() => (setOrderSide("sell"), open("order"))} data-testid="sheet-sell" className="h-[var(--btn-primary-h)] rounded-lg bg-rose-500 text-[14px] font-semibold text-white disabled:opacity-40">
+          <button type="button" disabled={!canOrder} onClick={() => (setOrderSide("sell"), open("order"))} data-testid="sheet-sell" className="h-[var(--btn-primary-h)] rounded-lg bg-rose-500 text-[14px] font-semibold text-white disabled:opacity-40">
             Sell
           </button>
         </div>
-        {panel === "order" && charted && price != null && (
+        {panel === "order" && canOrder && price != null && (
           <div data-testid="sheet-order-panel" className="px-2" aria-label={`Paper ${orderSide}`}>
             <p className="pb-1 text-[11.5px] text-slate-500">
               Opened for a paper {orderSide}: choose the quantity and tap {orderSide === "buy" ? PAPER_BUY : PAPER_SELL}.
@@ -121,20 +147,20 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
         {/* text links, two rows with a hairline between: 44 px each, 71 px from one row's centre to the next */}
         <div className="px-2">
           <div className="mt-1 flex h-11 items-center justify-between">
-            <ActionButton icon={<BarChart3 size={16} aria-hidden />} label="View chart" testId="sheet-chart" disabled={!charted} onClick={() => router.push(`/app/trade/${symbol}`)} />
+            <ActionButton icon={<BarChart3 size={16} aria-hidden />} label="View chart" testId="sheet-chart" disabled={!listed} onClick={() => (setSelected(symbol), router.push(`/app/trade/${symbol}`))} />
             <ActionButton icon={<SlidersHorizontal size={16} aria-hidden />} label="Option chain" testId="sheet-chain" disabled={!OPTION_CHAIN_SYMBOLS.has(symbol)} onClick={() => (setSelected(symbol), router.push("/app/options"))} />
           </div>
           <div className="my-[var(--link-gap)] h-px bg-slate-200" />
           <div className="flex h-11 items-center justify-between">
-            <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!charted} pressed={panel === "alert"} onClick={() => open("alert")} />
+            <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!listed} pressed={panel === "alert"} onClick={() => open("alert")} />
             <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" pressed={panel === "notes"} onClick={() => open("notes")} />
-            <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!charted} pressed={panel === "gtt"} onClick={() => open("gtt")} />
+            <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!canOrder} pressed={panel === "gtt"} onClick={() => open("gtt")} />
           </div>
         </div>
 
-        {panel === "alert" && charted && price != null && <AlertForm symbol={symbol} price={price} type={type} onDone={() => setPanel(null)} setAlerts={setAlerts} />}
+        {panel === "alert" && listed && <AlertForm symbol={symbol} price={price} type={type} onDone={() => setPanel(null)} setAlerts={setAlerts} />}
         {panel === "notes" && <NotesForm symbol={symbol} initial={notes[symbol] ?? ""} onSave={(t) => (setNote(symbol, t), setPanel(null))} />}
-        {panel === "gtt" && charted && price != null && <GttForm symbol={symbol} price={price} type={type} onPlaced={() => setPanel(null)} createGtt={createGtt} />}
+        {panel === "gtt" && canOrder && price != null && <GttForm symbol={symbol} price={price} type={type} onPlaced={() => setPanel(null)} createGtt={createGtt} />}
         {notes[symbol] && panel !== "notes" && (
           <p data-testid="saved-note" className="mx-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
             {notes[symbol]}
@@ -159,7 +185,7 @@ function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { ico
 
 const field = "min-h-[44px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-[14px] text-slate-900 outline-none focus:border-blue-400";
 
-function AlertForm({ symbol, price, type, onDone, setAlerts }: { symbol: string; price: number; type: RowQuote["type"]; onDone: () => void; setAlerts: ReturnType<typeof useZestoxx>["setAlerts"] }) {
+function AlertForm({ symbol, price, type, onDone, setAlerts }: { symbol: string; price: number | null; type: RowQuote["type"]; onDone: () => void; setAlerts: ReturnType<typeof useZestoxx>["setAlerts"] }) {
   const [condition, setCondition] = useState<"above" | "below">("above");
   const [target, setTarget] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +201,7 @@ function AlertForm({ symbol, price, type, onDone, setAlerts }: { symbol: string;
         onDone();
       }}
     >
-      <p className="text-[12px] text-slate-500">Alert me once when {symbol} goes… (now {fmt(price, type)}). It fires while Zestoxx is open.</p>
+      <p className="text-[12px] text-slate-500">Alert me once when {symbol} goes… ({price == null ? "no live price now" : `now ${fmt(price, type)}`}). It fires while Zestoxx is open.</p>
       <div className="flex gap-2" role="radiogroup" aria-label="Alert condition">
         {(["above", "below"] as const).map((c) => (
           <button key={c} type="button" role="radio" aria-checked={condition === c} onClick={() => setCondition(c)} className={"min-h-[44px] flex-1 rounded-lg border text-[13px] font-medium " + (condition === c ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600")}>
