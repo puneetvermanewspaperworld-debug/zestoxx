@@ -35,6 +35,8 @@ export interface DrawingLayerProps {
   /** lot size of the index's future, when known (the Measure tool's rupees per lot) */
   lot: number | null;
   isIndex: boolean;
+  /** phone: the chart is not scrolled as a page, so a finger on it is the chart's (no pan-y) and a vertical drag on the price axis is allowed even with a tool in hand */
+  ownsTouch?: boolean;
   /** the symbol's market, for how prices are written */
   assetType: AssetType;
   onAdd: (d: Drawing) => void;
@@ -65,7 +67,7 @@ interface Interaction {
 type DragMode = { kind: "handle"; handle: string } | { kind: "body" };
 
 export default function DrawingLayer(p: DrawingLayerProps) {
-  const { chart, series, bars, drawings, selectedId, tool, magnet, hidden, alerted } = p;
+  const { chart, series, bars, drawings, selectedId, tool, magnet, hidden, alerted, ownsTouch } = p;
   const times = useMemo(() => bars.map((b) => b.t), [bars]);
   const [, setTick] = useState(0);
   // What is being placed or measured belongs to one tool: when the tool changes it is simply no longer current, so a new tool starts clean.
@@ -130,14 +132,46 @@ export default function DrawingLayer(p: DrawingLayerProps) {
   useEffect(() => {
     const el = chart.chartElement();
     // idle: a vertical swipe scrolls the page and a horizontal drag is the chart's; with a tool in hand the finger belongs to the chart
-    el.style.touchAction = tool === "select" ? "pan-y" : "none";
+    el.style.touchAction = tool === "select" && !ownsTouch ? "pan-y" : "none";
     chart.applyOptions({
-      handleScroll: tool === "measure" || tool === "brush" ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false } : { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      // with Measure or Brush a one-finger drag on the plot is the tool's (the drawing layer takes it); the price axis is outside the layer, so a vertical
+      // drag there still scales the price when the chart owns touch
+      handleScroll: tool === "measure" || tool === "brush" ? { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: !!ownsTouch } : { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: !!ownsTouch },
     });
     return () => {
       el.style.touchAction = "";
     };
-  }, [chart, tool]);
+  }, [chart, tool, ownsTouch]);
+
+  // With Measure or Brush in hand, one finger on the plot is the tool's. The chart has to take a vertical touch drag (for the price axis), and then it would
+  // also pan under the tool's finger, so the plot's touches are kept from the chart (it listens to touch events; the tool listens to pointer events, which
+  // this does not touch). A touch that starts on the price axis, and a second finger (a pinch), go through to the chart as before.
+  useEffect(() => {
+    if (!ownsTouch || (tool !== "measure" && tool !== "brush")) return;
+    const el = chart.chartElement();
+    let guard = false;
+    const onStart = (e: TouchEvent) => {
+      const r = el.getBoundingClientRect();
+      const t = e.touches[0];
+      guard = e.touches.length === 1 && t.clientX - r.left >= 0 && t.clientX - r.left <= vpRef.current.width && t.clientY - r.top >= 0 && t.clientY - r.top <= vpRef.current.height;
+      if (guard) e.stopPropagation();
+    };
+    const onRest = (e: TouchEvent) => {
+      if (e.touches.length > 1) guard = false;
+      if (guard) e.stopPropagation();
+      if (e.type === "touchend" || e.type === "touchcancel") if (e.touches.length === 0) guard = false;
+    };
+    el.addEventListener("touchstart", onStart, true);
+    el.addEventListener("touchmove", onRest, true);
+    el.addEventListener("touchend", onRest, true);
+    el.addEventListener("touchcancel", onRest, true);
+    return () => {
+      el.removeEventListener("touchstart", onStart, true);
+      el.removeEventListener("touchmove", onRest, true);
+      el.removeEventListener("touchend", onRest, true);
+      el.removeEventListener("touchcancel", onRest, true);
+    };
+  }, [chart, tool, ownsTouch]);
 
   // Horizontal levels are the chart's own price lines: a coloured tag on the right axis, drawn and moved by the chart itself.
   const lines = useRef(new Map<string, IPriceLine>());

@@ -77,6 +77,8 @@ export interface TradeChartProps {
   layer?: React.ReactNode;
   /** phone layout: no attribution line here (the phone layout draws its own under its status bar) and no floating reset button (the status bar has "auto") */
   phone?: boolean;
+  /** called when the price scale starts or stops fitting itself (auto): a drag on the price axis, or on the plot, takes it off by hand; Auto, a double tap on the axis, or another symbol or timeframe puts it back */
+  onAuto?: (auto: boolean) => void;
   /** called with the "jump to the latest candle and re-scale" action once the chart exists (and with null when it is gone) */
   onReset?: (reset: (() => void) | null) => void;
 }
@@ -171,11 +173,14 @@ export default function TradeChart(p: TradeChartProps) {
   /** a fingerprint of the bars last reported, so the same bars are never reported twice (reporting re-renders the parent, which re-renders this) */
   const reported = useRef("");
   /** how many bars are charted, and how many the chart opens on: what "Reset view" goes back to */
+  const phoneLayout = !!p.phone;
   const barCount = useRef(0);
   const keepRef = useRef(p.keep);
   const onChart = useRef(p.onChart);
   const onBars = useRef(p.onBars);
+  const onAuto = useRef(p.onAuto);
   useEffect(() => {
+    onAuto.current = p.onAuto;
     onChart.current = p.onChart;
     onBars.current = p.onBars;
     onStudies.current = p.onStudies;
@@ -222,7 +227,8 @@ export default function TradeChart(p: TradeChartProps) {
       autoSize: true,
       layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#64748b", fontSize: 11, attributionLogo: false },
       grid: { vertLines: { color: "#eef2f7" }, horzLines: { color: "#eef2f7" } },
-      rightPriceScale: { borderColor: "#e2e8f0", scaleMargins: { top: 0.08, bottom: 0.08 } },
+      // on a phone the axis is at least 44 px wide, so there is a finger's width to drag, even when its labels are narrower
+      rightPriceScale: { borderColor: "#e2e8f0", scaleMargins: { top: 0.08, bottom: 0.08 }, ...(phoneLayout ? { minimumWidth: 44 } : {}) },
       timeScale: {
         borderColor: "#e2e8f0",
         rightOffset: 4,
@@ -232,11 +238,15 @@ export default function TradeChart(p: TradeChartProps) {
       },
       crosshair: { mode: CrosshairMode.Normal },
       localization: { timeFormatter: (time: Time) => fmtBarStamp(realTime(time, labels.current), intradayRef.current && !labels.current) },
-      // A vertical swipe scrolls the page; horizontal drags pan the chart; two fingers pinch it.
-      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      // Horizontal drags pan the chart and two fingers pinch it. On a phone the chart screen does not scroll, so a vertical drag is the chart's too: on the
+      // plot it moves the price range, and on the price axis it stretches or squeezes it (the library takes a vertical drag on the axis for a page scroll
+      // unless this is on). Elsewhere a vertical swipe still scrolls the page.
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: phoneLayout },
       handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true } },
     });
     chartRef.current = chart;
+    // a finger on the chart is the chart's: the browser must not start a pan of its own and cancel the drag
+    if (phoneLayout) chart.chartElement().style.touchAction = "none";
     const applyPending = () => {
       const v = pendingView.current;
       if (v && el.clientWidth > 0) {
@@ -259,6 +269,28 @@ export default function TradeChart(p: TradeChartProps) {
       const h = el.clientHeight;
       if (h > 0) chart.priceScale("right").applyOptions({ scaleMargins: { top: Math.min(0.3, Math.max(0.08, 60 / h)), bottom: 0.08 } });
     };
+    // the price range in sight and whether the scale is fitting itself (auto), for the status bar, for tests, and for anyone reading the page
+    let lastRange = "";
+    let lastAuto: boolean | null = null;
+    let raf = 0;
+    const publishPriceRange = () => {
+      const sc = chart.priceScale("right");
+      const r = sc.getVisibleRange();
+      const text = r ? JSON.stringify({ lo: Math.round(r.from * 100) / 100, hi: Math.round(r.to * 100) / 100, auto: sc.options().autoScale }) : "";
+      if (text !== lastRange) {
+        lastRange = text;
+        el.dataset.priceRange = text;
+      }
+      if (r) {
+        const auto = sc.options().autoScale;
+        if (auto !== lastAuto) {
+          lastAuto = auto;
+          onAuto.current?.(auto);
+        }
+      }
+      raf = requestAnimationFrame(publishPriceRange);
+    };
+    raf = requestAnimationFrame(publishPriceRange);
     const ro = new ResizeObserver(() => {
       publishAxis();
       reserveTop();
@@ -269,6 +301,7 @@ export default function TradeChart(p: TradeChartProps) {
     applyPendingRef.current = applyPending;
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
+      cancelAnimationFrame(raf);
       ro.disconnect();
       applyPendingRef.current = null;
       onChart.current?.(null, null);
@@ -284,7 +317,7 @@ export default function TradeChart(p: TradeChartProps) {
       lines.current = {};
       shownKey.current = "";
     };
-  }, []);
+  }, [phoneLayout]);
 
   // How the chart looks: the price scale (and whether it is inverted), the grid, the crosshair, the theme. Changing these never moves the view or reloads the data.
   useEffect(() => {
@@ -445,6 +478,8 @@ export default function TradeChart(p: TradeChartProps) {
     const key = `${input.symbol}|${input.timeframe}|${input.chartType}|${input.renkoSize}|${timed.length ? timed[0].t : 0}`;
     if (shownKey.current !== key) {
       shownKey.current = key;
+      // another symbol or timeframe: the price scale fits the new data again, whatever was set by hand on the old one (a tick never does this)
+      chart.priceScale("right").applyOptions({ autoScale: true });
       const n = s.candles.length;
       pendingView.current = defaultView(n, input.keep);
       applyPendingRef.current?.();

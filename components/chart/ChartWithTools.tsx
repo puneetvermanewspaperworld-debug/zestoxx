@@ -156,6 +156,8 @@ export default function ChartWithTools({ settings, update, feed, phone, ...chart
   // the tool rail starts open on a wide screen and collapsed on a phone, where it would cover too much of the chart
   const [railOpen, setRailOpen] = useState(() => !phone && (typeof window === "undefined" || window.innerWidth >= 640));
   const [zoomOn, setZoomOn] = useState(false);
+  // whether the price scale is fitting itself (auto): a drag on the axis or the plot takes it off, Auto puts it back
+  const [scaleAuto, setScaleAuto] = useState(true);
   const resetView = useRef<(() => void) | null>(null);
   const onReset = useCallback((f: (() => void) | null) => {
     resetView.current = f;
@@ -237,6 +239,7 @@ export default function ChartWithTools({ settings, update, feed, phone, ...chart
               onChart={onChart}
               onBars={onBars}
               onReset={onReset}
+              onAuto={setScaleAuto}
               phone
               layer={
                 <>
@@ -248,6 +251,7 @@ export default function ChartWithTools({ settings, update, feed, phone, ...chart
                   {ctx ? <CrosshairReadout chart={ctx.chart} series={ctx.series} bars={bars} type={chartProps.type} intraday={chartProps.intraday} left="left-1" /> : null}
                   {drawable && ctx && api.loaded ? (
                     <DrawingLayer
+                      ownsTouch
                       chart={ctx.chart}
                       series={ctx.series}
                       bars={bars}
@@ -305,7 +309,7 @@ export default function ChartWithTools({ settings, update, feed, phone, ...chart
             />
           </div>
         </div>
-        <StatusBar feed={feed} settings={settings} update={update} reset={() => resetView.current?.()} />
+        <StatusBar feed={feed} settings={settings} update={update} reset={() => resetView.current?.()} auto={scaleAuto} />
         <PhoneAttribution right={phone.footer} />
       </div>
     );

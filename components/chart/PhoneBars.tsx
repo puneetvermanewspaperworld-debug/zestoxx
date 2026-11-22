@@ -263,7 +263,7 @@ function RangeSheet({ feed, update, onClose }: { feed: ChartControlsProps["feed"
 }
 
 /** The slim bar under the plot: the Date Range, the time in IST, log scale, and auto (fit the price scale and jump to the latest candle). */
-export function StatusBar({ feed, settings, update, reset }: { feed: ChartControlsProps["feed"]; settings: ChartSettings; update: ChartControlsProps["update"]; reset: () => void }) {
+export function StatusBar({ feed, settings, update, reset, auto = true }: { feed: ChartControlsProps["feed"]; settings: ChartSettings; update: ChartControlsProps["update"]; reset: () => void; /** whether the price scale is fitting itself; off once it is stretched, squeezed or moved by hand */ auto?: boolean }) {
   const [ranges, setRanges] = useState(false);
   const current = feed.explicit ? RANGES.find((r) => r.id === feed.selection.range)?.label : null;
   return (
@@ -285,9 +285,11 @@ export function StatusBar({ feed, settings, update, reset }: { feed: ChartContro
       <button type="button" aria-pressed={settings.scale === "log"} aria-label="Logarithmic price scale" data-testid="log-button" onClick={() => update({ scale: settings.scale === "log" ? "normal" : "log" })} className={"flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg px-1.5 text-[12px] font-semibold " + (settings.scale === "log" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-900")}>
         log
       </button>
-      <button type="button" aria-label="Auto: fit the price scale and jump to the latest candle" data-testid="auto-button" onClick={reset} className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-0.5 rounded-lg px-1.5 text-[12px] font-semibold text-slate-500 hover:text-slate-900">
+      <button type="button" aria-pressed={auto} aria-label={auto ? "Auto: the price scale fits itself. Tap to jump to the latest candle" : "Auto is off: the price scale was set by hand. Tap to fit it and jump to the latest candle"} data-testid="auto-button" data-auto={auto ? "1" : "0"} onClick={reset} className={"relative flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-0.5 rounded-lg px-1.5 text-[12px] font-semibold " + (auto ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-900")}>
         <Scan size={13} aria-hidden />
         auto
+        {/* off: a dot, so it reads as switched off rather than as a plain label */}
+        {!auto && <span aria-hidden data-testid="auto-off-dot" className="absolute right-0.5 top-2 h-1.5 w-1.5 rounded-full bg-amber-500" />}
       </button>
       {ranges && <RangeSheet feed={feed} update={update} onClose={() => setRanges(false)} />}
     </div>
