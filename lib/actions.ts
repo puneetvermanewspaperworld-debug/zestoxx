@@ -8,6 +8,8 @@ import { isTradableId } from "./dynamic-symbols";
 export type ActionSpec =
   | { kind: "order"; symbol: string; side: "buy" | "sell"; qty?: number }
   | { kind: "option"; underlying: string; expiry: string; strike: number; type: "CE" | "PE"; side: "buy" | "sell" }
+  /** a contract's own chart */
+  | { kind: "ochart"; underlying: string; expiry: string; strike: number; type: "CE" | "PE" }
   | { kind: "gtt"; symbol: string; editId?: string }
   | { kind: "alert"; symbol: string; editId?: string }
   | { kind: "note"; symbol: string }
@@ -27,12 +29,12 @@ export function actionToParams(a: ActionSpec): URLSearchParams {
     p.set("side", a.side);
     if (a.qty) p.set("q", String(a.qty));
   }
-  if (a.kind === "option") {
+  if (a.kind === "option" || a.kind === "ochart") {
     p.set("u", a.underlying);
     p.set("x", a.expiry);
     p.set("k", String(a.strike));
     p.set("t", a.type);
-    p.set("side", a.side);
+    if (a.kind === "option") p.set("side", a.side);
   }
   if ((a.kind === "gtt" || a.kind === "alert") && a.editId) p.set("e", a.editId);
   return p;
@@ -59,6 +61,14 @@ export function paramsToAction(p: URLSearchParams): ActionSpec | null {
       const u = p.get("u") ?? "";
       if (!sd || (t !== "CE" && t !== "PE") || !(k > 0) || !ISO.test(x) || !/^[A-Z0-9&-]{1,20}$/.test(u)) return null;
       return { kind: "option", underlying: u, expiry: x, strike: k, type: t, side: sd };
+    }
+    case "ochart": {
+      const t = p.get("t");
+      const k = Number(p.get("k"));
+      const x = p.get("x") ?? "";
+      const u = p.get("u") ?? "";
+      if ((t !== "CE" && t !== "PE") || !(k > 0) || !ISO.test(x) || !/^[A-Z0-9&-]{1,20}$/.test(u)) return null;
+      return { kind: "ochart", underlying: u, expiry: x, strike: k, type: t };
     }
     case "gtt":
     case "alert":

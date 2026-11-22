@@ -342,24 +342,28 @@ test.describe("the contents", () => {
     expect(z).toEqual({ bar: "absolute", text: "relative" });
   });
 
-  test("tapping a Call or a Put cell opens the Buy screen for that strike and expiry; on another expiry too", async ({ page }) => {
+  test("tapping a Call or a Put cell opens the contract sheet; Buy from it opens the order screen for that strike and expiry, on another expiry too", async ({ page }) => {
     await open(page, 390, 844);
     await page.getByTestId("chain-ce-25300").click();
+    await expect(page.getByTestId("contract-sheet")).toBeVisible();
+    await expect(page.getByTestId("action-screen")).toHaveCount(0);
+    await page.getByTestId("contract-buy").click();
     await expect(page).toHaveURL(new RegExp(`act=option&u=NIFTY50&x=${EXPIRIES[0]}&k=25300&t=CE&side=buy`));
     await expect(page.getByTestId("action-screen")).toBeVisible();
     await expect(page.getByTestId("contract-strike")).toHaveText("25300");
     await expect(page.getByTestId("contract-expiry")).toHaveText("12 Nov 2026");
     await page.getByTestId("action-back").click();
-    await expect(page.getByTestId("action-screen")).toHaveCount(0);
-    // a cell that is not the LTP opens it too
+    await page.getByTestId("sheet-close").click();
+    // a cell that is not the LTP opens a sheet too
     await page.locator('[data-col="oi"][data-k="25150"][data-t="PE"]').click();
-    await expect(page).toHaveURL(/k=25150&t=PE/);
-    await page.getByTestId("action-back").click();
+    await expect(page.getByRole("dialog", { name: /25150 PE/ })).toBeVisible();
+    await page.getByTestId("sheet-close").click();
     // another expiry
     await page.getByTestId("chain-expiry-select").selectOption(EXPIRIES[1]);
     await expect(page.getByTestId("chain-expiry-select")).toHaveValue(EXPIRIES[1]);
     await page.getByTestId("chain-spot-row").waitFor();
     await page.getByTestId("chain-pe-25200").click();
+    await page.getByTestId("contract-buy").click();
     await expect(page).toHaveURL(new RegExp(`x=${EXPIRIES[1]}&k=25200&t=PE`));
     await expect(page.getByTestId("contract-expiry")).toHaveText("19 Nov 2026");
   });

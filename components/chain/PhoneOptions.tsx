@@ -4,13 +4,13 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { useAction } from "@/components/action/useAction";
 import { useOptionChain } from "@/lib/useOptionChain";
 import { useScreenMode } from "@/lib/useScreenMode";
 import { daysLabel, daysToExpiry } from "@/lib/chain-view";
 import { fmtIsoDate, istDateString } from "@/lib/helpers";
 import { typeOf } from "@/lib/symbols";
 import ChainView from "./ChainView";
+import ContractSheet from "./ContractSheet";
 import UnderlyingSearch, { type QuoteOf } from "./UnderlyingSearch";
 
 /**
@@ -20,7 +20,8 @@ import UnderlyingSearch, { type QuoteOf } from "./UnderlyingSearch";
  */
 export default function PhoneOptions() {
   const { selected, setSelected, price, sym, live, chgFor, hasFeedQuote, prevCloseFor } = useZestoxx();
-  const { openAction } = useAction();
+  // the contract whose sheet is open: its strike and type, tied to the chain it was tapped in
+  const [picked, setPicked] = useState<{ underlying: string; expiry: string; strike: number; type: "CE" | "PE" } | null>(null);
   const router = useRouter();
   const isCrypto = sym.type === "crypto";
   const landscape = useScreenMode() === "landscape";
@@ -76,8 +77,9 @@ export default function PhoneOptions() {
           <p className="px-4 py-16 text-center text-[13px] text-slate-500">Options chain isn&apos;t available for crypto pairs on Zestoxx yet. Search for a stock or an index above.</p>
         </>
       ) : (
-        <ChainView top={header} chain={chain} price={cur.price ?? 0} change={change} pct={cur.pct} onPick={(strike, type) => chain && openAction({ kind: "option", underlying: chain.underlying, expiry: chain.expiry, strike, type, side: "buy" })} />
+        <ChainView top={header} chain={chain} price={cur.price ?? 0} change={change} pct={cur.pct} onPick={(strike, type) => chain && setPicked({ underlying: chain.underlying, expiry: chain.expiry, strike, type })} />
       )}
+      {chain && picked && picked.underlying === chain.underlying && picked.expiry === chain.expiry && <ContractSheet chain={chain} strike={picked.strike} type={picked.type} onClose={() => setPicked(null)} />}
     </div>
   );
 }

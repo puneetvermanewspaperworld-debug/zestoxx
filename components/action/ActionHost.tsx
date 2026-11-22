@@ -8,6 +8,7 @@ import AlertScreen from "./AlertScreen";
 import NoteScreen from "./NoteScreen";
 import OptionScreen from "./OptionScreen";
 import SipScreen from "./SipScreen";
+import ContractChartScreen from "./ContractChartScreen";
 
 /**
  * Draws the action screen named by the address, over whatever page is open, on a phone. (A wide screen keeps the forms it has always had.)
@@ -28,6 +29,8 @@ export default function ActionHost() {
       return <NoteScreen key={`note-${current.symbol}`} symbol={current.symbol} onClose={closeAction} />;
     case "option":
       return <OptionScreen key={`option-${current.underlying}-${current.expiry}-${current.strike}-${current.type}-${current.side}`} underlying={current.underlying} expiry={current.expiry} strike={current.strike} type={current.type} side={current.side} onClose={closeAction} onLeave={leaveTo} />;
+    case "ochart":
+      return <ContractChartScreen key={`ochart-${current.underlying}-${current.expiry}-${current.strike}-${current.type}`} underlying={current.underlying} expiry={current.expiry} strike={current.strike} type={current.type} onClose={closeAction} />;
     case "sip":
       return <SipScreen key="sip" onClose={closeAction} onLeave={leaveTo} />;
     default:

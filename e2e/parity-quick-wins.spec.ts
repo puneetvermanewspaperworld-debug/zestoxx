@@ -53,7 +53,7 @@ test("2.1 the Watchlist page has a Watchlist | Options toggle that switches to /
   await expect(page.getByRole("navigation", { name: "Watchlist or Options" }).getByRole("link", { name: "Options" })).toHaveAttribute("aria-current", "page");
 });
 
-test("17.3 on a phone /app/options has no Paper sell buttons: tapping a strike opens the order screen, where Sell can be chosen", async ({ page }) => {
+test("17.3 on a phone /app/options has no Paper sell buttons: tapping a strike opens its sheet, whose Sell opens the order screen", async ({ page }) => {
   await page.clock.install({ time: OPEN });
   await mockQuotes(page);
   await page.route("**/api/options-chain**", (r) => r.fulfill({ json: chain("NIFTY50", "2026-11-17") }));
@@ -64,9 +64,11 @@ test("17.3 on a phone /app/options has no Paper sell buttons: tapping a strike o
   await expect(page.getByRole("button", { name: /Paper sell/ })).toHaveCount(0); // the two shortcuts are gone from the phone's chain (the wide screen keeps them)
   await noSideScroll(page, "options");
   await page.getByTestId("chain-ce-25250").click();
+  await expect(page.getByTestId("contract-sheet")).toBeVisible();
+  await page.getByTestId("contract-sell").click();
   await expect(page.getByTestId("action-screen")).toBeVisible();
   await expect(page.getByTestId("contract-strike")).toHaveText("25250");
-  await page.getByTestId("side-sell").click();
+  await expect(page.getByTestId("action-label")).toHaveText("Sell");
   await expect(page.getByTestId("sell-not-held")).toContainText("short selling isn't supported");
 });
 

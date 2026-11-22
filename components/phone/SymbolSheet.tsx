@@ -53,7 +53,7 @@ function useSymbolDetail(symbol: string) {
   return state?.symbol === symbol ? state.res : undefined;
 }
 
-const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n > 0 ? "text-emerald-500" : "text-rose-500");
+export const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n > 0 ? "text-emerald-500" : "text-rose-500");
 
 /**
  * The sheet that opens when a watchlist row is tapped: the name, price and change; Buy and Sell; View chart, Option chain, Set alert, Add
@@ -155,7 +155,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
   );
 }
 
-function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; testId: string }) {
+export function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; pressed?: boolean; testId: string }) {
   return (
     <button type="button" disabled={disabled} aria-pressed={pressed} onClick={onClick} data-testid={testId} className={"flex h-11 items-center gap-2 rounded-md text-[14px] font-medium disabled:opacity-40 " + (pressed ? "bg-blue-50 px-2 text-blue-700" : "text-blue-700")}>
       {icon}
@@ -232,13 +232,13 @@ function Depth({ symbol, type }: { symbol: string; type: RowQuote["type"] }) {
   );
 }
 
-const Message = ({ text }: { text: string }) => (
+export const Message = ({ text }: { text: string }) => (
   <p data-testid="depth-message" className="py-2 text-center text-[12.5px] text-slate-500">
     {text}
   </p>
 );
 
-function Side({ title, rows, type, tone }: { title: string; rows: DepthLevel[]; type: RowQuote["type"]; tone: string }) {
+export function Side({ title, rows, type, tone }: { title: string; rows: DepthLevel[]; type: RowQuote["type"]; tone: string }) {
   return (
     <div>
       <div className="mb-1 flex justify-between text-[10.5px] uppercase tracking-wide text-slate-400">

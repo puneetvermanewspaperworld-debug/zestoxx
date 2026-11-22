@@ -71,7 +71,7 @@ function IntradayChart({ candles, prevClose }: { candles: Candle5[]; prevClose: 
   );
 }
 
-function ChartsTab({
+export function ChartsTab({
   liveKey,
   prevClose,
   active,

@@ -10,6 +10,7 @@ describe("an action screen is named by the address", () => {
       { kind: "order", symbol: "RELIANCE", side: "buy", qty: 10 },
       { kind: "order", symbol: "ITC", side: "sell" },
       { kind: "option", underlying: "NIFTY50", expiry: "2026-11-26", strike: 25500, type: "CE", side: "buy" },
+      { kind: "ochart", underlying: "RELIANCE", expiry: "2026-11-23", strike: 1380, type: "PE" },
       { kind: "gtt", symbol: "TCS" },
       { kind: "gtt", symbol: "TCS", editId: "17.5" },
       { kind: "alert", symbol: "INFY", editId: "a-1" },
@@ -29,6 +30,8 @@ describe("an action screen is named by the address", () => {
     assert.equal(p("act=option&u=NIFTY50&x=2026-11-26&k=-4&t=CE&side=buy"), null);
     assert.equal(p("act=option&u=NIFTY50&x=2026-11-26&k=100&t=XX&side=buy"), null);
     assert.equal(p("act=gtt&s=lower"), null);
+    assert.equal(p("act=ochart&u=RELIANCE&x=2026-11-23&k=1380"), null); // no type
+    assert.equal(p("act=ochart&u=RELIANCE&x=soon&k=1380&t=PE"), null);
   });
   it("a quantity that is not a whole number of 1 or more is dropped, not trusted", () => {
     const q = (v: string) => (paramsToAction(new URLSearchParams(`act=order&s=ITC&side=buy&q=${v}`)) as { qty?: number }).qty;
