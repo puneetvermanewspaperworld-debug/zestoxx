@@ -38,9 +38,13 @@
   --text-licence: 9px; /* the chart library's licence notice, the one line below the floor: it must be whole and on one line (see .zx-licence) */
   --text-licence-wide: 10px; /* the same from 380px wide */
   --btn-primary-h: 49.5px; /* Buy and Sell */
-  --chain-row: 32px; /* a strike's row in the option chain: its tap area is still 44px */
+  --chain-row: 40px; /* a strike's row in the option chain: its tap area is still 44px (32px on a phone turned sideways) */
   --chain-head: 32px; /* the chain's sticky header */
-  --chain-spot: 28px; /* the live spot's row between two strikes */
+  --chain-spot: 24px; /* the live spot's thin line between two strikes, with its small label */
+  --chain-itm: #f9fbfe; /* the barely-there tint of an in-the-money cell */
+  --color-chain-up: #047857; /* the chain's small up text and tags: price up (green on white 5.5:1) */
+  --color-chain-down: #be123c; /* the same for down (6.3:1) */
+  --color-chain-quiet: #64748b; /* the chain's grey: open interest, changes, labels, "none" (4.8:1) */
   --nav-h: 47px; /* the bottom tab bar (plus its 1px edge) */
   --sheet-sub: 31px; /* the name, price and change line under a sheet's title */
   --sheet-gap: 7px; /* extra space above Buy and Sell, on top of the 8px between a sheet's parts */
@@ -341,12 +345,6 @@ body {
 .zx-dark .bg-slate-100 {
   background-color: #1d2c45;
 }
-.zx-dark .bg-indigo-100\/80 {
-  background-color: rgba(99, 102, 241, 0.3);
-}
-.zx-dark .bg-amber-100\/80 {
-  background-color: rgba(245, 158, 11, 0.26);
-}
 .zx-dark .bg-amber-100 {
   background-color: #3a2d12;
 }
@@ -370,31 +368,6 @@ body {
 .zx-dark .text-rose-500,
 .zx-dark .text-rose-600 {
   color: #fb7185;
-}
-/* the buildup tags (long buildup, short buildup, short covering, long unwinding) */
-.zx-dark .bg-emerald-100 {
-  background-color: #14392b;
-}
-.zx-dark .bg-teal-100 {
-  background-color: #0f3a3a;
-}
-.zx-dark .bg-rose-100 {
-  background-color: #4a1b2a;
-}
-.zx-dark .bg-orange-100 {
-  background-color: #4a2c12;
-}
-.zx-dark .text-emerald-800 {
-  color: #6ee7b7;
-}
-.zx-dark .text-teal-800 {
-  color: #5eead4;
-}
-.zx-dark .text-rose-800 {
-  color: #fda4af;
-}
-.zx-dark .text-orange-800 {
-  color: #fdba74;
 }
 .zx-dark .border-blue-300 {
   border-color: #3b6bb3;
@@ -432,6 +405,10 @@ body {
    44px as in the portrait rules above, so the visible size of a chip or a text link never decides how easy it is to tap.
    ------------------------------------------------------------------------------------------------ */
 @media (max-height: 500px) and (max-width: 950px) and (orientation: landscape) {
+  /* the chain's rows are tighter sideways: eight strikes still fit */
+  :root {
+    --chain-row: 32px;
+  }
   button:not(.absolute):not(.fixed):not(.sticky):not(.relative),
   a[href]:not(.absolute):not(.fixed):not(.sticky):not(.relative),
   [role="tab"]:not(.absolute):not(.fixed):not(.sticky):not(.relative) {
@@ -448,6 +425,35 @@ body {
     height: max(100%, 44px);
     transform: translate(-50%, -50%);
   }
+}
+
+/* The option chain's in-the-money cells have a barely-there tint. (An attribute, so a pinned cell keeps an opaque background.) */
+[data-itm="1"] {
+  background-color: var(--chain-itm);
+}
+.zx-dark [data-itm="1"] {
+  background-color: #111d31;
+}
+.zx-dark .text-chain-up {
+  color: #4ade80;
+}
+.zx-dark .text-chain-down {
+  color: #fb7185;
+}
+.zx-dark .text-chain-quiet {
+  color: var(--zx-muted);
+}
+.zx-dark .bg-blue-600\/40 {
+  background-color: rgba(138, 184, 255, 0.45);
+}
+.zx-dark .bg-blue-600\/50 {
+  background-color: rgba(138, 184, 255, 0.55);
+}
+.zx-dark .bg-blue-600\/60 {
+  background-color: rgba(138, 184, 255, 0.6);
+}
+.zx-dark [data-testid="chain-oi-split"] {
+  background-color: #26354d;
 }
 
 /* A strike the chain was just scrolled to (from a top entry in its Summary): its row is tinted, then fades. */

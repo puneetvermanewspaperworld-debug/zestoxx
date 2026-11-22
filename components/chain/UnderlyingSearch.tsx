@@ -12,7 +12,7 @@ export interface QuoteOf {
   pct: number | null;
 }
 
-const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n > 0 ? "text-emerald-700" : "text-rose-600");
+const tone = (n: number | null) => (n == null || n === 0 ? "text-chain-quiet" : n > 0 ? "text-chain-up" : "text-chain-down");
 const BUILT_IN = SYMBOLS.filter((s) => s.type !== "crypto").map((s) => ({ symbol: s.id, name: s.name }));
 
 /**
@@ -64,8 +64,8 @@ export default function UnderlyingSearch({ selected, quoteOf, typeOf, onPick }: 
   const name = selected.replace(/^IDX /, "");
   if (!searching) {
     return (
-      <button type="button" data-compact data-testid="chain-search-open" aria-label={`Underlying ${name}. Search another`} onClick={() => (setSearching(true), setTimeout(() => input.current?.focus(), 0))} className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left">
-        <Search size={15} className="shrink-0 text-slate-400" aria-hidden />
+      <button type="button" data-compact data-testid="chain-search-open" aria-label={`Underlying ${name}. Search another`} onClick={() => (setSearching(true), setTimeout(() => input.current?.focus(), 0))} className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-100 px-3 text-left">
+        <Search size={15} className="shrink-0 text-chain-quiet" aria-hidden />
         <span className="min-w-0 leading-tight">
           <span data-testid="chain-underlying-name" className="block truncate text-[13px] font-semibold text-slate-900">
             {name}

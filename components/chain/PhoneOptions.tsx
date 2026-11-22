@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { useOptionChain } from "@/lib/useOptionChain";
-import { useScreenMode } from "@/lib/useScreenMode";
 import { daysLabel, daysToExpiry } from "@/lib/chain-view";
 import { fmtIsoDate, istDateString } from "@/lib/helpers";
 import { typeOf } from "@/lib/symbols";
@@ -24,7 +23,6 @@ export default function PhoneOptions() {
   const [picked, setPicked] = useState<{ underlying: string; expiry: string; strike: number; type: "CE" | "PE" } | null>(null);
   const router = useRouter();
   const isCrypto = sym.type === "crypto";
-  const landscape = useScreenMode() === "landscape";
 
   // each underlying has its own expiries, so the choice is kept per underlying; none chosen is the nearest
   const [expiryFor, setExpiryFor] = useState<Record<string, string>>({});
@@ -41,7 +39,7 @@ export default function PhoneOptions() {
   const today = istDateString();
 
   const header = (
-    <header data-testid="chain-header" className={"relative z-50 flex h-14 shrink-0 items-center gap-1.5 bg-white pl-1 pr-2 " + (landscape ? "" : "border-b border-slate-200")}>
+    <header data-testid="chain-header" className="relative z-50 flex h-14 shrink-0 items-center gap-1.5 bg-white pl-1 pr-3">
       <button type="button" onClick={back} aria-label="Back" data-testid="chain-back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-700">
         <ArrowLeft size={20} aria-hidden />
       </button>
@@ -52,7 +50,7 @@ export default function PhoneOptions() {
           data-testid="chain-expiry-select"
           value={chain.expiry}
           onChange={(e) => setExpiryFor((m) => ({ ...m, [selected]: e.target.value }))}
-          className="h-11 w-[132px] shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[16px] text-slate-900"
+          className="h-11 w-[132px] shrink-0 rounded-xl border-0 bg-slate-100 px-2 text-[16px] text-slate-900"
         >
           {chain.expiries.map((e) => (
             <option key={e} value={e}>

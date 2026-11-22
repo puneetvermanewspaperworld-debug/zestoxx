@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import { useScreenMode } from "@/lib/useScreenMode";
 import { BUILDUP_META, chainStats, type OptionChain } from "@/lib/options";
-import { BUILDUP_CHIP, TOP_ORDER, anyBuildup, buildupNote, topPerCategory, type TopPerCategory } from "@/lib/chain-buildup";
-import { COL_META, DEFAULT_COLS, TAB_COLS, availableCols, hasGreeks, shownCols, signed, windowRows, type ChainTab, type ChangeMode, type ColId } from "@/lib/chain-view";
+import { TOP_ORDER, anyBuildup, buildupMarkClass, buildupNote, topPerCategory, type TopPerCategory } from "@/lib/chain-buildup";
+import { COL_META, DEFAULT_COLS, TAB_COLS, availableCols, hasGreeks, oiShare, shownCols, signed, windowRows, type ChainTab, type ChangeMode, type ColId } from "@/lib/chain-view";
 import { fmtOi, fmtOiChange } from "@/lib/helpers";
 import { unavailableNote } from "@/lib/closed-notes";
 import PhoneChainTable, { type ChainTableHandle } from "./PhoneChainTable";
@@ -34,8 +34,8 @@ function loadPrefs(): Prefs {
   }
 }
 
-/** the buttons in the chain's controls row */
-const tool = "flex h-[var(--chip-h)] shrink-0 items-center whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2 text-[13px] font-medium text-slate-700 ";
+/** the text buttons at the right of the controls row: no boxes, a 36px row whose tap area is still 44px */
+const tool = "flex h-9 shrink-0 items-center whitespace-nowrap px-2 text-[13px] font-medium text-slate-700 ";
 
 /**
  * The chain itself, for a phone: a controls row (the OI / Greeks switch, Columns, the kind of change, and Spot), the Summary and Levels lines,
@@ -93,16 +93,26 @@ export default function ChainView({ chain, price, change, pct, onPick, top }: { 
             : null;
 
   const oneLine = stats && chain ? `PCR ${stats.pcr != null ? stats.pcr.toFixed(2) : "--"} · Pain ${stats.maxPain ?? "--"} · IV ${stats.atmIv != null ? stats.atmIv.toFixed(2) : "--"} · VIX ${chain.vix != null ? chain.vix.toFixed(2) : "--"}` : "";
-  const levelsLine = stats ? `R ${stats.topCalls[1]?.strike ?? "--"} · S ${stats.topPuts[1]?.strike ?? "--"}` : "";
-  const fold = "flex h-[var(--control-row)] items-center gap-2 px-3 text-left text-[12px] text-slate-600";
+  const levelsLine = stats ? `Support ${stats.topPuts[1]?.strike ?? "--"} · Resistance ${stats.topCalls[1]?.strike ?? "--"}` : "";
+  const split = chain ? oiShare(chain.rows) : null;
+  const splitText = split ? `Open interest: calls ${Math.round(split.call * 100)}%, puts ${Math.round(split.put * 100)}%` : "";
+  const fold = "relative flex h-10 items-center gap-3 text-left";
+  const chev = (open: boolean) => (open ? <ChevronUp size={16} aria-hidden className="shrink-0 text-chain-quiet" /> : <ChevronDown size={16} aria-hidden className="shrink-0 text-chain-quiet" />);
+  // the small tag for where the numbers come from: in the line above the table, between "Calls" and "Puts" (sideways, with no such line, it is at the end of Levels)
+  const tagEl = tag && (
+    <span data-testid="chain-tag" title={tag.why} aria-label={tag.why} className={"flex shrink-0 items-center gap-1.5 text-[11px] font-normal leading-[16px] " + (tag.tone === "live" ? "text-chain-up" : tag.tone === "warn" ? "text-amber-700" : "text-chain-quiet")}>
+      <i aria-hidden className="block h-1.5 w-1.5 rounded-full bg-current" />
+      {tag.text}
+    </span>
+  );
 
   return (
     <div data-testid="chain-view" className="flex min-h-0 min-w-0 flex-1 flex-col bg-white">
       {/* the header row, and the controls (sideways: on the header's own line) */}
       <div className={landscape ? "flex shrink-0 items-center border-b border-slate-200" : "contents"}>
       <div className={landscape ? "min-w-0 flex-1" : "contents"}>{top}</div>
-      <div data-testid="chain-controls" className={"relative z-40 flex shrink-0 items-center gap-1 px-2 py-1.5 " + (landscape ? "" : "border-b border-slate-200")}>
-        <div role="radiogroup" aria-label="Chain view" className="flex rounded-lg bg-slate-100 p-0.5">
+      <div data-testid="chain-controls" className={"relative z-40 flex shrink-0 items-center justify-between gap-2 px-3 " + (landscape ? "" : "mt-3")}>
+        <div role="radiogroup" aria-label="Chain view" className="flex gap-5">
           {(
             [
               ["oi", "OI"],
@@ -110,27 +120,29 @@ export default function ChainView({ chain, price, change, pct, onPick, top }: { 
               ["buildup", "Buildup"],
             ] as [ChainTab, string][]
           ).map(([id, label]) => (
-            <button key={id} type="button" role="radio" data-compact aria-checked={tab === id} data-testid={`chain-view-${id}`} onClick={() => save({ ...prefs, tab: id })} className={"flex h-[calc(var(--chip-h)-4px)] items-center rounded-md px-2 text-[13px] font-medium " + (tab === id ? "bg-white text-blue-700 shadow-sm" : "text-slate-500")}>
+            <button key={id} type="button" role="radio" data-compact aria-checked={tab === id} data-testid={`chain-view-${id}`} onClick={() => save({ ...prefs, tab: id })} className={"relative flex h-10 items-center text-[14px] " + (tab === id ? "font-bold text-slate-900" : "font-medium text-chain-quiet")}>
               {label}
+              {tab === id && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-blue-600" />}
             </button>
           ))}
         </div>
-        <span className="flex-1" />
-        {tab !== "buildup" && (
-        <>
-        <button type="button" data-compact aria-expanded={picking} aria-haspopup="true" data-testid="chain-columns" onClick={() => setPicking((v) => !v)} className={tool}>
-          Columns
-        </button>
-        <button type="button" data-compact data-testid="chain-change" aria-label={prefs.mode === "abs" ? "Changes are shown as amounts: show percentages" : "Changes are shown as percentages: show amounts"} onClick={() => save({ ...prefs, mode: prefs.mode === "abs" ? "pct" : "abs" })} className={tool}>
-          Chg {prefs.mode === "abs" ? "₹" : "%"}
-        </button>
-        </>
-        )}
-        <button type="button" data-compact data-testid="chain-spot-jump" aria-label="Jump to the live spot" onClick={() => table.current?.jumpToSpot()} className={tool + "border-blue-200 text-blue-700"}>
-          Spot
-        </button>
+        <div className="-mr-2 flex items-center">
+          {tab !== "buildup" && (
+            <>
+              <button type="button" data-compact aria-expanded={picking} aria-haspopup="true" data-testid="chain-columns" onClick={() => setPicking((v) => !v)} className={tool}>
+                Columns
+              </button>
+              <button type="button" data-compact data-testid="chain-change" aria-label={prefs.mode === "abs" ? "Changes are shown as amounts: show percentages" : "Changes are shown as percentages: show amounts"} onClick={() => save({ ...prefs, mode: prefs.mode === "abs" ? "pct" : "abs" })} className={tool}>
+                Chg <span className="ml-1 font-bold text-blue-700">{prefs.mode === "abs" ? "₹" : "%"}</span>
+              </button>
+            </>
+          )}
+          <button type="button" data-compact data-testid="chain-spot-jump" aria-label="Jump to the live spot" onClick={() => table.current?.jumpToSpot()} className={tool + "text-blue-700"}>
+            Spot
+          </button>
+        </div>
         {picking && (
-          <div role="group" aria-label="Columns to show" data-testid="chain-column-menu" className="absolute right-2 top-full mt-1 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          <div role="group" aria-label="Columns to show" data-testid="chain-column-menu" className="absolute right-3 top-full mt-1 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
             {TAB_COLS[tab].filter((c) => have.has(c)).map((c) => (
               <button key={c} type="button" aria-pressed={cols.includes(c)} data-testid={`chain-col-${c}`} onClick={() => toggleCol(c)} className={"flex w-full items-center justify-between rounded-lg px-3 text-left text-[13px] " + (cols.includes(c) ? "font-semibold text-blue-700" : "text-slate-700")}>
                 {COL_META[c].label}
@@ -142,18 +154,22 @@ export default function ChainView({ chain, price, change, pct, onPick, top }: { 
         )}
       </div>
       </div>
+      {!landscape && <div aria-hidden className="mx-3 border-b border-slate-200" />}
 
       {tab === "buildup" && chain && (
-        <div data-testid="chain-buildup-help" className="shrink-0 border-b border-slate-200">
-          <div data-testid="chain-legend" className="flex items-center gap-3 overflow-x-auto whitespace-nowrap px-3 py-1 text-[11px] text-slate-600">
+        <div data-testid="chain-buildup-help" className="shrink-0 px-3 pt-2.5">
+          <div data-testid="chain-legend" className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] leading-[16px] text-chain-quiet">
             {TOP_ORDER.map((k) => (
-              <span key={k} data-testid={`legend-${BUILDUP_META[k].code}`} title={BUILDUP_META[k].meaning} className="flex shrink-0 items-center gap-1">
-                <span className={"rounded px-1 font-semibold leading-[16px] " + BUILDUP_CHIP[k]}>{BUILDUP_META[k].code}</span>
+              <span key={k} data-testid={`legend-${BUILDUP_META[k].code}`} title={BUILDUP_META[k].meaning} className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className={"text-[12px] " + buildupMarkClass(k)}>{BUILDUP_META[k].code}</span>
                 {BUILDUP_META[k].label}
               </span>
             ))}
           </div>
-          <p data-testid="chain-buildup-note" className="px-3 pb-1 text-[11px] leading-[14px] text-slate-500">
+          <p data-testid="chain-legend-key" className="mt-0.5 text-[11px] leading-[16px] text-chain-quiet">
+            Green: price up · Red: price down · Bold: OI up
+          </p>
+          <p data-testid="chain-buildup-note" className="text-[11px] leading-[16px] text-chain-quiet">
             {buildupAny ? buildupNote(chain.source, open) : "No strike has both a change in open interest and a change in premium to tag yet."}
           </p>
         </div>
@@ -161,60 +177,62 @@ export default function ChainView({ chain, price, change, pct, onPick, top }: { 
 
       {/* Summary and Levels: one line each, opened by a tap */}
       {chain && stats && (
-        <div data-testid="chain-folds" className="flex shrink-0 flex-wrap border-b border-slate-200">
-          <button type="button" data-compact aria-expanded={prefs.summaryOpen} data-testid="chain-summary-toggle" onClick={() => save({ ...prefs, summaryOpen: !prefs.summaryOpen })} className={fold + (landscape ? " order-1 w-1/2 border-r border-slate-100" : " order-1 w-full")}>
-            <span className="shrink-0 font-medium">Summary</span>
-            <span data-testid="chain-summary-line" title="PCR, Max Pain, ATM IV and India VIX" className="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-700">
+        <div data-testid="chain-folds" className={"flex shrink-0 flex-wrap px-3 " + (landscape ? "" : "mt-1")}>
+          <button type="button" data-compact aria-expanded={prefs.summaryOpen} data-testid="chain-summary-toggle" onClick={() => save({ ...prefs, summaryOpen: !prefs.summaryOpen })} className={fold + (landscape ? " order-1 w-1/2 pr-3" : " order-1 w-full")}>
+            <span className="shrink-0 text-[13px] font-bold text-slate-900">Summary</span>
+            <span data-testid="chain-summary-line" title="PCR, Max Pain, ATM IV and India VIX" className="min-w-0 flex-1 truncate text-[11px] text-chain-quiet">
               {oneLine}
             </span>
-            {prefs.summaryOpen ? <ChevronUp size={14} aria-hidden className="shrink-0" /> : <ChevronDown size={14} aria-hidden className="shrink-0" />}
+            {chev(prefs.summaryOpen)}
+            {/* the thin bar: calls' share of the open interest against puts' (the same totals as the PCR) */}
+            {split && (
+              <span role="img" aria-label={splitText} title={splitText} data-testid="chain-oi-split" className="absolute inset-x-0 bottom-0 flex h-[3px] overflow-hidden rounded-full bg-slate-200">
+                <i className="block h-full bg-blue-600/60" style={{ width: `${(split.put * 100).toFixed(1)}%` }} />
+              </span>
+            )}
           </button>
           {prefs.summaryOpen && (
             <div className={"max-h-[48dvh] w-full overflow-y-auto " + (landscape ? "order-3" : "order-2")}>
-              <Summary chain={chain} stats={stats} open={open} />
+              <Summary chain={chain} stats={stats} open={open} splitText={splitText} />
               <TopStrikes tops={tops} note={buildupAny ? buildupNote(chain.source, open) : "No strike has both a change in open interest and a change in premium to tag yet."} onGo={(strike) => table.current?.goToStrike(strike)} />
             </div>
           )}
-          <div className={"flex items-center " + (landscape ? "order-2 w-1/2" : "order-3 w-full border-t border-slate-100")}>
-            <button type="button" data-compact aria-expanded={prefs.levelsOpen} data-testid="chain-levels-toggle" onClick={() => save({ ...prefs, levelsOpen: !prefs.levelsOpen })} className={fold + " flex-1"}>
-              <span className="shrink-0 font-medium">Levels</span>
-              <span data-testid="chain-levels-line" className="min-w-0 flex-1 truncate font-mono text-[12px] text-slate-700">
+          <div className={"flex items-center " + (landscape ? "order-2 w-1/2 border-l border-slate-200 pl-3" : "order-3 w-full")}>
+            <button type="button" data-compact aria-expanded={prefs.levelsOpen} data-testid="chain-levels-toggle" onClick={() => save({ ...prefs, levelsOpen: !prefs.levelsOpen })} className={fold + " min-w-0 flex-1"}>
+              <span className="shrink-0 text-[13px] font-bold text-slate-900">Levels</span>
+              <span data-testid="chain-levels-line" className="min-w-0 flex-1 truncate text-[11px] text-chain-quiet">
                 {levelsLine}
               </span>
-              {prefs.levelsOpen ? <ChevronUp size={14} aria-hidden className="shrink-0" /> : <ChevronDown size={14} aria-hidden className="shrink-0" />}
+              {chev(prefs.levelsOpen)}
             </button>
-            {tag && (
-              <span data-testid="chain-tag" title={tag.why} aria-label={tag.why} className={"mr-3 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium " + (tag.tone === "live" ? "bg-emerald-50 text-emerald-700" : tag.tone === "warn" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")}>
-                {tag.text}
-              </span>
-            )}
+            {landscape && tagEl && <span className="ml-3 shrink-0">{tagEl}</span>}
           </div>
           {prefs.levelsOpen && (
-            <div data-testid="chain-levels" className="order-4 grid w-full grid-cols-2 gap-2 px-2 pb-2 text-[12px]">
-              <Level title="Resistance" sub="2nd highest call OI" level={stats.topCalls[1]} top={stats.topCalls[0]} tone="text-indigo-700" />
-              <Level title="Support" sub="2nd highest put OI" level={stats.topPuts[1]} top={stats.topPuts[0]} tone="text-amber-700" />
+            <div data-testid="chain-levels" className="order-4 grid w-full grid-cols-2 gap-6 pb-2 pt-1">
+              <Level title="Resistance" sub="2nd highest call OI" level={stats.topCalls[1]} top={stats.topCalls[0]} />
+              <Level title="Support" sub="2nd highest put OI" level={stats.topPuts[1]} top={stats.topPuts[0]} />
             </div>
           )}
         </div>
       )}
 
-      {chain ? <PhoneChainTable chain={chain} atm={stats?.atmStrike} spot={price > 0 ? price : chain.spot} change={change} pct={pct} cols={cols} mode={prefs.mode} tab={tab} handle={table} onPick={onPick} /> : <div data-testid="chain-loading" className="min-h-0 flex-1 animate-pulse bg-slate-50" aria-busy="true" />}
+      {chain ? <PhoneChainTable chain={chain} atm={stats?.atmStrike} spot={price > 0 ? price : chain.spot} change={change} pct={pct} cols={cols} mode={prefs.mode} tab={tab} handle={table} onPick={onPick} sides={!landscape} badge={tagEl} /> : <div data-testid="chain-loading" className="min-h-0 flex-1 animate-pulse bg-slate-50" aria-busy="true" />}
     </div>
   );
 }
 
-function Level({ title, sub, level, top, tone }: { title: string; sub: string; level?: { strike: number; oi: number }; top?: { strike: number; oi: number }; tone: string }) {
+function Level({ title, sub, level, top }: { title: string; sub: string; level?: { strike: number; oi: number }; top?: { strike: number; oi: number } }) {
   return (
-    <div className="rounded-lg border border-slate-200 px-2.5 py-1.5">
-      <div className={"text-[11px] font-semibold uppercase tracking-wide " + tone}>{title}</div>
-      <div className="font-mono text-[14px] font-semibold text-slate-900">{level ? level.strike : "--"}</div>
-      <div className="text-[11px] text-slate-500">{level && top ? `${sub}: ${fmtOi(level.oi)} · top ${top.strike}` : sub}</div>
+    <div>
+      <div className="text-[11px] text-chain-quiet">{title}</div>
+      <div className="text-[14px] font-medium text-slate-900">{level ? level.strike : "--"}</div>
+      <div className="text-[11px] text-chain-quiet">{level && top ? `${sub}: ${fmtOi(level.oi)} · top ${top.strike}` : sub}</div>
     </div>
   );
 }
 
 /** PCR, Max Pain, ATM IV and India VIX, worked out from this chain or sent with it. IV percentile is not here: the app keeps no history of IV to rank it against. */
-function Summary({ chain, stats, open }: { chain: OptionChain; stats: NonNullable<ReturnType<typeof chainStats>>; open: boolean | null }) {
+function Summary({ chain, stats, open, splitText }: { chain: OptionChain; stats: NonNullable<ReturnType<typeof chainStats>>; open: boolean | null; splitText: string }) {
   const items: { id: string; label: string; value: string; note?: string | null }[] = [
     { id: "pcr", label: "PCR", value: stats.pcr != null ? stats.pcr.toFixed(2) : "--", note: unavailableNote(open, stats.pcr) },
     { id: "maxpain", label: "Max Pain", value: stats.maxPain != null ? String(stats.maxPain) : "--", note: unavailableNote(open, stats.maxPain) },
@@ -222,61 +240,81 @@ function Summary({ chain, stats, open }: { chain: OptionChain; stats: NonNullabl
     { id: "vix", label: "India VIX", value: chain.vix != null ? chain.vix.toFixed(2) : "--", note: chain.source === "simulated" ? "simulated" : unavailableNote(open, chain.vix) },
   ];
   return (
-    <div data-testid="chain-summary" className="px-2">
-      <div data-testid="chain-summary-stats" className="grid grid-cols-4 gap-1.5 pb-2">
+    <div data-testid="chain-summary" className="pb-2 pt-1">
+      <div data-testid="chain-summary-stats" className="grid grid-cols-4 gap-2">
         {items.map((i) => (
-          <div key={i.id} title={i.note ?? undefined} className="rounded-lg bg-slate-50 px-1.5 py-1 text-center">
-            <div className="text-[11px] text-slate-500">{i.label}</div>
-            <div data-testid={`chain-stat-${i.id}`} className="font-mono text-[14px] font-semibold text-slate-900">
+          <div key={i.id} title={i.note ?? undefined}>
+            <div className="text-[11px] text-chain-quiet">{i.label}</div>
+            <div data-testid={`chain-stat-${i.id}`} className="text-[14px] font-medium text-slate-900">
               {i.value}
             </div>
           </div>
         ))}
       </div>
+      {splitText && (
+        <p data-testid="chain-split-text" className="mt-1.5 text-[11px] text-chain-quiet">
+          {splitText} (the bar under the Summary line)
+        </p>
+      )}
     </div>
   );
 }
 
 /**
- * For the calls and for the puts, the strike with the largest change in open interest in each of the four buildup categories. "Largest" is by size,
- * up or down, among the strikes the table shows; a tie goes to the lower strike. Tapping one finds that strike in the table.
+ * For the calls and for the puts, the strike with the largest change in open interest in each of the four buildup categories, as a table of
+ * category against Calls and Puts. "Largest" is by size, up or down, among the strikes the table shows; a tie goes to the lower strike. Tapping a
+ * strike finds it in the table. The one line that says what it is sits behind the info icon.
  */
 function TopStrikes({ tops, note, onGo }: { tops: { call: TopPerCategory; put: TopPerCategory }; note: string; onGo: (strike: number) => void }) {
-  const side = (title: string, t: TopPerCategory, type: "CE" | "PE") => (
-    <div className="min-w-0">
-      <h4 className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</h4>
-      {TOP_ORDER.map((k) => {
-        const e = t[k];
-        const meta = BUILDUP_META[k];
-        return (
-          <button key={k} type="button" data-compact disabled={!e} data-testid={`top-${type}-${meta.code}`} onClick={() => e && onGo(e.strike)} title={meta.label} className="flex h-11 w-full items-center gap-1.5 rounded-lg px-1 text-left text-[12px] disabled:opacity-100">
-            <span className={"shrink-0 rounded px-1 text-[11px] font-semibold leading-[18px] " + BUILDUP_CHIP[k]}>{meta.code}</span>
-            {e ? (
-              <span className="flex min-w-0 flex-col leading-[14px]">
-                <span data-testid={`top-${type}-${meta.code}-strike`} className="font-mono font-semibold text-slate-900">
-                  {e.strike}
-                </span>
-                <span className="whitespace-nowrap font-mono text-[11px] text-slate-600">
-                  {fmtOiChange(e.oiChange)} · {signed(e.priceChangePct, 1)}%
-                </span>
-              </span>
-            ) : (
-              <span data-testid={`top-${type}-${meta.code}-none`} className="text-slate-400">
-                none
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const [info, setInfo] = useState(false);
+  const cell = (t: TopPerCategory, k: (typeof TOP_ORDER)[number], type: "CE" | "PE") => {
+    const e = t[k];
+    const meta = BUILDUP_META[k];
+    return (
+      <button key={type} type="button" data-compact disabled={!e} data-testid={`top-${type}-${meta.code}`} onClick={() => e && onGo(e.strike)} aria-label={e ? `${meta.label}, ${type === "CE" ? "call" : "put"} strike ${e.strike}: OI change ${fmtOiChange(e.oiChange)}, price ${signed(e.priceChangePct, 1)} per cent. Show it in the table` : `${meta.label}, ${type === "CE" ? "call" : "put"}: none`} title={e ? `OI change ${fmtOiChange(e.oiChange)}, price ${signed(e.priceChangePct, 1)}%` : undefined} className="flex h-11 w-full items-center justify-end border-b border-slate-100 pr-2 text-right disabled:opacity-100">
+        {e ? (
+          <span data-testid={`top-${type}-${meta.code}-strike`} className="text-[14px] font-bold text-blue-700">
+            {e.strike}
+          </span>
+        ) : (
+          <span data-testid={`top-${type}-${meta.code}-none`} className="text-[13px] text-chain-quiet">
+            none
+          </span>
+        )}
+      </button>
+    );
+  };
   return (
-    <div data-testid="chain-tops" className="px-2 pb-2">
-      <p className="mb-1 text-[11px] leading-[14px] text-slate-500">Largest change in open interest in each category, by size (up or down), among the strikes shown. A tie goes to the lower strike. Tap one to find it in the table. {note}</p>
-      <div className="grid grid-cols-2 gap-2">
-        {side("Calls", tops.call, "CE")}
-        {side("Puts", tops.put, "PE")}
+    <div data-testid="chain-tops" className="pb-2">
+      <div className="flex h-9 items-center gap-1 text-[13px] font-bold text-slate-900">
+        Top buildup strikes
+        <button type="button" data-compact data-testid="chain-tops-info-toggle" aria-expanded={info} aria-label="What these are" title="The strike with the largest change in open interest in each category, up or down, among the strikes shown; a tie takes the lower strike" onClick={() => setInfo((v) => !v)} className="flex h-6 w-6 items-center justify-center text-chain-quiet">
+          <Info size={16} aria-hidden />
+        </button>
       </div>
+      {info && (
+        <p data-testid="chain-tops-info" className="pb-1 text-[11px] leading-[16px] text-chain-quiet">
+          Largest OI change, up or down, per category in the strikes shown. Tap a strike to find it.
+        </p>
+      )}
+      <div className="grid grid-cols-[1fr_76px_76px] items-center">
+        <span />
+        <span className="pr-2 text-right text-[11px] text-chain-quiet">Calls</span>
+        <span className="pr-2 text-right text-[11px] text-chain-quiet">Puts</span>
+        {TOP_ORDER.map((k) => (
+          <React.Fragment key={k}>
+            <div className="flex h-11 items-center gap-2 border-b border-slate-100 text-[13px] text-slate-700">
+              <span className={"w-6 text-[12px] " + buildupMarkClass(k)}>{BUILDUP_META[k].code}</span>
+              {BUILDUP_META[k].label}
+            </div>
+            {cell(tops.call, k, "CE")}
+            {cell(tops.put, k, "PE")}
+          </React.Fragment>
+        ))}
+      </div>
+      <p data-testid="chain-tops-note" className="pt-1.5 text-[11px] leading-[16px] text-chain-quiet">
+        {note}
+      </p>
     </div>
   );
 }

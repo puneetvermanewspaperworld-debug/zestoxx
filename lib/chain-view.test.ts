@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { availableCols, cellFor, daysLabel, daysToExpiry, DEFAULT_COLS, isItm, maxOiIn, shownCols, spotSlot, windowRows } from "./chain-view";
+import { availableCols, cellFor, daysLabel, daysToExpiry, DEFAULT_COLS, fmtOiChangeShort, fmtOiShort, isItm, maxOiIn, oiShare, shownCols, spotSlot, textWidth, windowRows } from "./chain-view";
 import type { ChainRow, OptionLeg } from "./options";
 
 const leg = (o: Partial<OptionLeg> = {}): OptionLeg => ({ ltp: 100, prevClose: 80, oi: 200_000, prevOi: 150_000, volume: 5_000, iv: 12.34, ...o });
@@ -22,10 +22,49 @@ test("a column is offered only when the chain really has it", () => {
 
 test("what is shown is the choice that the chain has, in the order offered, and the default is the fewest useful", () => {
   const have = new Set(["oiChg", "oi", "iv"] as const);
-  assert.deepEqual(shownCols("oi", undefined, have as never), ["oi"]);
+  assert.deepEqual(shownCols("oi", undefined, have as never), ["oiChg", "oi"]); // the default is the OI and its change, the change beside the LTP
   assert.deepEqual(shownCols("oi", ["volume", "oi", "oiChg"], have as never), ["oiChg", "oi"]); // volume is not in this chain
   assert.deepEqual(shownCols("greeks", undefined, have as never), ["iv"]); // delta is not in this chain
-  assert.deepEqual(DEFAULT_COLS.oi, ["oi"]);
+  assert.deepEqual(DEFAULT_COLS.oi, ["oi", "oiChg"]); // the OI and its change, as in the design
+  // the Buildup view is always its three columns: the price change beside the LTP, the OI change, the tag at the outer edge
+  assert.deepEqual(shownCols("buildup", undefined, new Set()), ["buPx", "buOi", "buTag"]);
+  assert.deepEqual(shownCols("buildup", ["buTag"], new Set()), ["buPx", "buOi", "buTag"]);
+});
+
+test("narrow figures keep their unit: lakh, crore and thousand, one decimal", () => {
+  assert.equal(fmtOiShort(5_890_000), "58.9L");
+  assert.equal(fmtOiShort(14_300_000), "1.43Cr");
+  assert.equal(fmtOiShort(80_000), "80.0k");
+  assert.equal(fmtOiShort(950), "950");
+  assert.equal(fmtOiShort(null), "--");
+  assert.equal(fmtOiChangeShort(1_180_000), "+11.8L");
+  assert.equal(fmtOiChangeShort(-80_000), "−80.0k");
+  assert.equal(fmtOiChangeShort(0), "0");
+  assert.equal(fmtOiChangeShort(undefined), "--");
+});
+
+test("a column is never narrower than its text: the width counts every digit at the full figure width", () => {
+  // measured in Inter at 12px with tabular figures: "+11.8L" is 39px, so the estimate must not be under that
+  assert.ok(textWidth("+11.8L", 12) >= 39);
+  assert.ok(textWidth("−80.0k", 12) >= 39);
+  assert.ok(textWidth("1234.55", 14) >= 54); // seven characters of a deep in-the-money premium at 14px
+  assert.ok(textWidth("58.9L", 12) < textWidth("+11.8L", 12)); // shorter text, narrower
+  // labels: measured "OI chg" 34px, "Price" 27px and "Tag" 20px at 11px; the estimate is not under them and not far over
+  for (const [t, real] of [["OI chg", 34], ["Price", 27], ["Tag", 19.5]] as const) {
+    assert.ok(textWidth(t, 11) >= real, t);
+    assert.ok(textWidth(t, 11) <= real + 7, t);
+  }
+  assert.equal(textWidth("", 12), 0);
+});
+
+test("the OI split is the calls' share and the puts' share of the same two totals as the PCR", () => {
+  const rows = [row(1, { oi: 300 }, { oi: 100 }), row(2, { oi: 100 }, { oi: 500 })];
+  const s = oiShare(rows)!;
+  assert.equal(s.call, 0.4); // 400 of 1000
+  assert.equal(s.put, 0.6);
+  assert.ok(Math.abs(s.put / s.call - 1.5) < 1e-9); // the PCR
+  assert.equal(oiShare([row(1, { oi: 0 }, { oi: 0 })]), null); // no open interest: no bar
+  assert.equal(oiShare([]), null);
 });
 
 test("OI change and LTP change are absolute or a percentage, and read -- when there is nothing to compare with", () => {

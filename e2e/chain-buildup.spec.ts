@@ -3,8 +3,9 @@ import { simulateChain, type ChainRow, type OptionChain, type OptionLeg } from "
 import { account, openApp, phone } from "./action-helpers";
 
 /**
- * Buildup on the phone's option chain: a third view (OI | Greeks | Buildup) with a tag chip, the OI change and the premium's change at every strike of
- * both sides, the pinned centre and the spot row kept, a legend, and in the Summary the strike with the largest OI change per category.
+ * Buildup on the phone's option chain: a third view (OI | Greeks | Buildup) with a tag, the OI change and the price change % in columns of their own at
+ * every strike of both sides, the pinned centre and the spot row kept, a legend, and in the Summary a table of the strike with the largest OI change
+ * per category, for calls and for puts.
  */
 const EXPIRIES = ["2026-11-12", "2026-11-19"];
 const leg = (ltp: number, prevClose: number, oi: number, prevOi: number): OptionLeg => ({ ltp, prevClose, oi, prevOi, volume: 500, iv: 15 });
@@ -72,23 +73,39 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       await expect(tag(1520, "CE")).toHaveText("LU");
       await expect(tag(1520, "PE")).toHaveText("LU");
       for (const [k, t, kind] of [[1480, "CE", "long-buildup"], [1480, "PE", "short-buildup"], [1510, "CE", "short-covering"], [1520, "PE", "long-unwinding"]] as const) await expect(tag(k, t)).toHaveAttribute("data-kind", kind);
-      // the figures beside the tag
-      await expect(page.getByTestId("bu-oi-1480-CE")).toHaveText("+5.00 L");
-      await expect(page.getByTestId("bu-px-1480-CE")).toHaveText("+20.0%");
+      // the figures, in their own columns: the OI change keeps its unit, the price change is in per cent (the header says so)
+      await expect(page.getByTestId("bu-oi-1480-CE")).toHaveText("+5.0L");
+      await expect(page.getByTestId("bu-px-1480-CE")).toHaveText("+20.0");
       await expect(page.getByTestId("bu-oi-1510-CE")).toHaveText("−80.0k");
-      await expect(page.getByTestId("bu-px-1480-PE")).toHaveText("−20.0%");
-      await expect(page.getByTestId("bu-oi-1490-PE")).toHaveText("+7.00 L");
-      // no change in the premium, or none in the OI, or nothing at all: no tag, and nothing made up
+      await expect(page.getByTestId("bu-px-1480-PE")).toHaveText("−20.0");
+      await expect(page.getByTestId("bu-oi-1490-PE")).toHaveText("+7.0L");
+      await expect(page.getByTestId("bu-px-1480-CE")).toHaveAttribute("aria-label", "+20.0 per cent");
+      await expect(page.locator('[data-head="1"]', { hasText: /^Price\s*%$/ })).toHaveCount(2);
+      await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(2);
+      await expect(page.locator('[data-head="1"]', { hasText: /^Tag$/ })).toHaveCount(2);
+      // no change in the premium, or none in the OI: the figures are there (they are real) and there is no tag; the cell is blank, not "--"
       for (const [k, t] of [[1530, "CE"], [1530, "PE"], [1300, "CE"], [1300, "PE"]] as const) {
         await expect(tag(k, t)).toHaveCount(0);
-        await expect(page.getByTestId(`bu-none-${k}-${t}`)).toHaveText("--");
+        await expect(page.getByTestId(`bu-none-${k}-${t}`)).toHaveText("");
       }
-      // one colour per tag, and the legend uses the same colours
-      const bg = (loc: ReturnType<Page["getByTestId"]>) => loc.evaluate((e) => getComputedStyle(e).backgroundColor);
-      const colours = [await bg(tag(1480, "CE")), await bg(tag(1500, "CE")), await bg(tag(1510, "CE")), await bg(tag(1520, "CE"))];
-      expect(new Set(colours).size, "four different colours").toBe(4);
-      expect(await bg(tag(1480, "PE")), "the same kind has the same colour on the put side").toBe(await bg(tag(1500, "CE")));
-      for (const [code, c] of [["LB", colours[0]], ["SB", colours[1]], ["SC", colours[2]], ["LU", colours[3]]] as const) expect(await bg(page.getByTestId(`legend-${code}`).locator("span").first())).toBe(c);
+      await expect(page.getByTestId("bu-oi-1530-CE")).toHaveText("0");
+      await expect(page.getByTestId("bu-px-1530-CE")).toHaveText("+20.0");
+      // green is the price going up, red the price going down; bold is the open interest going up, regular its going down
+      const look = (loc: ReturnType<Page["getByTestId"]>) => loc.evaluate((e) => { const cs = getComputedStyle(e); return cs.color + "|" + cs.fontWeight; });
+      const GREEN = "rgb(4, 120, 87)"; // #047857
+      const RED = "rgb(190, 18, 60)"; // #be123c
+      const looks = [await look(tag(1480, "CE")), await look(tag(1500, "CE")), await look(tag(1510, "CE")), await look(tag(1520, "CE"))];
+      expect(looks.map((l) => l.split("|")[0]), "LB green, SB red, SC green, LU red").toEqual([GREEN, RED, GREEN, RED]);
+      const weight = looks.map((l) => Number(l.split("|")[1]));
+      expect(weight[0], "LB is bold").toBeGreaterThanOrEqual(600);
+      expect(weight[1], "SB is bold").toBeGreaterThanOrEqual(600);
+      expect(weight[2], "SC is regular").toBeLessThanOrEqual(400);
+      expect(weight[3], "LU is regular").toBeLessThanOrEqual(400);
+      expect(await look(tag(1480, "PE")), "the same kind looks the same on the put side").toBe(looks[1]);
+      for (const [code, l] of [["LB", looks[0]], ["SB", looks[1]], ["SC", looks[2]], ["LU", looks[3]]] as const) expect(await look(page.getByTestId(`legend-${code}`).locator("span").first()), `the legend's ${code}`).toBe(l);
+      // the price change is coloured by its direction too
+      expect((await look(page.getByTestId("bu-px-1480-CE"))).split("|")[0]).toBe(GREEN);
+      expect((await look(page.getByTestId("bu-px-1480-PE"))).split("|")[0]).toBe(RED);
     });
 
     test("the pinned centre and the spot row are kept, nothing scrolls sideways, and nothing overlaps", async ({ page }) => {
@@ -100,17 +117,22 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       await expect(page.getByTestId("chain-spot-price")).toHaveText("₹1,500.00");
       expect(await centre(), "Call LTP, Strike and Put LTP are where they were").toEqual(before);
       const sc = page.getByTestId("chain-scroll");
-      expect(await sc.evaluate((e) => e.scrollWidth - e.clientWidth), "both sides fit without scrolling the table").toBeLessThanOrEqual(1);
+      const over = await sc.evaluate((e) => e.scrollWidth - e.clientWidth);
+      // on a 390 screen the tag, the OI change and the price change fit on both sides; on a 360 one the outer columns may scroll, inside the table, and only a little
+      if (w >= 390) expect(over, "both sides fit without scrolling the table").toBeLessThanOrEqual(1);
+      else expect(over, "a few pixels, not a screenful").toBeLessThanOrEqual(40);
+      // wherever it is, every tag can be brought fully into view: at the left end the call tags, at the right end the put tags
+      await sc.evaluate((e) => (e.scrollLeft = 0));
+      expect((await page.getByTestId("bu-tag-1480-CE").boundingBox())!.x, "the call tags at the left end").toBeGreaterThanOrEqual(11.5);
+      await sc.evaluate((e) => (e.scrollLeft = e.scrollWidth));
+      const put = (await page.getByTestId("bu-tag-1500-PE").boundingBox())!;
+      expect(put.x + put.width, "the put tags at the right end").toBeLessThanOrEqual(w - 11.5);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
-      // each tag cell holds its tag and its two figures, side by side, inside the cell
-      const bad = await page.locator('[data-col="buildup"]').evaluateAll((cells) =>
+      // every figure is inside its own column, and no two overlap
+      const bad = await page.locator('[data-col^="bu"]').evaluateAll((cells) =>
         cells.flatMap((c) => {
           const r = c.getBoundingClientRect();
-          const kids = [...c.querySelectorAll("span")].filter((e) => e.children.length === 0).map((e) => e.getBoundingClientRect());
-          const out: string[] = [];
-          for (const k of kids) if (k.left < r.left - 0.5 || k.right > r.right + 0.5) out.push(`${c.textContent} sticks out`);
-          for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) if (kids[i].left < kids[j].right - 0.5 && kids[j].left < kids[i].right - 0.5 && kids[i].top < kids[j].bottom - 0.5 && kids[j].top < kids[i].bottom - 0.5) out.push(`${c.textContent} overlaps`);
-          return out;
+          return [...c.querySelectorAll("span")].filter((e) => e.children.length === 0 && e.textContent).filter((e) => { const k = e.getBoundingClientRect(); return k.left < r.left - 0.5 || k.right > r.right + 0.5; }).map((e) => `${e.textContent} sticks out`);
         })
       );
       expect(bad).toEqual([]);
@@ -131,7 +153,7 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
     test("the largest OI change per category is in the Summary, for calls and for puts, by absolute size; a tie takes the lower strike; none says none", async ({ page }) => {
       await open(page, w, h);
       await expect(page.getByTestId("chain-tops")).toHaveCount(0); // closed to begin with
-      expect((await rect(page, "chain-summary-toggle")).height, "one line").toBeLessThanOrEqual(34);
+      expect((await rect(page, "chain-summary-toggle")).height, "one line").toBeLessThanOrEqual(44);
       await page.getByTestId("chain-summary-toggle").click();
       const strike = (side: string, code: string) => page.getByTestId(`top-${side}-${code}-strike`);
       await expect(strike("CE", "LB")).toHaveText("1490"); // +9.00 L beats +5.00 L
@@ -142,12 +164,18 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       await expect(strike("PE", "LB")).toHaveText("1500");
       await expect(strike("PE", "LU")).toHaveText("1520");
       await expect(page.getByTestId("top-PE-SC-none")).toHaveText("none"); // no put is in short covering
-      await expect(page.getByTestId("top-CE-LB")).toContainText("+9.00 L");
-      await expect(page.getByTestId("top-CE-LB")).toContainText("+20.0%");
-      await expect(page.getByTestId("top-CE-SC")).toContainText("−80.0k");
-      // it says what "largest" means
-      await expect(page.getByTestId("chain-tops")).toContainText("by size (up or down)");
-      await expect(page.getByTestId("chain-tops")).toContainText("lower strike");
+      // the table shows the strike and the tag only; what is behind each strike is on the button, for a screen reader and for a long press
+      await expect(page.getByTestId("top-CE-LB")).toHaveAttribute("aria-label", /Long Buildup, call strike 1490: OI change \+9\.00 L, price \+20\.0 per cent/);
+      await expect(page.getByTestId("top-CE-SC")).toHaveAttribute("title", "OI change −80.0k, price +20.0%");
+      await expect(page.getByTestId("top-CE-LB")).not.toContainText("+9");
+      // a table of category against Calls and Puts, with an info icon; the one line that says what "largest" means is behind it
+      await expect(page.getByTestId("chain-tops")).toContainText("Top buildup strikes");
+      for (const code of ["LB", "SB", "SC", "LU"]) await expect(page.getByTestId("chain-tops").getByText(code, { exact: true })).toBeVisible();
+      await expect(page.getByTestId("chain-tops-info")).toHaveCount(0);
+      await page.getByTestId("chain-tops-info-toggle").click();
+      await expect(page.getByTestId("chain-tops-info")).toContainText("up or down");
+      expect(await page.getByTestId("chain-tops-info-toggle").evaluate((b) => parseFloat(getComputedStyle(b, "::after").height)), "a 44px hit area").toBeGreaterThanOrEqual(43.5);
+      await expect(page.getByTestId("chain-tops-info-toggle")).toHaveAttribute("title", /lower strike/);
       for (const id of ["top-CE-LB", "top-PE-SB", "top-CE-LU"]) expect((await rect(page, id)).height, id).toBeGreaterThanOrEqual(43.5);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
     });
@@ -177,12 +205,15 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       await expect(page.getByTestId("top-PE-SC")).toBeDisabled();
     });
 
-    test("the legend explains the four tags in one line, and the note says where the tags come from", async ({ page }) => {
+    test("the legend explains the four tags, wrapping onto two lines and never cut off, and the note says where the tags come from", async ({ page }) => {
       await open(page, w, h);
       await expect(page.getByTestId("chain-legend")).toHaveCount(0); // only in the Buildup view
       await buildup(page);
       const legend = page.getByTestId("chain-legend");
-      expect((await legend.boundingBox())!.height, "one line").toBeLessThanOrEqual(28);
+      expect((await legend.boundingBox())!.height, "two lines at most").toBeLessThanOrEqual(36);
+      expect(await legend.evaluate((e) => e.scrollWidth <= e.clientWidth + 1), "nothing is cut off").toBe(true);
+      for (const code of ["LB", "SB", "SC", "LU"]) { const r = (await page.getByTestId(`legend-${code}`).boundingBox())!; expect(r.x).toBeGreaterThanOrEqual(11.5); expect(r.x + r.width).toBeLessThanOrEqual(w - 11.5); }
+      await expect(page.getByTestId("chain-legend-key")).toHaveText("Green: price up · Red: price down · Bold: OI up");
       for (const [code, name] of [["LB", "Long Buildup"], ["SB", "Short Buildup"], ["SC", "Short Covering"], ["LU", "Long Unwinding"]]) await expect(page.getByTestId(`legend-${code}`)).toContainText(name);
       await expect(page.getByTestId("legend-LB")).toHaveAttribute("title", /Premium up, open interest up/);
       await expect(page.getByTestId("legend-LU")).toHaveAttribute("title", /Premium down, open interest down/);

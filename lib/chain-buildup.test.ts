@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { anyBuildup, buildupNote, strikeBuildup, topPerCategory } from "./chain-buildup";
+import { BUILDUP_MARK, anyBuildup, buildupMarkClass, buildupNote, legFigures, strikeBuildup, topPerCategory } from "./chain-buildup";
 import { buildupGrid, classifyBuildup, legBuildup, type ChainRow, type OptionLeg } from "./options";
 
 // a leg that traded, with last session's figures: price 100 -> `ltp`, OI 1000 -> `oi`
@@ -94,5 +94,31 @@ test("the chain and the Buildup page use the same classification: one function, 
     assert.doesNotMatch(src(f), /priceChange\s*>\s*0|priceChangePct\s*>\s*0\s*\?/, `${f} must not classify on its own`);
   }
   assert.match(src("components/views/BuildupView.tsx"), /buildupGrid|buildupBreakdown/);
-  assert.match(src("components/chain/PhoneChainTable.tsx"), /strikeBuildup|legBuildup/);
+  assert.match(src("components/chain/PhoneChainTable.tsx"), /legFigures|strikeBuildup|legBuildup/);
+});
+
+test("a tag's colour is the price's direction and its weight is the open interest's; the letter is always there", () => {
+  assert.deepEqual(BUILDUP_MARK["long-buildup"], { priceUp: true, oiUp: true });
+  assert.deepEqual(BUILDUP_MARK["short-buildup"], { priceUp: false, oiUp: true });
+  assert.deepEqual(BUILDUP_MARK["short-covering"], { priceUp: true, oiUp: false });
+  assert.deepEqual(BUILDUP_MARK["long-unwinding"], { priceUp: false, oiUp: false });
+  assert.equal(buildupMarkClass("long-buildup"), "text-chain-up font-bold");
+  assert.equal(buildupMarkClass("short-buildup"), "text-chain-down font-bold");
+  assert.equal(buildupMarkClass("short-covering"), "text-chain-up font-normal");
+  assert.equal(buildupMarkClass("long-unwinding"), "text-chain-down font-normal");
+  // the two colours are the tokens, and the tokens are the ones asked for: green #047857, red #be123c, grey #64748b
+  const css = fs.readFileSync("app/globals.css", "utf8");
+  assert.match(css, /--color-chain-up:\s*#047857/);
+  assert.match(css, /--color-chain-down:\s*#be123c/);
+  assert.match(css, /--color-chain-quiet:\s*#64748b/);
+});
+
+test("the Buildup view shows a leg's changes whenever it has traded and has last session's figures; a tag only when neither change is zero", () => {
+  assert.equal(legFigures(leg(110, 1500, { volume: 0 })), null); // it has not traded: blank
+  assert.equal(legFigures(leg(110, 1500, { prevOi: 0 })), null); // nothing to compare with: blank
+  const noTag = legFigures(leg(100, 1500))!; // no price change: the OI change is real and shown, the tag is not
+  assert.equal(noTag.kind, null);
+  assert.equal(noTag.oiChange, 500);
+  assert.equal(noTag.priceChangePct, 0);
+  assert.equal(legFigures(leg(110, 1500))!.kind, "long-buildup");
 });

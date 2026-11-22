@@ -72,7 +72,7 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       expect(head.y).toBeLessThanOrEqual(0.5);
       expect(head.height).toBeLessThanOrEqual(57);
       const t = await rect(page, "chain-scroll");
-      expect(t.y, "the table starts high up").toBeLessThan(h * 0.24);
+      expect(t.y, "the table starts high up").toBeLessThan(h * 0.31);
       expect(t.y + t.height, "and runs to the bottom of the screen").toBeGreaterThanOrEqual(h - 1);
       expect(t.height).toBeGreaterThan(h * 0.7);
       await expect(page.getByTestId("chain-bar")).toHaveCount(0);
@@ -171,7 +171,7 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
         const t = c.querySelector("span.relative")!.getBoundingClientRect();
         const r = c.getBoundingClientRect();
         const bar = c.querySelector('[data-testid="chain-oi-bar"]');
-        return { text: c.textContent, inside: t.left >= r.left - 0.5 && t.right <= r.right + 0.5, above: !bar || getComputedStyle(bar).zIndex !== "1", suffix: /\s[LC]r?$|k$|\d$/.test((c.textContent ?? "").trim()) };
+        return { text: c.textContent, inside: t.left >= r.left - 0.5 && t.right <= r.right + 0.5, above: !bar || getComputedStyle(bar).zIndex !== "1", suffix: /L$|Cr$|k$|\d$/.test((c.textContent ?? "").trim()) };
       }).filter((x) => !x.inside || !x.suffix));
       expect(bad).toEqual([]);
       // the bars are pale: a tint, not a block of colour
@@ -184,10 +184,10 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       await open(page, w, h);
       expect(await sideways(page)).toEqual({ page: 0, content: 0 });
       const scroll = page.getByTestId("chain-scroll");
-      // default: the table itself does not scroll sideways either, so both sides are in view
-      expect(await scroll.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
+      // the default columns are OI and OI chg: on a 390 screen both sides are in view; on a 360 one the outer columns may scroll, inside the table
+      if (w >= 390) expect(await scroll.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
       await page.getByTestId("chain-columns").click();
-      for (const c of ["oiChg", "volume", "ltpChg"]) await page.getByTestId(`chain-col-${c}`).click();
+      for (const c of ["volume", "ltpChg"]) await page.getByTestId(`chain-col-${c}`).click();
       await page.getByTestId("chain-columns").click();
       expect(await scroll.evaluate((e) => e.scrollWidth - e.clientWidth), "now the table scrolls sideways, inside itself").toBeGreaterThan(40);
       expect(await sideways(page)).toEqual({ page: 0, content: 0 });
@@ -196,7 +196,7 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
     test("Call LTP, Strike and Put LTP stay where they are, in the middle, while the outer columns scroll", async ({ page }) => {
       await open(page, w, h);
       await page.getByTestId("chain-columns").click();
-      for (const c of ["oiChg", "volume", "ltpChg"]) await page.getByTestId(`chain-col-${c}`).click();
+      for (const c of ["volume", "ltpChg"]) await page.getByTestId(`chain-col-${c}`).click();
       await page.getByTestId("chain-columns").click();
       const scroll = page.getByTestId("chain-scroll");
       const at = async () => {
@@ -242,10 +242,10 @@ for (const [w, h] of [[360, 800], [390, 844]] as const) {
       expect(head.height).toBeLessThanOrEqual(33);
     });
 
-    test("rows are 32px, in tabular figures, and each side of a strike has a 44px tap area", async ({ page }) => {
+    test("rows are 40px, in tabular figures, and each side of a strike has a 44px tap area", async ({ page }) => {
       await open(page, w, h);
       const rows = await page.locator('[data-col="ltp"][data-t="CE"]').evaluateAll((els) => els.slice(0, 5).map((e) => e.getBoundingClientRect().height));
-      for (const hh of rows) expect(hh).toBeCloseTo(32, 0);
+      for (const hh of rows) expect(hh).toBeCloseTo(40, 0);
       const hit = await page.getByTestId("chain-ce-25300").evaluate((b) => { const cs = getComputedStyle(b, "::after"); return { w: parseFloat(cs.width), h: parseFloat(cs.height) }; });
       expect(hit.h).toBeGreaterThanOrEqual(43.5);
       expect(hit.w).toBeGreaterThanOrEqual(43.5);
@@ -279,8 +279,9 @@ test.describe("the contents", () => {
     const s = (await spot.boundingBox())!;
     expect(s.y, "after the 25,250 row").toBeGreaterThanOrEqual(above.y + above.height - 0.5);
     expect(s.y + s.height, "before the 25,300 row").toBeLessThanOrEqual(below.y + 0.5);
-    expect(s.height).toBeCloseTo(28, 0);
-    // it is wide enough to read at any scroll position, and not the dark pill of the other app
+    expect(s.height).toBeCloseTo(24, 0);
+    // a thin line with a small label, readable at any scroll position, and not the dark pill of the other app
+    expect(await spot.locator("span[aria-hidden]").first().evaluate((e) => e.getBoundingClientRect().height)).toBeLessThanOrEqual(1.5);
     await expect(page.getByTestId("chain-atm")).toHaveCount(0);
     // in view and in the middle when the chain opens; the Spot button brings it back
     const scroll = page.getByTestId("chain-scroll");
@@ -298,7 +299,7 @@ test.describe("the contents", () => {
   test("the spot row stays readable when the table is scrolled sideways", async ({ page }) => {
     await open(page, 390, 844);
     await page.getByTestId("chain-columns").click();
-    for (const c of ["oiChg", "volume", "ltpChg"]) await page.getByTestId(`chain-col-${c}`).click();
+    for (const c of ["volume", "ltpChg"]) await page.getByTestId(`chain-col-${c}`).click();
     await page.getByTestId("chain-columns").click();
     const scroll = page.getByTestId("chain-scroll");
     for (const x of [0, 99999]) {
@@ -323,7 +324,7 @@ test.describe("the contents", () => {
     expect(await bg("chain-ce-25300")).toBe(plain);
   });
 
-  test("open interest is a bar behind the figure in each cell, scaled to the largest in view; there is no bar under the strike", async ({ page }) => {
+  test("open interest has a 2px rule under the figure in each cell, scaled to the largest in view; there is no bar under the strike", async ({ page }) => {
     await open(page, 390, 844);
     await expect(page.locator('[data-testid^="chain-split-"]')).toHaveCount(0);
     const bars = await page.locator('[data-col="oi"]').evaluateAll((cells) => cells.map((c) => ({ side: (c as HTMLElement).dataset.t, w: parseFloat(((c.querySelector('[data-testid="chain-oi-bar"] > span') as HTMLElement | null)?.style.width) ?? "0"), text: c.textContent })));
@@ -337,9 +338,13 @@ test.describe("the contents", () => {
     const row = c.rows.find((r) => r.strike === 25300)!;
     const w = await page.locator('[data-col="oi"][data-k="25300"][data-t="CE"] [data-testid="chain-oi-bar"] > span').evaluate((e) => parseFloat((e as HTMLElement).style.width));
     expect(w).toBeCloseTo((row.call.oi / max) * 100, 0);
-    // the bar is behind the number (the number is above it)
-    const z = await page.locator('[data-col="oi"][data-k="25300"][data-t="CE"]').evaluate((cell) => ({ bar: getComputedStyle(cell.querySelector('[data-testid="chain-oi-bar"]')!).position, text: getComputedStyle(cell.lastElementChild!).position }));
-    expect(z).toEqual({ bar: "absolute", text: "relative" });
+    // the rule is under the number, 2px thick, and never on top of it
+    const z = await page.locator('[data-col="oi"][data-k="25300"][data-t="CE"]').evaluate((cell) => {
+      const bar = cell.querySelector('[data-testid="chain-oi-bar"] > span')!.getBoundingClientRect();
+      const text = cell.lastElementChild!.getBoundingClientRect();
+      return { pos: getComputedStyle(cell.querySelector('[data-testid="chain-oi-bar"]')!).position, h: bar.height, below: bar.top >= text.bottom - 0.5 };
+    });
+    expect(z).toEqual({ pos: "absolute", h: 2, below: true });
   });
 
   test("tapping a Call or a Put cell opens the contract sheet; Buy from it opens the order screen for that strike and expiry, on another expiry too", async ({ page }) => {
@@ -377,14 +382,16 @@ test.describe("the contents", () => {
     await expect(page.getByTestId("chain-col-oi")).toBeVisible();
     await expect(page.getByTestId("chain-col-volume")).toHaveCount(0);
     await expect(page.getByTestId("chain-col-ltpChg")).toBeVisible();
-    // OI is what is shown to begin with; OI chg is added
+    // OI and OI chg are shown to begin with; OI chg is taken off
     await expect(page.locator('[data-head="1"]', { hasText: /^OI$/ })).toHaveCount(2);
+    await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(2);
     await page.getByTestId("chain-col-oiChg").click();
     await page.getByTestId("chain-columns").click();
-    await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(2);
+    await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(0);
     await page.reload();
     await page.getByTestId("chain-spot-row").waitFor();
-    await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(2); // still there after a reload
+    await expect(page.locator('[data-head="1"]', { hasText: /^OI$/ })).toHaveCount(2);
+    await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(0); // still off after a reload
     // IV is not offered on the Greeks view either
     await page.getByTestId("chain-view-greeks").click();
     await page.getByTestId("chain-columns").click();
@@ -396,9 +403,6 @@ test.describe("the contents", () => {
     await open(page, 390, 844);
     const c = base();
     const r = c.rows.find((x) => x.strike === 25300)!;
-    await page.getByTestId("chain-columns").click();
-    await page.getByTestId("chain-col-oiChg").click();
-    await page.getByTestId("chain-columns").click();
     const oiChg = page.locator('[data-col="oiChg"][data-k="25300"][data-t="CE"]');
     const abs = (await oiChg.innerText()).trim();
     expect(abs).toMatch(/[kLC]r?$|^[+−]?\d/);
@@ -436,7 +440,7 @@ test.describe("the contents", () => {
     await expect(line).toContainText(String(s.maxPain));
     await expect(line).toContainText(s.atmIv!.toFixed(2));
     await expect(line).toContainText(c.vix!.toFixed(2));
-    expect((await rect(page, "chain-summary-toggle")).height, "one line").toBeLessThanOrEqual(34);
+    expect((await rect(page, "chain-summary-toggle")).height, "one line").toBeLessThanOrEqual(44);
     expect(await line.evaluate((e) => e.scrollWidth <= e.clientWidth + 1), "the whole line fits, not cut").toBe(true);
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -485,7 +489,7 @@ test.describe("the contents", () => {
     await open(page, 390, 844);
     await expect(page.getByTestId("chain-levels")).toHaveCount(0);
     await expect(page.getByTestId("chain-levels-toggle")).toHaveAttribute("aria-expanded", "false");
-    expect((await rect(page, "chain-levels-toggle")).height, "one line").toBeLessThanOrEqual(34);
+    expect((await rect(page, "chain-levels-toggle")).height, "one line").toBeLessThanOrEqual(44);
     const c = base();
     const s = chainStats(c.rows, c.spot)!;
     await page.getByTestId("chain-levels-toggle").click();

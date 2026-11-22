@@ -159,7 +159,7 @@ export default function TradePhone(p: TradePhoneProps) {
     <section data-testid="chain-tab" aria-label="Option chain" className="flex min-h-0 flex-1 flex-col bg-white">
       {chain ? (
         <>
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-1.5">
             <span className="flex items-center gap-2 text-[12px] text-slate-500">
               {p.selected.replace(/^IDX /, "")} options
               {chain.expiry === istDateString() && (
@@ -168,7 +168,7 @@ export default function TradePhone(p: TradePhoneProps) {
                 </span>
               )}
             </span>
-            <select aria-label="Expiry" data-testid="chain-expiry-select" value={chain.expiry} onChange={(e) => setExpiryFor((m) => ({ ...m, [p.selected]: e.target.value }))} className="h-11 w-[132px] rounded-lg border border-slate-200 bg-white px-2 text-[16px] text-slate-900">
+            <select aria-label="Expiry" data-testid="chain-expiry-select" value={chain.expiry} onChange={(e) => setExpiryFor((m) => ({ ...m, [p.selected]: e.target.value }))} className="h-11 w-[132px] rounded-xl border-0 bg-slate-100 px-2 text-[16px] text-slate-900">
               {chain.expiries.map((e) => (
                 <option key={e} value={e}>
                   {fmtIsoDate(e, false)} · {daysLabel(daysToExpiry(e, istDateString()))}
