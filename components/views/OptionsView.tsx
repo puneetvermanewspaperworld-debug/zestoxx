@@ -12,8 +12,15 @@ import { fmt, fmtIsoDate, istDateString } from "@/lib/helpers";
 import { useOptionChain } from "@/lib/useOptionChain";
 import { atmContract } from "@/lib/sell-shortcut";
 import { PAPER_SELL } from "@/lib/labels";
+import { useScreenMode } from "@/lib/useScreenMode";
+import PhoneOptions from "@/components/chain/PhoneOptions";
 
+/** A phone gets the chain screen of its own (see PhoneOptions); a tablet or desktop keeps this page. */
 export default function OptionsView() {
+  return useScreenMode() === "wide" ? <DesktopOptionsView /> : <PhoneOptions />;
+}
+
+function DesktopOptionsView() {
   const { selected, sym, price, setSelected } = useZestoxx();
   const eligible = SYMBOLS.filter((s) => s.type !== "crypto");
   const isCrypto = sym.type === "crypto";

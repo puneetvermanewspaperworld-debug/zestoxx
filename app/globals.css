@@ -38,6 +38,9 @@
   --text-licence: 9px; /* the chart library's licence notice, the one line below the floor: it must be whole and on one line (see .zx-licence) */
   --text-licence-wide: 10px; /* the same from 380px wide */
   --btn-primary-h: 49.5px; /* Buy and Sell */
+  --chain-row: 32px; /* a strike's row in the option chain: its tap area is still 44px */
+  --chain-head: 32px; /* the chain's sticky header */
+  --chain-spot: 28px; /* the live spot's row between two strikes */
   --nav-h: 47px; /* the bottom tab bar (plus its 1px edge) */
   --sheet-sub: 31px; /* the name, price and change line under a sheet's title */
   --sheet-gap: 7px; /* extra space above Buy and Sell, on top of the 8px between a sheet's parts */

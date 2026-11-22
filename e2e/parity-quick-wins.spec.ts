@@ -53,26 +53,21 @@ test("2.1 the Watchlist page has a Watchlist | Options toggle that switches to /
   await expect(page.getByRole("navigation", { name: "Watchlist or Options" }).getByRole("link", { name: "Options" })).toHaveAttribute("aria-current", "page");
 });
 
-test("17.3 /app/options has Paper sell Call and Paper sell Put buttons that open the order sheet on the ATM strike", async ({ page }) => {
+test("17.3 on a phone /app/options has no Paper sell buttons: tapping a strike opens the order screen, where Sell can be chosen", async ({ page }) => {
   await page.clock.install({ time: OPEN });
   await mockQuotes(page);
   await page.route("**/api/options-chain**", (r) => r.fulfill({ json: chain("NIFTY50", "2026-11-17") }));
   await page.route("**/api/option-quote**", (r) => r.fulfill({ json: { source: "unavailable" } }));
   await page.route("**/api/option-candles**", (r) => r.fulfill({ json: { source: "unavailable" } }));
   await page.goto("/app/options", { waitUntil: "domcontentloaded" });
-  const sellCall = page.getByRole("button", { name: /^Paper sell Call/ });
-  const sellPut = page.getByRole("button", { name: /^Paper sell Put/ });
-  await expect(sellCall).toBeVisible();
-  await expect(sellPut).toBeVisible();
+  await expect(page.getByTestId("chain-spot-row")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Paper sell/ })).toHaveCount(0); // the two shortcuts are gone from the phone's chain (the wide screen keeps them)
   await noSideScroll(page, "options");
-  await sellCall.click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator("#order-sheet-title")).toContainText("25250 CE");
-  await expect(dialog.getByTestId("sell-not-held")).toContainText("short selling isn't supported");
-  await page.keyboard.press("Escape");
-  await sellPut.click();
-  await expect(page.locator("#order-sheet-title")).toContainText("25250 PE");
+  await page.getByTestId("chain-ce-25250").click();
+  await expect(page.getByTestId("action-screen")).toBeVisible();
+  await expect(page.getByTestId("contract-strike")).toHaveText("25250");
+  await page.getByTestId("side-sell").click();
+  await expect(page.getByTestId("sell-not-held")).toContainText("short selling isn't supported");
 });
 
 const optionMovers = {
@@ -94,7 +89,11 @@ async function openOptionMovers(page: Page) {
     return r.fulfill({ json: view === "options" ? optionMovers : { source: "unavailable" } });
   });
   await page.goto("/app/movers", { waitUntil: "domcontentloaded" });
-  await page.getByRole("tab", { name: /^F&O/ }).click();
+  // a click that lands before the page has hydrated does nothing, so the first tap is repeated until the sub-tabs are there
+  await expect(async () => {
+    await page.getByRole("tab", { name: /^F&O/ }).click();
+    await expect(page.getByRole("tab", { name: /^Options/ })).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 30_000 });
   await page.getByRole("tab", { name: /^Options/ }).click();
 }
 

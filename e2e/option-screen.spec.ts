@@ -94,8 +94,10 @@ test("a contract that is not in the chain says so", async ({ page }) => {
 });
 
 test("from the contract sheet: Buy and Sell open the screen, back returns to the sheet", async ({ page }) => {
-  await open(page, "/app/options");
-  const cell = page.locator("table button").filter({ hasText: /\d/ }).first();
+  // the contract sheet on a phone comes from the chart page's Option Chain tab (the Options page opens the order screen directly)
+  await open(page, "/app/trade/NIFTY50");
+  await page.getByTestId("tab-chain").click();
+  const cell = page.getByTestId("chain-tab").getByRole("button").filter({ hasText: /\d/ }).first();
   await cell.waitFor({ timeout: 20_000 });
   await cell.click();
   await expect(page.getByTestId("option-sheet")).toBeVisible();

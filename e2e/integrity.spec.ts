@@ -282,6 +282,7 @@ test("option sheet badge: a live contract quote says Last close when the market 
     await p.route("**/api/options-chain**", (r) => r.fulfill({ json: CHAIN }));
     await p.route("**/api/option-quote**", (r) => r.fulfill({ json: liveQuote }));
     await p.route("**/api/option-candles**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+    await p.setViewportSize({ width: 1280, height: 800 }); // the contract sheet is opened from the wide screen's chain table: a phone's chain opens the order screen directly
     await p.goto("/app/options", { waitUntil: "domcontentloaded" });
     await p.locator("table tbody tr").nth(8).locator("button").first().click();
     await p.waitForSelector("#order-sheet-title");
