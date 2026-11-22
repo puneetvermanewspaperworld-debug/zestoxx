@@ -7,8 +7,10 @@ import { SYMBOLS, typeOf } from "@/lib/symbols";
 import { isTradableId } from "@/lib/dynamic-symbols";
 import { useWatchSymbols } from "@/components/useWatchSymbols";
 import { fmt } from "@/lib/helpers";
+import PhoneAlerts from "@/components/phone/PhoneAlerts";
+import { useScreenMode } from "@/lib/useScreenMode";
 
-export default function AlertsView() {
+function DesktopAlertsView() {
   const { alerts, setAlerts, live, alertPrefill } = useZestoxx();
   const [symbol, setSymbol] = useState(alertPrefill || SYMBOLS[0].id);
   const [condition, setCondition] = useState<"above" | "below">("above");
@@ -114,4 +116,10 @@ export default function AlertsView() {
       </div>
     </div>
   );
+}
+
+/** A phone gets the alert list and the alert screen (components/phone, components/action); a tablet or desktop keeps this page. */
+export default function AlertsView() {
+  const mode = useScreenMode();
+  return mode === "wide" ? <DesktopAlertsView /> : <PhoneAlerts />;
 }

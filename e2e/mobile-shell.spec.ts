@@ -389,15 +389,16 @@ test.describe("the symbol sheet", () => {
     await dismissNotice(page);
     await page.getByTestId("wl-open-RELIANCE").click();
     await page.getByTestId("sheet-alert").click();
-    await page.getByTestId("alert-save").click();
-    await expect(page.getByTestId("alert-form").getByRole("alert")).toContainText("above 0");
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("alert-error")).toHaveText("Enter a target price above 0.");
     await page.getByTestId("alert-target").fill("1600");
-    await page.getByTestId("alert-save").click();
-    await expect(page.getByTestId("alert-form")).toHaveCount(0);
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("result-status")).toHaveText("Alert set");
+    await page.getByTestId("action-done").click();
     await page.getByTestId("sheet-close").click();
     await page.getByTestId("nav-orders").click();
     await page.getByTestId("orders-tab-alerts").click();
-    await expect(page.getByText("Active Alerts")).toBeVisible();
+    await expect(page.getByTestId("phone-alerts")).toBeVisible();
     await expect(page.getByText(/RELIANCE/).first()).toBeVisible();
   });
 
@@ -428,7 +429,7 @@ test.describe("orders: GTT and stop-loss", () => {
     await page.getByTestId("orders-tab-sips").click();
     await expect(page.getByText(/SIP/i).first()).toBeVisible();
     await page.getByTestId("orders-tab-alerts").click();
-    await expect(page.getByText("Set a Price Alert")).toBeVisible();
+    await expect(page.getByTestId("phone-alerts")).toBeVisible();
   });
 
   test("a stop-loss is created from the symbol sheet, waits under GTT, and can be cancelled", async ({ page }) => {
@@ -786,8 +787,15 @@ for (const [w, h] of SIZES) {
       expect(await smallControls(page)).toEqual([]);
       await page.getByTestId("action-back").click();
       await page.getByTestId("sheet-alert").click();
+      await expect(page.getByTestId("action-screen")).toBeVisible();
+      expect(await noSideways(page)).toBe(true);
+      expect(await smallControls(page)).toEqual([]);
+      await page.getByTestId("action-back").click();
       await page.getByTestId("sheet-notes").click();
+      expect(await noSideways(page)).toBe(true);
+      expect(await smallControls(page)).toEqual([]);
       await page.getByTestId("sheet-buy").click();
+      await expect(page.getByTestId("action-screen")).toBeVisible();
       expect(await noSideways(page)).toBe(true);
       expect(await smallControls(page)).toEqual([]);
     });
@@ -872,7 +880,8 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await openFromList(page, "ITC");
     await page.getByTestId("sheet-alert").click();
     await page.getByTestId("alert-target").fill("410");
-    await page.getByTestId("alert-save").click();
+    await page.getByTestId("action-submit").click();
+    await page.getByTestId("action-done").click();
     await expect.poll(() => (puts[puts.length - 1] as { alerts?: { symbol: string; target: number; condition: string }[] } | undefined)?.alerts?.[0]).toMatchObject({ symbol: "ITC", target: 410, condition: "above" });
     book.ITC.ltp = 411;
     await nextPoll(page);

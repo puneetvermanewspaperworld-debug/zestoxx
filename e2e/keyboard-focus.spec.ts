@@ -92,8 +92,8 @@ test.describe("the other order forms and fields", () => {
 
   test("the Alerts page: target price", async ({ page }) => {
     await setup(page, "/app/alerts");
-    const target = page.getByPlaceholder(/\d/).first();
-    expect(await typeKeepingFocus(page, target, "1625")).toBe("1625");
+    await page.getByTestId("alert-new").click(); // the alert is a full screen now
+    expect(await typeKeepingFocus(page, page.getByTestId("alert-target"), "1625")).toBe("1625");
   });
 
   test("Watchlist: the search field and a new list's name", async ({ page }) => {

@@ -63,14 +63,14 @@ const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n 
  */
 export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string; quote: RowQuote; onClose: () => void }) {
   const router = useRouter();
-  const { setSelected, setAlerts, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
+  const { setSelected, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
   const tradable = isTradableId(symbol);
   const own = !!SYMBOL_MAP[symbol];
   useWatchSymbols([symbol]);
   const state = own ? undefined : quoteStateOf(symbol);
   const noTrades = state === "none";
   const type = quote.type;
-  const [panel, setPanel] = useState<"alert" | "notes" | null>(null);
+  const [panel, setPanel] = useState<"notes" | null>(null);
   const { openAction } = useAction();
   const expiryToday = useExpiryToday(symbol === "NIFTY50" || symbol === "BANKNIFTY" ? symbol : "NIFTY50");
   const showExpiry = (symbol === "NIFTY50" || symbol === "BANKNIFTY") && expiryToday === true;
@@ -138,13 +138,12 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
           </div>
           <div className="my-[var(--link-gap)] h-px bg-slate-200" />
           <div className="flex h-11 items-center justify-between">
-            <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!listed} pressed={panel === "alert"} onClick={() => open("alert")} />
+            <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!listed} onClick={() => openAction({ kind: "alert", symbol })} />
             <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" pressed={panel === "notes"} onClick={() => open("notes")} />
             <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!canOrder} onClick={() => (setSelected(symbol), openAction({ kind: "gtt", symbol }))} />
           </div>
         </div>
 
-        {panel === "alert" && listed && <AlertForm symbol={symbol} price={price} type={type} onDone={() => setPanel(null)} setAlerts={setAlerts} />}
         {panel === "notes" && <NotesForm symbol={symbol} initial={notes[symbol] ?? ""} onSave={(t) => (setNote(symbol, t), setPanel(null))} />}
         {notes[symbol] && panel !== "notes" && (
           <p data-testid="saved-note" className="mx-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
@@ -169,39 +168,6 @@ function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { ico
 }
 
 const field = "min-h-[44px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-[14px] text-slate-900 outline-none focus:border-blue-400";
-
-function AlertForm({ symbol, price, type, onDone, setAlerts }: { symbol: string; price: number | null; type: RowQuote["type"]; onDone: () => void; setAlerts: ReturnType<typeof useZestoxx>["setAlerts"] }) {
-  const [condition, setCondition] = useState<"above" | "below">("above");
-  const [target, setTarget] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <form
-      data-testid="alert-form"
-      className="mx-2 space-y-2 rounded-lg border border-slate-200 p-2.5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const t = parseFloat(target);
-        if (!(t > 0)) return setError("Enter a target price above 0.");
-        setAlerts((a) => [{ id: Date.now() + Math.random(), symbol, condition, target: t, createdAt: new Date().toLocaleTimeString("en-IN") }, ...a]);
-        onDone();
-      }}
-    >
-      <p className="text-[12px] text-slate-500">Alert me once when {symbol} goes… ({price == null ? "no live price now" : `now ${fmt(price, type)}`}). It fires while Zestoxx is open.</p>
-      <div className="flex gap-2" role="radiogroup" aria-label="Alert condition">
-        {(["above", "below"] as const).map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={condition === c} onClick={() => setCondition(c)} className={"min-h-[44px] flex-1 rounded-lg border text-[13px] font-medium " + (condition === c ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600")}>
-            {c === "above" ? "Above" : "Below"}
-          </button>
-        ))}
-      </div>
-      <input data-testid="alert-target" inputMode="decimal" aria-label="Target price" placeholder="Target price" value={target} onChange={(e) => (setTarget(e.target.value), setError(null))} className={field + " font-mono"} />
-      {error && <p role="alert" className="text-[12px] text-rose-500">{error}</p>}
-      <button type="submit" data-testid="alert-save" className="min-h-[44px] w-full rounded-lg bg-blue-600 text-[14px] font-semibold text-white">
-        Set alert
-      </button>
-    </form>
-  );
-}
 
 function NotesForm({ symbol, initial, onSave }: { symbol: string; initial: string; onSave: (t: string) => void }) {
   const [text, setText] = useState(initial);
