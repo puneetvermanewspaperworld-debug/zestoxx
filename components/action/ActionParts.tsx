@@ -107,3 +107,15 @@ export function Notice({ tone = "info", children, testId }: { tone?: "info" | "w
     </p>
   );
 }
+
+/** A multi-line field (16px, like every field) with a character count. */
+export function TextArea({ id, value, onChange, ariaLabel, testId, max, rows = 6 }: { id: string; value: string; onChange: (v: string) => void; ariaLabel: string; testId?: string; max: number; rows?: number }) {
+  return (
+    <div>
+      <textarea id={id} data-testid={testId} aria-label={ariaLabel} value={value} rows={rows} onChange={(e) => onChange(e.target.value)} className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none focus:border-blue-500" />
+      <div data-testid={testId ? `${testId}-count` : undefined} className={"mt-1 text-right text-[12px] " + (value.length > max ? "text-rose-600" : "text-slate-500")}>
+        {value.length} / {max}
+      </div>
+    </div>
+  );
+}

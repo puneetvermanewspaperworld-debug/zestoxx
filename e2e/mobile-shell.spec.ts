@@ -373,14 +373,18 @@ test.describe("the symbol sheet", () => {
     await page.getByTestId("wl-open-RELIANCE").click();
     await page.getByTestId("sheet-notes").click();
     await page.getByTestId("note-text").fill("Wait for 1,450");
-    await page.getByTestId("note-save").click();
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("note-saved")).toContainText("Note saved");
+    await page.getByTestId("action-done").click();
     await expect(page.getByTestId("saved-note")).toHaveText("Wait for 1,450");
     await expect(page.getByTestId("sheet-notes")).toHaveText("Edit notes");
     await expect.poll(() => (puts[puts.length - 1] as { notes?: Record<string, string> } | undefined)?.notes).toEqual({ RELIANCE: "Wait for 1,450" });
     // a blank note deletes it
     await page.getByTestId("sheet-notes").click();
     await page.getByTestId("note-text").fill("");
-    await page.getByTestId("note-save").click();
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("note-saved")).toContainText("Note deleted");
+    await page.getByTestId("action-done").click();
     await expect(page.getByTestId("saved-note")).toHaveCount(0);
   });
 
@@ -792,8 +796,10 @@ for (const [w, h] of SIZES) {
       expect(await smallControls(page)).toEqual([]);
       await page.getByTestId("action-back").click();
       await page.getByTestId("sheet-notes").click();
+      await expect(page.getByTestId("action-screen")).toBeVisible();
       expect(await noSideways(page)).toBe(true);
       expect(await smallControls(page)).toEqual([]);
+      await page.getByTestId("action-back").click();
       await page.getByTestId("sheet-buy").click();
       await expect(page.getByTestId("action-screen")).toBeVisible();
       expect(await noSideways(page)).toBe(true);

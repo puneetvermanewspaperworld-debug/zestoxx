@@ -63,14 +63,13 @@ const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n 
  */
 export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string; quote: RowQuote; onClose: () => void }) {
   const router = useRouter();
-  const { setSelected, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
+  const { setSelected, notes, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
   const tradable = isTradableId(symbol);
   const own = !!SYMBOL_MAP[symbol];
   useWatchSymbols([symbol]);
   const state = own ? undefined : quoteStateOf(symbol);
   const noTrades = state === "none";
   const type = quote.type;
-  const [panel, setPanel] = useState<"notes" | null>(null);
   const { openAction } = useAction();
   const expiryToday = useExpiryToday(symbol === "NIFTY50" || symbol === "BANKNIFTY" ? symbol : "NIFTY50");
   const showExpiry = (symbol === "NIFTY50" || symbol === "BANKNIFTY") && expiryToday === true;
@@ -79,7 +78,6 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
   const changePct = !tradable ? quote.changePct : price == null ? null : own || hasFeedQuote(symbol) ? chgFor(symbol) : null;
   const canOrder = tradable && price != null;
   const listed = tradable && state !== "unknown";
-  const open = (p: typeof panel) => setPanel((cur) => (cur === p ? null : p));
 
   return (
     <Sheet title={symbol.replace(/^IDX /, "")} large onClose={onClose} testId="symbol-sheet">
@@ -139,13 +137,12 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
           <div className="my-[var(--link-gap)] h-px bg-slate-200" />
           <div className="flex h-11 items-center justify-between">
             <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!listed} onClick={() => openAction({ kind: "alert", symbol })} />
-            <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" pressed={panel === "notes"} onClick={() => open("notes")} />
+            <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" onClick={() => openAction({ kind: "note", symbol })} />
             <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!canOrder} onClick={() => (setSelected(symbol), openAction({ kind: "gtt", symbol }))} />
           </div>
         </div>
 
-        {panel === "notes" && <NotesForm symbol={symbol} initial={notes[symbol] ?? ""} onSave={(t) => (setNote(symbol, t), setPanel(null))} />}
-        {notes[symbol] && panel !== "notes" && (
+        {notes[symbol] && (
           <p data-testid="saved-note" className="mx-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
             {notes[symbol]}
           </p>
@@ -167,22 +164,6 @@ function ActionButton({ icon, label, onClick, disabled, pressed, testId }: { ico
   );
 }
 
-const field = "min-h-[44px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-[14px] text-slate-900 outline-none focus:border-blue-400";
-
-function NotesForm({ symbol, initial, onSave }: { symbol: string; initial: string; onSave: (t: string) => void }) {
-  const [text, setText] = useState(initial);
-  return (
-    <form data-testid="notes-form" className="mx-2 space-y-2" onSubmit={(e) => (e.preventDefault(), onSave(text))}>
-      <label htmlFor="note-text" className="text-[12px] text-slate-500">
-        Your note on {symbol} (kept in your paper account, up to 500 characters)
-      </label>
-      <textarea id="note-text" data-testid="note-text" value={text} maxLength={500} onChange={(e) => setText(e.target.value)} rows={3} className={field + " py-2"} />
-      <button type="submit" data-testid="note-save" className="min-h-[44px] w-full rounded-lg bg-blue-600 text-[14px] font-semibold text-white">
-        {text.trim() ? "Save note" : initial ? "Delete note" : "Save note"}
-      </button>
-    </form>
-  );
-}
 
 function DayRange({ symbol, type, price }: { symbol: string; type: RowQuote["type"]; price: number | null }) {
   const res = useSymbolDetail(symbol);
