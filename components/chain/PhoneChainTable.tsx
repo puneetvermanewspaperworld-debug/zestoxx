@@ -8,7 +8,8 @@ import type { OptionChain } from "@/lib/options";
 /** Call LTP, Strike and Put LTP: pinned in the middle of the table. Everything else scrolls sideways under them. */
 const LTP_W = 64;
 const STRIKE_W = 64;
-const OUTER_MIN = 64;
+/** wide enough for "1.43 Cr" and "+21.52 L" with their padding: a figure is never cut off */
+const OUTER_MIN = 72;
 const CENTRE_W = LTP_W * 2 + STRIKE_W;
 
 export interface ChainTableHandle {
@@ -58,14 +59,42 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  // opening a chain (another underlying or expiry) or changing the columns puts the middle of the screen on the pinned columns and the spot in view
+  // Opening a chain (another underlying or expiry) or changing the columns puts the spot in the middle of the table. The table may still be getting
+  // its size (the controls above it settle, fonts load), so it is put there again whenever its size changes, until a finger, a wheel or a key
+  // touches it: from then on it is where the user left it.
   const key = `${chain.underlying}|${chain.expiry}|${cols.join(",")}|${tab}`;
   const shown = useRef("");
+  const settling = useRef(true);
   useLayoutEffect(() => {
     if (cw === 0 || shown.current === key) return;
     shown.current = key;
+    settling.current = true;
     jumpToSpot();
   }, [key, cw, jumpToSpot]);
+  // the spot moving to another pair of strikes while the table is still settling is a reason to centre it again
+  useLayoutEffect(() => {
+    if (settling.current && shown.current === key) jumpToSpot();
+  }, [slot, key, jumpToSpot]);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const again = () => {
+      if (settling.current) jumpToSpot();
+    };
+    const stop = () => {
+      settling.current = false;
+    };
+    const ro = new ResizeObserver(again);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    const stopAfter = setTimeout(stop, 2500);
+    for (const ev of ["touchstart", "wheel", "pointerdown", "keydown"]) el.addEventListener(ev, stop, { passive: true });
+    return () => {
+      ro.disconnect();
+      clearTimeout(stopAfter);
+      for (const ev of ["touchstart", "wheel", "pointerdown", "keydown"]) el.removeEventListener(ev, stop);
+    };
+  }, [key, jumpToSpot]);
 
   // the pinned columns: the call's LTP, the strike, the put's LTP
   const pinLeft = [a, a + LTP_W, a + LTP_W + STRIKE_W];
@@ -95,7 +124,7 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
   const oiBar = (side: "call" | "put", oi: number) =>
     maxOi > 0 && oi > 0 ? (
       <span aria-hidden data-testid="chain-oi-bar" className={"absolute inset-x-1 inset-y-1 flex " + (side === "call" ? "justify-end" : "justify-start")}>
-        <span className={"block h-full rounded-sm " + (side === "call" ? "bg-indigo-200/80" : "bg-amber-200/80")} style={{ width: `${Math.max(3, (oi / maxOi) * 100)}%` }} />
+        <span className={"block h-full rounded-sm " + (side === "call" ? "bg-indigo-100/80" : "bg-amber-100/80")} style={{ width: `${Math.max(3, (oi / maxOi) * 100)}%` }} />
       </span>
     ) : null;
 
@@ -143,7 +172,7 @@ export default function PhoneChainTable({ chain, atm, spot, change, pct, cols, m
             return (
               <div key={`${side}-${c}`} data-k={r.strike} data-t={side === "call" ? "CE" : "PE"} data-col={c} className={cell + " " + (side === "call" ? "justify-end" : "justify-start") + " " + shade(side === "call" ? callItm : putItm) + " " + TONE[v.tone]}>
                 {c === "oi" && oiBar(side, leg.oi)}
-                <span className="relative">{v.text}</span>
+                <span className="relative whitespace-nowrap">{v.text}</span>
               </div>
             );
           };

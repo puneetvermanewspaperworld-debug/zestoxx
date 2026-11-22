@@ -1,6 +1,7 @@
 import { fetchQuotesBatch, upstoxToken, type RawQuote } from "./upstox";
 import { equityMovers, getUniverse, memoized, type StockInfo, type Universe } from "./upstox-movers";
 import { titleCase } from "./movers";
+import { OPTION_UNDERLYINGS } from "./upstox";
 import type { PopularList, SearchResult, WatchRow } from "./watchlists";
 
 /**
@@ -46,7 +47,7 @@ export async function quoteRows(token: string, symbols: string[]): Promise<Watch
  * Symbol/name search over every NSE equity, ETF and index, from the public instrument master (cached, refreshed daily; no Upstox token
  * needed). Each result says what it is and whether it has futures and options.
  */
-export async function searchSymbols(query: string, limit = 10): Promise<SearchResult[]> {
+export async function searchSymbols(query: string, limit = 10, optionsOnly = false): Promise<SearchResult[]> {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const u = await getUniverse();
@@ -57,6 +58,8 @@ export async function searchSymbols(query: string, limit = 10): Promise<SearchRe
     const rank = sym === q ? 0 : sym.startsWith(q) ? 1 : sym.includes(q) ? 2 : nm.includes(q) ? 3 : -1;
     if (rank < 0) return;
     const fno = u.fnoSymbols.has(symbol);
+    // for the option chain: only what has options and what the chain feed can serve (an index the chain route does not know is left out)
+    if (optionsOnly && (!fno || (kind === "index" && !OPTION_UNDERLYINGS[symbol]))) return;
     scored.push({ r: { symbol, name, kind, fno }, rank, fno });
   };
   for (const s of u.allEq) consider(s.symbol, displayName(s), s.isin?.startsWith("INF") ? "etf" : "equity", s.symbol);

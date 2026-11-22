@@ -267,8 +267,9 @@ for (const [label, time, expected] of [["open", OPEN, "Live data"], ["shut", SHU
 
     // options chain
     await page.goto("/app/options", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("data-badge").first()).toHaveText(expected);
-    await expect(page.getByText(expected === "Live data" ? "Last close" : "Live data", { exact: true })).toHaveCount(0);
+    // a phone's chain says it in a small tag: Live while the market is open, Market closed (last session's figures) once it is shut
+    await expect(page.getByTestId("chain-tag")).toHaveText(expected === "Live data" ? "Live" : "Market closed");
+    await expect(page.getByTestId("chain-tag")).toHaveAttribute("title", expected === "Live data" ? /Live option prices/ : /last session/);
 
   });
 }

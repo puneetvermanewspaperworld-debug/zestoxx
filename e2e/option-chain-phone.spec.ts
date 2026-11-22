@@ -9,8 +9,13 @@ import { account, openApp, tick } from "./action-helpers";
 const EXPIRIES = ["2026-11-12", "2026-11-19", "2026-11-26"];
 const base = (expiry = EXPIRIES[0]) => ({ ...simulateChain("NIFTY50", 25250, expiry, new Date("2026-11-11T08:20:00Z")), source: "live" as const, expiry, expiries: EXPIRIES }) as OptionChain;
 
+/** a RELIANCE chain whose spot (1,500) is a long way from its first strike, as a real one is: the screen must open at the spot, not at the top */
+const reliance = (expiry = EXPIRIES[0]) => ({ ...simulateChain("RELIANCE", 1500, expiry, new Date("2026-11-11T08:20:00Z")), underlying: "RELIANCE", source: "live" as const, expiry, expiries: EXPIRIES }) as OptionChain;
+
 interface Setup {
   chain?: (expiry: string) => OptionChain | null;
+  /** stay on the RELIANCE chain the screen opens with, instead of searching for NIFTY50 */
+  stay?: boolean;
   /** the expiry asked for, in order */
   asked?: string[];
 }
@@ -19,35 +24,160 @@ async function open(page: Page, w: number, h: number, s: Setup = {}, extra?: (p:
   const get = s.chain ?? base;
   const res = await openApp(page, "/app/options", account(), async (p) => {
     await p.route("**/api/options-chain**", (r) => {
-      const e = new URL(r.request().url()).searchParams.get("expiry") ?? EXPIRIES[0];
+      const q = new URL(r.request().url()).searchParams;
+      const e = q.get("expiry") ?? EXPIRIES[0];
       s.asked?.push(e);
-      const c = get(e);
-      return r.fulfill({ json: c ?? { source: "unavailable" } });
+      const c = q.get("underlying") === "RELIANCE" && !s.chain ? reliance(e) : get(e);
+      return r.fulfill({ json: c ? { ...c, underlying: q.get("underlying") ?? c.underlying } : { source: "unavailable" } });
+    });
+    // the exchange's list of what has options, narrowed by what is typed
+    await p.route("**/api/watchlist-search**", (r) => {
+      const q = (new URL(r.request().url()).searchParams.get("q") ?? "").toLowerCase();
+      const all = [{ symbol: "NIFTY50", name: "Nifty 50 Index", kind: "index", fno: true }, { symbol: "BANKNIFTY", name: "Bank Nifty", kind: "index", fno: true }, { symbol: "RELIANCE", name: "Reliance Industries", kind: "equity", fno: true }, { symbol: "TCS", name: "Tata Consultancy Services", kind: "equity", fno: true }];
+      return r.fulfill({ json: { results: all.filter((x) => x.symbol.toLowerCase().includes(q) || x.name.toLowerCase().includes(q)) } });
     });
     await p.route("**/api/option-expiries**", (r) => r.fulfill({ json: { source: "live", expiries: EXPIRIES, lot: 65 } }));
     await p.route("**/api/option-quote**", (r) => r.fulfill({ json: { source: "unavailable" } }));
     await extra?.(p);
   });
-  await page.getByTestId("chain-sym-NIFTY50").click();
   await page.getByTestId("chain-spot-row").waitFor();
+  if (!s.stay) await pickUnderlying(page, "nifty", "NIFTY50");
   await page.waitForTimeout(300);
   return res;
+}
+/** search for an underlying and tap the result */
+async function pickUnderlying(page: Page, typed: string, symbol: string) {
+  await page.getByTestId("chain-search-open").click();
+  await page.getByTestId("chain-search-input").fill(typed);
+  await page.getByTestId(`chain-result-${symbol}`).click();
+  await page.getByTestId("chain-spot-row").waitFor();
+  await expect(page.getByTestId("chain-underlying-name")).toHaveText(symbol);
+  await page.waitForTimeout(300);
 }
 const rect = async (page: Page, testId: string) => (await page.getByTestId(testId).boundingBox())!;
 const sideways = (page: Page) => page.evaluate(() => ({ page: document.documentElement.scrollWidth - window.innerWidth, content: (() => { const c = document.querySelector('[data-testid="app-content"]')!; return c.scrollWidth - c.clientWidth; })() }));
 
 for (const [w, h] of [[360, 800], [390, 844]] as const) {
   test.describe(`${w}x${h}`, () => {
-    test("the chain comes first: no stat cards, no Paper sell buttons, the table is in the upper half and ends above the tab bar", async ({ page }) => {
+    test("the chain is a full screen: no brand bar, ticker, cookie notice or tab bar, and the table has nearly all of the height", async ({ page }) => {
       await open(page, w, h);
       await expect(page.getByText(/2nd highest/i)).toHaveCount(0);
       await expect(page.getByRole("button", { name: /Paper sell/ })).toHaveCount(0);
-      await expect(page.getByText("Options Chain", { exact: true })).toHaveCount(0);
+      // (hidden elements may still be in the page: what counts is what can be seen)
+      await expect(page.getByText("ZESTOXX", { exact: true }).filter({ visible: true })).toHaveCount(0);
+      await expect(page.getByTestId("guest-notice-dismiss").filter({ visible: true })).toHaveCount(0);
+      await expect(page.locator("nav").filter({ visible: true })).toHaveCount(0); // the tab bar
+      await expect(page.getByText("Market Open").filter({ visible: true })).toHaveCount(0); // the top bar
+      const head = await rect(page, "chain-header");
+      expect(head.y).toBeLessThanOrEqual(0.5);
+      expect(head.height).toBeLessThanOrEqual(57);
       const t = await rect(page, "chain-scroll");
-      expect(t.y, "the table starts in the upper part of the screen").toBeLessThan(h * 0.42);
-      const nav = (await page.locator("nav").last().boundingBox())!;
-      expect(t.y + t.height, "the table ends above the tab bar").toBeLessThanOrEqual(nav.y + 1);
-      await expect(page.getByTestId("chain-bar")).toHaveCount(0); // there is no fixed bar under the table: the summary is at the top
+      expect(t.y, "the table starts high up").toBeLessThan(h * 0.24);
+      expect(t.y + t.height, "and runs to the bottom of the screen").toBeGreaterThanOrEqual(h - 1);
+      expect(t.height).toBeGreaterThan(h * 0.7);
+      await expect(page.getByTestId("chain-bar")).toHaveCount(0);
+      await expect(page.getByTestId("chain-back")).toBeVisible();
+      expect((await rect(page, "chain-back")).width).toBeGreaterThanOrEqual(43.5);
+    });
+
+    test("the header: a search box for the underlying with its price and change, and the expiry beside it, on one row with no overlap", async ({ page }) => {
+      await open(page, w, h, { stay: true });
+      const back = await rect(page, "chain-back");
+      const box = await rect(page, "chain-search-open");
+      const exp = await rect(page, "chain-expiry-select");
+      expect(back.x + back.width).toBeLessThanOrEqual(box.x + 0.5);
+      expect(box.x + box.width).toBeLessThanOrEqual(exp.x + 0.5);
+      expect(exp.x + exp.width).toBeLessThanOrEqual(w + 0.5);
+      for (const r of [box, exp]) expect(r.height).toBeGreaterThanOrEqual(43.5);
+      expect(Math.abs(box.y - exp.y)).toBeLessThan(2);
+      await expect(page.getByTestId("chain-underlying-name")).toHaveText("RELIANCE");
+      await expect(page.getByTestId("chain-underlying-price")).toHaveText("₹1,500.00");
+      await expect(page.getByTestId("chain-underlying-change")).toHaveText("+0.67%");
+      // the expiry's text is all there (not cut off) and the field is 16px
+      const sel = await page.getByTestId("chain-expiry-select").evaluate((e) => ({ fs: getComputedStyle(e).fontSize, ok: e.scrollWidth <= e.clientWidth + 1 }));
+      expect(sel.fs).toBe("16px");
+      expect(sel.ok).toBe(true);
+      const name = await page.getByTestId("chain-underlying-name").evaluate((e) => ({ clip: e.scrollWidth > e.clientWidth + 1 }));
+      expect(name.clip).toBe(false);
+    });
+
+    test("the screen opens with the spot row in the middle of the table, on load and after another symbol or expiry; the strikes at the top are not what is shown", async ({ page }) => {
+      await open(page, w, h, { stay: true });
+      const mid = async () => {
+        const sb = await rect(page, "chain-scroll");
+        const sp = await rect(page, "chain-spot-row");
+        return sp.y + sp.height / 2 - (sb.y + 32 + (sb.height - 32) / 2);
+      };
+      expect(Math.abs(await mid()), "RELIANCE on load").toBeLessThan(20);
+      // the first strikes are not what is on screen (the chain has 20 strikes under the spot)
+      const first = await page.locator('[data-testid^="chain-strike-"]').first().boundingBox();
+      expect(first!.y, "the top strike is scrolled out of view").toBeLessThan((await rect(page, "chain-scroll")).y + 32);
+      expect(await page.getByTestId("chain-spot-price").isVisible()).toBe(true);
+      // another expiry
+      await page.getByTestId("chain-expiry-select").selectOption(EXPIRIES[1]);
+      await expect(page.getByTestId("chain-expiry-select")).toHaveValue(EXPIRIES[1]);
+      await page.waitForTimeout(400);
+      expect(Math.abs(await mid()), "after another expiry").toBeLessThan(20);
+      // another symbol
+      await pickUnderlying(page, "nif", "NIFTY50");
+      expect(Math.abs(await mid()), "after another symbol").toBeLessThan(20);
+      await expect(page.getByTestId("chain-spot-price")).toHaveText("₹25,250.00");
+      // scrolled by hand it stays where it was left (the screen does not pull it back)
+      const sc = page.getByTestId("chain-scroll");
+      await sc.evaluate((e) => (e.scrollTop = 0));
+      await page.waitForTimeout(600);
+      expect(await sc.evaluate((e) => e.scrollTop)).toBe(0);
+    });
+
+    test("the search box finds an underlying and switches the chain to it; the expiry dropdown lists real expiries with days left and starts on the nearest", async ({ page }) => {
+      await open(page, w, h, { stay: true });
+      const asked: string[] = [];
+      page.on("request", (r) => { if (r.url().includes("/api/options-chain")) asked.push(new URL(r.url()).searchParams.get("underlying") + "|" + (new URL(r.url()).searchParams.get("expiry") ?? "")); });
+      // the built-in ones are there before anything is typed, with a live price where the app has one
+      await page.getByTestId("chain-search-open").click();
+      await expect(page.getByTestId("chain-result-TCS")).toContainText("₹4,200.00");
+      await page.getByTestId("chain-search-input").fill("bank");
+      await expect(page.getByTestId("chain-result-BANKNIFTY")).toBeVisible();
+      await expect(page.getByTestId("chain-result-TCS")).toHaveCount(0);
+      await page.getByTestId("chain-search-input").fill("zzzz");
+      await expect(page.getByTestId("chain-results")).toContainText("Nothing with options matches that");
+      await page.getByTestId("chain-search-input").fill("nift");
+      await page.getByTestId("chain-result-NIFTY50").click();
+      await expect(page.getByTestId("chain-underlying-name")).toHaveText("NIFTY50");
+      await expect(page.getByTestId("chain-underlying-price")).toHaveText("₹25,250.00");
+      await expect(page.getByTestId("chain-spot-price")).toHaveText("₹25,250.00");
+      await expect.poll(() => asked.some((a) => a.startsWith("NIFTY50|"))).toBe(true);
+      // the expiry list: real expiries only, each with its date and the days left; the nearest is selected
+      const opts = await page.getByTestId("chain-expiry-select").locator("option").allTextContents();
+      expect(opts).toEqual(["12 Nov · 1d", "19 Nov · 8d", "26 Nov · 15d"]);
+      await expect(page.getByTestId("chain-expiry-select")).toHaveValue(EXPIRIES[0]);
+      await page.getByTestId("chain-expiry-select").selectOption(EXPIRIES[2]);
+      await expect(page.getByTestId("chain-expiry-select")).toHaveValue(EXPIRIES[2]);
+      await expect.poll(() => asked.some((a) => a === "NIFTY50|" + EXPIRIES[2])).toBe(true);
+      await expect(page.getByTestId("chain-spot-row")).toBeVisible();
+      // another underlying starts on its own nearest expiry, not the one chosen here
+      await pickUnderlying(page, "bank", "BANKNIFTY");
+      await expect(page.getByTestId("chain-expiry-select")).toHaveValue(EXPIRIES[0]);
+      // Escape closes the search without changing anything
+      await page.getByTestId("chain-search-open").click();
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("chain-search-input")).toHaveCount(0);
+      await expect(page.getByTestId("chain-underlying-name")).toHaveText("BANKNIFTY");
+    });
+
+    test("an open-interest figure and its suffix are fully in its cell, on top of the bar, in every row", async ({ page }) => {
+      await open(page, w, h);
+      const bad = await page.locator('[data-col="oi"]').evaluateAll((cells) => cells.map((c) => {
+        const t = c.querySelector("span.relative")!.getBoundingClientRect();
+        const r = c.getBoundingClientRect();
+        const bar = c.querySelector('[data-testid="chain-oi-bar"]');
+        return { text: c.textContent, inside: t.left >= r.left - 0.5 && t.right <= r.right + 0.5, above: !bar || getComputedStyle(bar).zIndex !== "1", suffix: /\s[LC]r?$|k$|\d$/.test((c.textContent ?? "").trim()) };
+      }).filter((x) => !x.inside || !x.suffix));
+      expect(bad).toEqual([]);
+      // the bars are pale: a tint, not a block of colour
+      const bg = await page.locator('[data-testid="chain-oi-bar"] > span').first().evaluate((e) => getComputedStyle(e).backgroundColor);
+      const a = Number(bg.match(/\/\s*([\d.]+)\)/)?.[1] ?? 1); // the alpha of "oklab(... / 0.8)" or "rgb(... / 0.8)"; none means solid
+      expect(a).toBeLessThanOrEqual(0.9);
     });
 
     test("no sideways scroll of the page, with the default columns and with every column on", async ({ page }) => {
@@ -226,31 +356,12 @@ test.describe("the contents", () => {
     await expect(page).toHaveURL(/k=25150&t=PE/);
     await page.getByTestId("action-back").click();
     // another expiry
-    await page.getByTestId(`chain-expiry-${EXPIRIES[1]}`).click();
-    await page.getByTestId(`chain-expiry-${EXPIRIES[1]}`).and(page.locator('[aria-selected="true"]')).waitFor();
+    await page.getByTestId("chain-expiry-select").selectOption(EXPIRIES[1]);
+    await expect(page.getByTestId("chain-expiry-select")).toHaveValue(EXPIRIES[1]);
     await page.getByTestId("chain-spot-row").waitFor();
     await page.getByTestId("chain-pe-25200").click();
     await expect(page).toHaveURL(new RegExp(`x=${EXPIRIES[1]}&k=25200&t=PE`));
     await expect(page.getByTestId("contract-expiry")).toHaveText("19 Nov 2026");
-  });
-
-  test("expiry chips scroll sideways and say how many days away each is; only the real expiries are there", async ({ page }) => {
-    await open(page, 390, 844);
-    await expect(page.getByTestId(`chain-expiry-${EXPIRIES[0]}`)).toContainText("12 Nov");
-    await expect(page.getByTestId(`chain-expiry-${EXPIRIES[0]}`)).toContainText("1d");
-    await expect(page.getByTestId(`chain-expiry-${EXPIRIES[1]}`)).toContainText("8d");
-    await expect(page.getByTestId("chain-expiries").getByRole("tab")).toHaveCount(EXPIRIES.length);
-    await expect(page.getByTestId(`chain-expiry-${EXPIRIES[0]}`)).toHaveAttribute("aria-selected", "true");
-  });
-
-  test("the underlying is chosen from a one-line selector that scrolls; the live price is on the spot row", async ({ page }) => {
-    await open(page, 390, 844);
-    await expect(page.getByTestId("chain-spot-price")).toHaveText("₹25,250.00");
-    const sel = page.getByTestId("chain-underlying");
-    const b = (await sel.boundingBox())!;
-    expect(b.height).toBeLessThanOrEqual(40);
-    expect(await sel.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
-    await page.getByTestId("chain-sym-BANKNIFTY").scrollIntoViewIfNeeded();
   });
 
   test("the choice of columns: only what the chain really has is offered, and the choice is remembered", async ({ page }) => {
@@ -268,7 +379,6 @@ test.describe("the contents", () => {
     await page.getByTestId("chain-columns").click();
     await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(2);
     await page.reload();
-    await page.getByTestId("chain-sym-NIFTY50").click();
     await page.getByTestId("chain-spot-row").waitFor();
     await expect(page.locator('[data-head="1"]', { hasText: /^OI chg$/ })).toHaveCount(2); // still there after a reload
     // IV is not offered on the Greeks view either
@@ -310,40 +420,45 @@ test.describe("the contents", () => {
     await expect(page.getByTestId("chain-view-greeks")).toHaveCount(0);
   });
 
-  test("the summary strip at the top of the chain has PCR, Max Pain, ATM IV and India VIX, worked out from the chain; there is no IV percentile", async ({ page }) => {
+  test("Summary is one line until tapped, then PCR, Max Pain, ATM IV and India VIX worked out from the chain; there is no IV percentile", async ({ page }) => {
     await open(page, 390, 844);
     const c = base();
     const s = chainStats(c.rows, c.spot)!;
-    const strip = page.getByTestId("chain-summary");
-    await expect(strip).toBeVisible();
+    const toggle = page.getByTestId("chain-summary-toggle");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false"); // closed to begin with
+    await expect(page.getByTestId("chain-summary-stats")).toHaveCount(0);
+    const line = page.getByTestId("chain-summary-line");
+    await expect(line).toContainText(`PCR ${s.pcr!.toFixed(2)}`);
+    await expect(line).toContainText(String(s.maxPain));
+    await expect(line).toContainText(s.atmIv!.toFixed(2));
+    await expect(line).toContainText(c.vix!.toFixed(2));
+    expect((await rect(page, "chain-summary-toggle")).height, "one line").toBeLessThanOrEqual(34);
+    expect(await line.evaluate((e) => e.scrollWidth <= e.clientWidth + 1), "the whole line fits, not cut").toBe(true);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByTestId("chain-stat-pcr")).toHaveText(s.pcr!.toFixed(2));
     await expect(page.getByTestId("chain-stat-maxpain")).toHaveText(String(s.maxPain));
     await expect(page.getByTestId("chain-stat-atmiv")).toHaveText(s.atmIv!.toFixed(2));
     await expect(page.getByTestId("chain-stat-vix")).toHaveText(String(c.vix!.toFixed(2)));
-    await expect(strip).not.toContainText(/percentile/i);
-    await expect(strip.locator("[data-testid^=chain-stat-]")).toHaveCount(4);
-    // it is above the table, not under it
-    expect((await rect(page, "chain-summary")).y).toBeLessThan((await rect(page, "chain-scroll")).y);
+    await expect(page.getByTestId("chain-summary")).not.toContainText(/percentile/i);
+    await expect(page.getByTestId("chain-summary").locator("[data-testid^=chain-stat-]")).toHaveCount(4);
+    expect((await rect(page, "chain-summary")).y, "above the table").toBeLessThan((await rect(page, "chain-scroll")).y);
   });
 
-  test("the summary strip is open on the first visit, folds away, and stays as it was left", async ({ page }) => {
+  test("Summary and Levels are closed by default, open on a tap, and stay as they were left", async ({ page }) => {
     await open(page, 390, 844);
-    const toggle = page.getByTestId("chain-summary-toggle");
-    await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    const openTop = (await rect(page, "chain-scroll")).y;
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByTestId("chain-summary-stats")).toHaveCount(0);
-    expect((await rect(page, "chain-scroll")).y, "folding it gives the room to the table").toBeLessThan(openTop - 20);
+    for (const id of ["chain-summary-toggle", "chain-levels-toggle"]) await expect(page.getByTestId(id)).toHaveAttribute("aria-expanded", "false");
+    const closedTop = (await rect(page, "chain-scroll")).y;
+    await page.getByTestId("chain-summary-toggle").click();
+    expect((await rect(page, "chain-scroll")).y, "opening it takes room from the table").toBeGreaterThan(closedTop + 20);
     await page.reload();
-    await page.getByTestId("chain-sym-NIFTY50").click();
     await page.getByTestId("chain-spot-row").waitFor();
-    await expect(page.getByTestId("chain-summary-toggle")).toHaveAttribute("aria-expanded", "false"); // remembered
+    await expect(page.getByTestId("chain-summary-toggle")).toHaveAttribute("aria-expanded", "true"); // remembered
+    await expect(page.getByTestId("chain-levels-toggle")).toHaveAttribute("aria-expanded", "false");
     await page.getByTestId("chain-summary-toggle").click();
     await page.reload();
-    await page.getByTestId("chain-sym-NIFTY50").click();
     await page.getByTestId("chain-spot-row").waitFor();
-    await expect(page.getByTestId("chain-summary-toggle")).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByTestId("chain-summary-toggle")).toHaveAttribute("aria-expanded", "false");
   });
 
   test("the OI and Greeks views are a segmented control in the chain's header", async ({ page }) => {
@@ -354,11 +469,11 @@ test.describe("the contents", () => {
     await page.getByTestId("chain-view-greeks").click();
     await expect(page.getByTestId("chain-view-greeks")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("chain-view-oi")).toHaveAttribute("aria-checked", "false");
-    // inside the card, above the table, and not a row of tabs at the top of the screen
+    // under the header, above the table, and not a row of tabs at the top of the screen
     const g = (await group.boundingBox())!;
     const t = await rect(page, "chain-scroll");
     expect(g.y).toBeLessThan(t.y);
-    expect(g.y).toBeGreaterThan((await rect(page, "chain-expiries")).y);
+    expect(g.y).toBeGreaterThan((await rect(page, "chain-header")).y + (await rect(page, "chain-header")).height - 1);
     await expect(page.getByRole("tablist", { name: "Chain view" })).toHaveCount(0);
   });
 
@@ -366,6 +481,7 @@ test.describe("the contents", () => {
     await open(page, 390, 844);
     await expect(page.getByTestId("chain-levels")).toHaveCount(0);
     await expect(page.getByTestId("chain-levels-toggle")).toHaveAttribute("aria-expanded", "false");
+    expect((await rect(page, "chain-levels-toggle")).height, "one line").toBeLessThanOrEqual(34);
     const c = base();
     const s = chainStats(c.rows, c.spot)!;
     await page.getByTestId("chain-levels-toggle").click();
@@ -376,32 +492,32 @@ test.describe("the contents", () => {
 
   test("a simulated chain says so", async ({ page }) => {
     await open(page, 390, 844, { chain: () => null });
-    await expect(page.getByTestId("chain-note")).toContainText("Simulated chain");
+    await expect(page.getByTestId("chain-tag")).toHaveText("Simulated");
+    await expect(page.getByTestId("chain-tag")).toHaveAttribute("title", /Simulated chain: the live option feed is not available/);
   });
 
-  test("when the market is closed it says the figures are from the last session", async ({ page }) => {
+  test("when the market is closed a small tag says so, and its title says the figures are from the last session", async ({ page }) => {
     await open(page, 390, 844, {}, async (p) => { await p.clock.setSystemTime(new Date("2026-11-11T21:00:00+05:30")); });
-    await expect(page.getByTestId("chain-note")).toContainText("Market closed");
-    await expect(page.getByTestId("chain-note")).toContainText("last session");
+    // a small tag, not a banner
+    await expect(page.getByTestId("chain-tag")).toHaveText("Market closed");
+    await expect(page.getByTestId("chain-tag")).toHaveAttribute("title", /last session/);
+    expect((await rect(page, "chain-tag")).height).toBeLessThanOrEqual(24);
+    await expect(page.getByTestId("chain-note")).toHaveCount(0);
   });
 });
 
 test.describe("sideways", () => {
   test.use({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true });
-  test("the chain fits a phone turned sideways: no sideways scroll of the page, and the table can be scrolled to", async ({ page }) => {
+  test("the chain fits a phone turned sideways: a full screen, no sideways scroll of the page, and eight or more strikes show", async ({ page }) => {
     await open(page, 844, 390);
     expect(await sideways(page)).toEqual({ page: 0, content: 0 });
-    // the chain is beside the controls, in view without scrolling the page, and above the tab bar
     const t = await rect(page, "chain-scroll");
-    const nav = (await page.locator("nav").last().boundingBox())!;
     expect(t.y).toBeGreaterThanOrEqual(0);
-    expect(t.y + t.height).toBeLessThanOrEqual(nav.y + 1);
-    expect(t.height).toBeGreaterThan(110);
-    expect(t.width).toBeGreaterThan(450);
-    await expect(page.getByTestId("chain-summary")).toBeVisible();
-    // six whole strikes and part of a seventh (it was four): the table has the whole height beside the controls
-    const rowsInView = await page.evaluate(() => { const sc = document.querySelector('[data-testid="chain-scroll"]')!.getBoundingClientRect(); return [...document.querySelectorAll('[data-testid^="chain-strike-"]')].filter((e) => { const b = e.getBoundingClientRect(); return b.top >= sc.top + 32 - 1 && b.bottom <= sc.bottom + 1; }).length; });
-    expect(rowsInView).toBeGreaterThanOrEqual(6);
+    expect(t.y + t.height).toBeGreaterThanOrEqual(389);
+    expect(t.width).toBeGreaterThan(800);
+    // strikes on screen, whole or part of one (the spot is in the middle, so the first and last are cut by the header and the edge)
+    const rowsInView = await page.evaluate(() => { const sc = document.querySelector('[data-testid="chain-scroll"]')!.getBoundingClientRect(); return [...document.querySelectorAll('[data-testid^="chain-strike-"]')].filter((e) => { const b = e.getBoundingClientRect(); return b.bottom > sc.top + 32 + 4 && b.top < sc.bottom - 4; }).length; });
+    expect(rowsInView).toBeGreaterThanOrEqual(8);
   });
 });
 

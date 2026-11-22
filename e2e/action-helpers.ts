@@ -41,8 +41,9 @@ export async function openApp(page: Page, path = "/app/watchlist", portfolio: Po
   if (extra) await extra(page);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.getByTestId("app-content").waitFor();
+  // (on a screen without the notice, such as the option chain, it is in the page but hidden: only a visible one is dismissed)
   const x = page.getByTestId("guest-notice-dismiss");
-  if (await x.count()) await x.click();
+  if (await x.isVisible()) await x.click();
   await page.waitForTimeout(1000);
   return { puts, px };
 }

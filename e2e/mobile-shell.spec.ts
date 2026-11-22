@@ -709,8 +709,8 @@ test.describe("explore", () => {
     const { simulateChain } = await import("../lib/options");
     const chain = { ...simulateChain("NIFTY50", 25250, null), source: "live", expiry: "2026-11-11", expiries: ["2026-11-11", "2026-11-26"] };
     await go(page, "/app/options", { chain, expiry: "2026-11-11" });
-    await dismissNotice(page);
-    await expect(page.getByTestId("chain-expiry-today")).toHaveText("Expiry today");
+    await expect(page.getByTestId("chain-expiry-today")).toHaveText("Expiry today"); // (the cookie notice is not on the chain screen)
+    await expect(page.getByTestId("chain-expiry-select")).toContainText("today");
     const later = await page.context().newPage();
     await go(later, "/app/options", { chain: { ...chain, expiry: "2026-11-12", expiries: ["2026-11-12"] } });
     await expect(later.getByTestId("chain-expiry-today")).toHaveCount(0);
