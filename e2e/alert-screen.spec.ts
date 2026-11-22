@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { account, lastPut, openApp, openSheet, phone, screen, tick, typeKeepingFocus } from "./action-helpers";
+import { account, lastPut, openApp, openSheet, phone, recordAdded, sawAdded, screen, tick, typeKeepingFocus } from "./action-helpers";
 
 /** Set, edit and delete a price alert as one full screen. */
 test.use(phone());
@@ -47,9 +47,9 @@ test.describe("set", () => {
     await expect(page).toHaveURL(/\/app\/orders\?tab=alerts$/);
     await expect(page.locator('[data-testid^="alert-row-"]')).toHaveCount(1);
     px.RELIANCE = 1610;
-    const seen = page.getByText(/RELIANCE is now above ₹1,600/).waitFor({ timeout: 30_000 });
+    await recordAdded(page);
     await tick(page);
-    await seen;
+    await sawAdded(page, /RELIANCE is now above ₹1,600/);
     await expect.poll(() => lastPut(puts)?.alerts, { timeout: 15_000 }).toEqual([]);
   });
 

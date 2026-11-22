@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mockMarket } from "./chart-helpers";
+import { recordAdded, sawAdded } from "./action-helpers";
 
 /**
  * Every order goes through one funds check: a buy needs the cash, a sell needs the shares. A resting limit or GTD order is checked when it is
@@ -99,16 +100,19 @@ test.describe("when it fills", () => {
     await page.clock.runFor(5_000);
     await page.waitForTimeout(400);
   };
-  /** the message shows for a few seconds, so start waiting for it before the clock runs */
-  const messageSeen = (page: Page, text: RegExp) => page.getByText(text).waitFor({ timeout: 30_000 });
+  /** the message shows for a few seconds, so record what the page shows before the clock runs and ask afterwards (see recordAdded) */
+  const messageSeen = async (page: Page, text: RegExp) => {
+    await recordAdded(page);
+    return () => sawAdded(page, text);
+  };
   const savedOrders = (puts: Record<string, unknown>[]) => (lastPut(puts)?.openOrders ?? []).length;
 
   test("a resting buy that is no longer affordable is cancelled with the reason, and the account is untouched", async ({ page }) => {
     const { puts, px } = await open(page, { ...base, cash: 1000, openOrders: [limit("buy", 10, 1450)] });
     px.RELIANCE = 1440; // crosses the limit
-    const seen = messageSeen(page, /Limit \(day\) buy 10 RELIANCE was cancelled when it triggered: not enough virtual cash/);
+    const seen = await messageSeen(page, /Limit \(day\) buy 10 RELIANCE was cancelled when it triggered: not enough virtual cash/);
     await tick(page);
-    await seen;
+    await seen();
     await page.getByTestId("nav-orders").click();
     await page.getByTestId("orders-tab-executed").click();
     await expect(page.locator('[data-testid^="log-order-"]').first()).toContainText("Cancelled");
@@ -120,9 +124,9 @@ test.describe("when it fills", () => {
   test("a resting sell with no shares to sell is cancelled, and no cash appears from nowhere", async ({ page }) => {
     const { puts, px } = await open(page, { ...base, cash: 1000, openOrders: [limit("sell", 5, 1480)] });
     px.RELIANCE = 1520; // crosses the limit
-    const seen = messageSeen(page, /was cancelled when it triggered: you no longer hold enough/);
+    const seen = await messageSeen(page, /was cancelled when it triggered: you no longer hold enough/);
     await tick(page);
-    await seen;
+    await seen();
     await expect.poll(() => savedOrders(puts), { timeout: 15_000 }).toBe(0);
     expect(lastPut(puts)?.cash).toBe(1000);
   });
@@ -138,9 +142,9 @@ test.describe("when it fills", () => {
   test("two resting orders that fire together cannot both spend the same cash: the first fills, the second is cancelled", async ({ page }) => {
     const { puts, px } = await open(page, { ...base, cash: 10_000, openOrders: [limit("buy", 5, 1450), limit("buy", 5, 1450)] });
     px.RELIANCE = 1440;
-    const seen = messageSeen(page, /was cancelled when it triggered: not enough virtual cash/);
+    const seen = await messageSeen(page, /was cancelled when it triggered: not enough virtual cash/);
     await tick(page);
-    await seen;
+    await seen();
     await expect.poll(() => lastPut(puts)?.cash, { timeout: 15_000 }).toBe(10_000 - 5 * 1450);
     expect(lastPut(puts)?.holdings?.RELIANCE?.qty).toBe(5);
     await expect.poll(() => savedOrders(puts), { timeout: 15_000 }).toBe(0);

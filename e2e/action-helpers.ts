@@ -80,3 +80,21 @@ export async function tick(page: Page) {
   await page.clock.runFor(5_000);
   await page.waitForTimeout(400);
 }
+
+/**
+ * A message that shows for a few seconds (a toast) can come and go while the clock is being run, before a locator polling the page has looked.
+ * Start recording what is added to the page before running the clock, then ask whether the text was seen: the recording does not depend on the
+ * clock or on when the page is drawn.
+ */
+export async function recordAdded(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __added?: string[] };
+    w.__added = [];
+    new MutationObserver((ms) => {
+      for (const m of ms) m.addedNodes.forEach((n) => w.__added!.push(n.textContent ?? ""));
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+}
+
+export const sawAdded = (page: Page, text: RegExp, timeout = 15_000) =>
+  expect.poll(() => page.evaluate(() => ((window as unknown as { __added?: string[] }).__added ?? []).join(" ")), { timeout, message: `the page never showed ${text}` }).toMatch(text);
