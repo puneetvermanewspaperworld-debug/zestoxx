@@ -110,6 +110,7 @@ export default function OrderScreen({ symbol, side: startSide, qty: startQty, on
   return (
     <ActionScreen label={verb} symbol={symbol} onBack={onClose} strip={strip} footer={{ label: `${verb} ${symbol} · ${qty ?? "?"}`, onPress: submit, tone: side, testId: "action-submit" }}>
       {error && <Notice tone="error" testId="order-error">{error}</Notice>}
+      {side === "sell" && held === 0 && <Notice tone="warn" testId="sell-not-held">You don&apos;t hold {symbol} now, so there is nothing to sell. Paper trading can only sell what you&apos;ve bought; short selling isn&apos;t supported yet.</Notice>}
       {noTrades && <Notice tone="warn" testId="order-no-trades">No recent trades in this symbol, so there is no live price. A market order cannot be filled until it trades again; a limit order can still be placed.</Notice>}
       <FormCard testId="order-card">
         <FormRow label="Type">

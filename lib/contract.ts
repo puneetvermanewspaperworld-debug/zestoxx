@@ -158,3 +158,25 @@ export function parseContractId(id: string): ParsedContractId | null {
 export function displayName(id: string): string {
   return parseContractId(id)?.label ?? id;
 }
+
+/**
+ * The contract a holding id names, in the form the option screen opens with (underlying, expiry, strike, type). A simulated contract's id carries all
+ * of it. A live contract's id carries only its label ("NIFTY 03 NOV 22900 CE") and the exchange's instrument key, with no year, so the expiry is the next
+ * time that day and month comes round (one that ended up to 60 days ago stays in this year, and the option screen then says it has expired).
+ * null when the id is not an option contract or its label cannot be read.
+ */
+export function contractFromHolding(id: string, today: string): { underlying: string; expiry: string; strike: number; type: "CE" | "PE" } | null {
+  const p = parseContractId(id);
+  if (!p) return null;
+  if (p.sim) return p.sim;
+  const m = /^(\S+) (\d{2}) ([A-Z]{3}) (\d+(?:\.\d+)?) (CE|PE)$/.exec(p.label);
+  if (!m) return null;
+  const month = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(m[3]) + 1;
+  if (month < 1) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const year = Number(today.slice(0, 4));
+  const at = (y: number) => `${y}-${pad(month)}-${m[2]}`;
+  const grace = new Date(Date.parse(today) - 60 * 86_400_000).toISOString().slice(0, 10);
+  const expiry = at(year) >= grace ? at(year) : at(year + 1);
+  return { underlying: m[1] === "NIFTY" ? "NIFTY50" : m[1], expiry, strike: Number(m[4]), type: m[5] as "CE" | "PE" };
+}

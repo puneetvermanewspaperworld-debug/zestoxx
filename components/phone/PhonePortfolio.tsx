@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { usePrivacy } from "@/components/usePrivacy";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { displayName } from "@/lib/contract";
+import { useAction } from "@/components/action/useAction";
+import { contractFromHolding, displayName } from "@/lib/contract";
 import { fmt, fmtINR, istClock } from "@/lib/helpers";
 import { maskPnl, maskValue } from "@/lib/privacy";
 import { EQUITY_SETTLEMENT_DAYS, splitHoldings } from "@/lib/settlement";
@@ -23,6 +24,8 @@ const signedINR = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtINR(Mat
  */
 export default function PhonePortfolio() {
   const { cash, holdings, orderLog, live } = useZestoxx();
+  const { openAction } = useAction();
+  const [none, setNone] = useState<string | null>(null);
   const { hidden, toggle } = usePrivacy();
   // a link from an action screen's result can name the tab (?tab=positions): shares bought today are Positions until they settle
   const named = useSearchParams().get("tab");
@@ -39,6 +42,16 @@ export default function PhonePortfolio() {
   const totalPnl = all.reduce((s, r) => s + r.pnl, 0);
 
   const shown = tab === "holdings" ? held : pos;
+
+  // Exit sells everything held of that symbol or contract; Add buys more. Both open the same screen as Buy and Sell, filled in.
+  const trade = (id: string, side: "buy" | "sell") => {
+    const total = holdings[id]?.qty ?? 0;
+    if (side === "sell" && !(total >= 1)) return setNone(`You don't hold ${displayName(id)} now, so there is nothing to exit.`);
+    setNone(null);
+    const c = contractFromHolding(id, istClock().date);
+    if (c) return openAction({ kind: "option", ...c, side });
+    openAction(side === "sell" ? { kind: "order", symbol: id, side, qty: total } : { kind: "order", symbol: id, side });
+  };
   return (
     <div className="space-y-2.5" data-testid="phone-portfolio">
       <div className="flex items-center justify-between gap-2">
@@ -65,6 +78,12 @@ export default function PhonePortfolio() {
           : "Today's trades, which have not settled yet, and your option and futures contracts. Settled shares move to Holdings."}
       </p>
 
+      {none && (
+        <p role="alert" data-testid="pf-exit-none" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
+          {none}
+        </p>
+      )}
+
       {shown.length === 0 ? (
         <p data-testid={`pf-empty-${tab}`} className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-[13px] text-slate-500">
           {tab === "holdings" ? "No settled holdings. Shares you buy appear here once they settle." : "No positions. Trades you make today appear here."}
@@ -87,6 +106,14 @@ export default function PhonePortfolio() {
                   </span>
                   <span>Last {fmt(r.last, type)}</span>
                   <span data-testid="pf-row-value">{maskValue(fmtINR(r.value), hidden)}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button type="button" data-testid={`pf-exit-${displayName(r.id)}`} aria-label={`Exit ${displayName(r.id)}: sell everything you hold`} onClick={() => trade(r.id, "sell")} className="min-h-[44px] rounded-lg border border-rose-200 text-[13px] font-medium text-rose-600">
+                    Exit
+                  </button>
+                  <button type="button" data-testid={`pf-add-${displayName(r.id)}`} aria-label={`Add to ${displayName(r.id)}: buy more`} onClick={() => trade(r.id, "buy")} className="min-h-[44px] rounded-lg border border-blue-200 text-[13px] font-medium text-blue-700">
+                    Add
+                  </button>
                 </div>
               </li>
             );
