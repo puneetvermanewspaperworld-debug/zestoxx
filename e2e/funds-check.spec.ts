@@ -55,7 +55,7 @@ test.describe("when it is placed", () => {
     const { puts } = await open(page, { ...base, cash: 1000 });
     await orderScreen(page, "buy");
     await place(page, "Limit", "10", "1400");
-    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹14,000 and you have ₹1,000.");
+    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹14,000.00 and you have ₹1,000.00.");
     await page.waitForTimeout(1200);
     expect(lastPut(puts)?.openOrders ?? []).toEqual([]);
   });

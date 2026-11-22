@@ -35,6 +35,8 @@
   --search-h: 50px; /* the search box */
   --control-row: 32px; /* a row of small text controls (the count and Edit) */
   --text-sheet-title: 19px; /* the symbol at the top of a stock sheet */
+  --text-licence: 9px; /* the chart library's licence notice, the one line below the floor: it must be whole and on one line (see .zx-licence) */
+  --text-licence-wide: 10px; /* the same from 380px wide */
   --btn-primary-h: 49.5px; /* Buy and Sell */
   --nav-h: 47px; /* the bottom tab bar (plus its 1px edge) */
   --sheet-sub: 31px; /* the name, price and change line under a sheet's title */
@@ -144,6 +146,16 @@ body {
   }
   .text-\[19px\] {
     font-size: var(--text-sheet-title);
+  }
+  /* The one line below the floor: the chart library's licence notice, which has to be on screen in full, on one line. At 360 wide it is
+     371 px of text at 10px and the line has 344, so it is 9px there. */
+  .zx-licence {
+    font-size: var(--text-licence);
+  }
+  @media (min-width: 380px) {
+    .zx-licence {
+      font-size: var(--text-licence-wide);
+    }
   }
   .text-\[22px\],
   .text-\[24px\],

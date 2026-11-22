@@ -154,7 +154,7 @@ test("moving the level moves its alert with it, and undo moves it back; deleting
   await expect.poll(async () => (await stored(page))[0].price).toBe(1580);
   // the Alerts page shows the alert at the new price
   await toAlertsPage(page);
-  await expect(page.getByText("₹1,580").first()).toBeVisible();
+  await expect(page.getByText("₹1,580.00").first()).toBeVisible();
   // deleting the level does not delete the alert
   await page.getByRole("link", { name: "Trade" }).first().click();
   await page.getByTestId("drawing-layer").waitFor({ timeout: 15_000 });
@@ -164,7 +164,7 @@ test("moving the level moves its alert with it, and undo moves it back; deleting
   await page.getByTestId("delete").click();
   await expect(page.getByTestId("drawing-count")).toHaveText("0 drawings");
   await toAlertsPage(page);
-  await expect(page.getByText("₹1,580").first()).toBeVisible();
+  await expect(page.getByText("₹1,580.00").first()).toBeVisible();
 });
 
 test("a level at the current price cannot have an alert: it would fire at once", async ({ page }) => {

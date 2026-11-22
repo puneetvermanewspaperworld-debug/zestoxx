@@ -8,6 +8,8 @@
  *   SIP     an installment of a Stock SIP plan, executed as a market buy when due
  */
 
+import { fmtINR } from "./helpers";
+
 export type OrderType = "MARKET" | "LIMIT" | "GTD" | "GTT" | "SIP";
 export type OrderStatus = "filled" | "cancelled" | "expired";
 
@@ -121,8 +123,8 @@ export function sipError(
   today: string,
   existing: number
 ): string | null {
-  if (!(input.amount >= SIP_MIN_AMOUNT)) return `The minimum SIP amount is ₹${SIP_MIN_AMOUNT}.`;
-  if (input.amount > 10_00_000) return "The maximum SIP amount is ₹10,00,000 per installment.";
+  if (!(input.amount >= SIP_MIN_AMOUNT)) return `The minimum SIP amount is ${fmtINR(SIP_MIN_AMOUNT)}.`;
+  if (input.amount > 10_00_000) return `The maximum SIP amount is ${fmtINR(10_00_000)} per installment.`;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate) || input.startDate < today) return "Pick a start date from today onwards.";
   if (input.startDate > addDaysIso(today, GTD_MAX_DAYS)) return "The start date can be at most a year away.";
   if (existing >= MAX_SIPS) return `You can have up to ${MAX_SIPS} SIPs.`;

@@ -17,13 +17,13 @@ export function seededRandom(seed: number): () => number {
 
 export function fmt(val: number | null | undefined, type?: AssetType): string {
   if (val == null || isNaN(val)) return "--";
-  if (type === "crypto") return "$" + val.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  return "₹" + val.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  if (type === "crypto") return "$" + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return "₹" + val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function fmtINR(val: number | null | undefined): string {
   if (val == null || isNaN(val)) return "--";
-  return "₹" + val.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  return "₹" + val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

@@ -10,7 +10,7 @@ test("Add notes opens a screen with the price strip, a counter and a hint; Save 
   await page.getByTestId("sheet-notes").click();
   await expect(page).toHaveURL(/act=note&s=RELIANCE/);
   await expect(page.getByTestId("action-label")).toHaveText("Add note");
-  await expect(page.getByTestId("strip-price")).toHaveText("₹1,500");
+  await expect(page.getByTestId("strip-price")).toHaveText("₹1,500.00");
   await expect(page.getByTestId("paper-badge")).toBeVisible();
   await page.getByTestId("note-text").fill("Wait for 1,450");
   await expect(page.getByTestId("note-text-count")).toHaveText("14 / 500");

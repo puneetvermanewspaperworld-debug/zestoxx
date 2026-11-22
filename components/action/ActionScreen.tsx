@@ -40,7 +40,7 @@ export default function ActionScreen({ label, symbol, onBack, strip, children, f
           Paper trade
         </span>
       </header>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div data-testid="action-body" className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 pb-6">
         {strip}
         {children}
       </div>

@@ -15,7 +15,7 @@ test.describe("opening and closing", () => {
     await expect(page.getByTestId("action-label")).toHaveText("Buy");
     await expect(page.getByTestId("paper-badge")).toHaveText("Paper trade");
     await expect(page.getByTestId("strip-exchange")).toHaveText("NSE");
-    await expect(page.getByTestId("strip-price")).toHaveText("₹1,500");
+    await expect(page.getByTestId("strip-price")).toHaveText("₹1,500.00");
     await expect(page.getByTestId("strip-pct")).toHaveText("+0.67%"); // (1500 - 1490) / 1490
     await expect(page.getByTestId("action-submit")).toHaveText("Buy RELIANCE · 1");
     // the old inline card and its line of text are not in the sheet any more
@@ -80,7 +80,7 @@ test.describe("typing", () => {
     expect(await typeKeepingFocus(page, page.getByTestId("order-limit"), "1450.5")).toBe("1450.5");
     await expect(page.getByTestId("order-qty")).toHaveValue("300"); // the first field was not reset
     await expect(page.getByTestId("action-submit")).toHaveText("Buy RELIANCE · 300");
-    await expect(page.getByTestId("funds-required")).toHaveText("₹4,35,150"); // 300 x 1450.50 (a rupee amount to the paisa: .00 is not shown)
+    await expect(page.getByTestId("funds-required")).toHaveText("₹4,35,150.00"); // 300 x 1450.50 (a rupee amount to the paisa: .00 is not shown)
   });
 });
 
@@ -92,8 +92,8 @@ test.describe("the result", () => {
     await page.getByTestId("order-qty").fill("2");
     await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("result-status")).toHaveText("Order filled");
-    await expect(page.getByTestId("result-line")).toContainText("Bought 2 RELIANCE at ₹1,500 (₹3,000)");
-    await expect(page.getByTestId("result-cash")).toContainText("₹97,000");
+    await expect(page.getByTestId("result-line")).toContainText("Bought 2 RELIANCE at ₹1,500.00 (₹3,000.00)");
+    await expect(page.getByTestId("result-cash")).toContainText("₹97,000.00");
     await expect.poll(() => lastPut(puts)?.cash).toBe(97_000);
     await page.getByTestId("result-orders").click();
     await expect(page).toHaveURL(/\/app\/orders\?tab=executed/);
@@ -101,7 +101,7 @@ test.describe("the result", () => {
     await expect(page.locator('[data-testid^="log-order-"]').first()).toContainText("BUY 2 RELIANCE");
     await page.getByTestId("nav-portfolio").click();
     await page.getByTestId("pf-tab-positions").click(); // bought today: a Position until it settles
-    await expect(page.getByTestId("pf-row-RELIANCE")).toContainText("2 @ ₹1,500");
+    await expect(page.getByTestId("pf-row-RELIANCE")).toContainText("2 @ ₹1,500.00");
   });
 
   test("it can go to Portfolio from the result, and back from there returns to the page the screen was opened over", async ({ page }) => {
@@ -125,7 +125,7 @@ test.describe("the result", () => {
     await page.getByTestId("order-limit").fill("1400");
     await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("result-status")).toContainText("waiting for its price");
-    await expect(page.getByTestId("result-line")).toContainText("Limit buy 5 RELIANCE at ₹1,400");
+    await expect(page.getByTestId("result-line")).toContainText("Limit buy 5 RELIANCE at ₹1,400.00");
     await expect(page.getByTestId("result-validity")).toContainText("Valid today");
     await expect.poll(() => (lastPut(puts)?.openOrders ?? []).length).toBe(1);
     expect(lastPut(puts)?.openOrders?.[0]).toMatchObject({ orderType: "LIMIT", qty: 5, limitPrice: 1400, side: "buy" });
@@ -186,11 +186,11 @@ test.describe("refusals", () => {
     const { puts } = await openApp(page, "/app/watchlist", account({ cash: 1000 }));
     await openSheet(page, "RELIANCE");
     await page.getByTestId("sheet-buy").click();
-    await expect(page.getByTestId("funds-required")).toHaveText("₹1,500");
-    await expect(page.getByTestId("funds-available")).toHaveText("₹1,000");
+    await expect(page.getByTestId("funds-required")).toHaveText("₹1,500.00");
+    await expect(page.getByTestId("funds-available")).toHaveText("₹1,000.00");
     await expect(page.getByTestId("funds-short")).toHaveText("Not enough virtual cash for this order.");
     await page.getByTestId("action-submit").click();
-    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹1,500 and you have ₹1,000.");
+    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹1,500.00 and you have ₹1,000.00.");
     await page.waitForTimeout(1200);
     expect(lastPut(puts)?.cash ?? 1000).toBe(1000);
     expect(lastPut(puts)?.openOrders ?? []).toEqual([]);
@@ -213,7 +213,7 @@ test.describe("refusals", () => {
     await page.getByTestId("mode-limit").click();
     await page.getByTestId("order-limit").fill("1400");
     await page.getByTestId("action-submit").click();
-    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹14,000 and you have ₹1,000.");
+    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹14,000.00 and you have ₹1,000.00.");
   });
 });
 
@@ -234,9 +234,9 @@ test.describe("the market and the price", () => {
     await page.getByTestId("sheet-sell").click();
     await page.getByTestId("order-qty").fill("4");
     await expect(page.getByTestId("funds-available")).toHaveText("10");
-    await expect(page.getByTestId("order-funds")).toContainText("₹6,000");
+    await expect(page.getByTestId("order-funds")).toContainText("₹6,000.00");
     await page.getByTestId("action-submit").click();
-    await expect(page.getByTestId("result-line")).toContainText("Sold 4 RELIANCE at ₹1,500 (₹6,000)");
+    await expect(page.getByTestId("result-line")).toContainText("Sold 4 RELIANCE at ₹1,500.00 (₹6,000.00)");
   });
 
   test("a resting order from this screen fills later at its limit price while the app is open, and is cancelled with a reason if the account cannot do it", async ({ page }) => {

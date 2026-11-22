@@ -43,10 +43,10 @@ test("the price fills from the live quote, and the worked example comes out as t
 
   await expect(cell(page, "Quantity", 1)).toHaveText("297");
   await expect(cell(page, "Quantity", 2)).toHaveText("119");
-  await expect(cell(page, "Gross profit", 1)).toHaveText("+₹15,741");
-  await expect(cell(page, "Gross profit", 2)).toHaveText("+₹6,307");
-  await expect(cell(page, "Interest", 1)).toHaveText("₹614");
-  await expect(cell(page, "Interest", 2)).toHaveText("₹0");
+  await expect(cell(page, "Gross profit", 1)).toHaveText("+₹15,741.00");
+  await expect(cell(page, "Gross profit", 2)).toHaveText("+₹6,307.00");
+  await expect(cell(page, "Interest", 1)).toHaveText("₹614.00");
+  await expect(cell(page, "Interest", 2)).toHaveText("₹0.00");
   await expect(page.getByTestId("mtf-results")).toContainText("2.50x");
   const risk = page.getByTestId("mtf-risk");
   await expect(risk).toContainText("40.0%");

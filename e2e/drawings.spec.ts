@@ -325,7 +325,7 @@ test("measure on an index also gives rupees per lot of a future (points x the lo
   const move = (await page.getByTestId("measure-line-0").textContent()) ?? "";
   const points = Math.abs(Number(move.match(/([+-]\d+\.\d{2}) pts/)![1]));
   const per = (await page.getByTestId("measure-line-2").textContent()) ?? "";
-  const rupees = Number(per.replace(/[^\d]/g, ""));
+  const rupees = Number((per.match(/₹\s?([\d,]+)/)?.[1] ?? "").replace(/,/g, "")); // whole rupees: the paise after the point are left off
   expect(Math.abs(rupees - Math.round(points * 65))).toBeLessThanOrEqual(65); // rounding of the shown points
   expect(per).toContain("per lot of a future");
 });

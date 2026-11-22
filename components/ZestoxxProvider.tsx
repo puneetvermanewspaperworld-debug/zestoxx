@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { SYMBOLS, SYMBOL_MAP, VOL, typeOf } from "@/lib/symbols";
 import { MAX_QUOTE_SYMBOLS, infoFor, isDynamicEquity, isTradableId, type DynamicQuote, type QuoteState } from "@/lib/dynamic-symbols";
 import { buildHistory } from "@/lib/history";
-import { fmt, istClock } from "@/lib/helpers";
+import { fmt, fmtINR, istClock } from "@/lib/helpers";
 import { storage } from "@/lib/storage";
 import { parseContractId } from "@/lib/contract";
 import { simulateChain } from "@/lib/options";
@@ -1108,7 +1108,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
       const nextDate = nextSipDate(p, now.date);
       const { qty, cost } = sipFill(p.amount, price);
       if (qty < 1) {
-        notify(`SIP skipped: ₹${p.amount} doesn't buy a whole ${p.symbol} share at ${fmt(price, "stock")}.`);
+        notify(`SIP skipped: ${fmtINR(p.amount)} doesn't buy a whole ${p.symbol} share at ${fmt(price, "stock")}.`);
         patches.set(p.id, { nextDate });
       } else if (cost > cashLeft) {
         notify(`SIP skipped: not enough virtual cash for ${p.symbol}.`);

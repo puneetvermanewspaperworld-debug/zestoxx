@@ -13,14 +13,14 @@ test("New SIP opens a screen: the stock, the amount with what it buys, the frequ
   await expect(screen(page)).toBeVisible();
   await expect(page.getByTestId("action-label")).toHaveText("New Stock SIP");
   await expect(page.getByTestId("paper-badge")).toBeVisible();
-  await expect(page.getByTestId("strip-price")).toHaveText("₹1,500"); // RELIANCE, the first stock
-  await expect(page.getByTestId("sip-buys")).toHaveText("At ₹1,500 that buys 3 whole shares (₹4,500).");
+  await expect(page.getByTestId("strip-price")).toHaveText("₹1,500.00"); // RELIANCE, the first stock
+  await expect(page.getByTestId("sip-buys")).toHaveText("At ₹1,500.00 that buys 3 whole shares (₹4,500.00).");
   await page.getByTestId("sip-symbol").selectOption("TCS");
-  await expect(page.getByTestId("strip-price")).toHaveText("₹4,200");
-  await expect(page.getByTestId("sip-buys")).toHaveText("At ₹4,200 that buys 1 whole share (₹4,200).");
+  await expect(page.getByTestId("strip-price")).toHaveText("₹4,200.00");
+  await expect(page.getByTestId("sip-buys")).toHaveText("At ₹4,200.00 that buys 1 whole share (₹4,200.00).");
   const note = await page.getByTestId("sip-note").innerText();
   for (const part of ["whole shares", "while Zestoxx is open", "skipped, not bought later in a lump"]) expect(note).toContain(part);
-  await expect(page.getByTestId("action-submit")).toHaveText("Start SIP · TCS · ₹5,000");
+  await expect(page.getByTestId("action-submit")).toHaveText("Start SIP · TCS · ₹5,000.00");
 });
 
 test("a multi-digit amount goes in with the field keeping focus", async ({ page }) => {
@@ -37,7 +37,7 @@ test("a SIP is started: the result, saved with its schedule, and listed", async 
   await page.getByTestId("freq-weekly").click();
   await page.getByTestId("action-submit").click();
   await expect(page.getByTestId("result-status")).toHaveText("SIP started");
-  await expect(page.getByTestId("result-line")).toContainText("₹8,000 of TCS weekly, from 11 Nov 2026");
+  await expect(page.getByTestId("result-line")).toContainText("₹8,000.00 of TCS weekly, from 11 Nov 2026");
   await expect.poll(() => lastPut(puts)?.sips?.[0]).toMatchObject({ symbol: "TCS", amount: 8000, frequency: "weekly", status: "active" });
   await page.getByTestId("result-sips").click();
   await expect(page).toHaveURL(/\/app\/orders\?tab=sips$/);
@@ -56,7 +56,7 @@ test("an empty or non-numeric amount, below the minimum, over the maximum, and a
   }
   await page.getByTestId("sip-amount").fill("100");
   await submit.click();
-  await expect(err).toHaveText("The minimum SIP amount is ₹500.");
+  await expect(err).toHaveText("The minimum SIP amount is ₹500.00.");
   await page.getByTestId("sip-amount").fill("2000000");
   await submit.click();
   await expect(err).toContainText("The maximum SIP amount");

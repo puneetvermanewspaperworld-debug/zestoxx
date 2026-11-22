@@ -214,7 +214,7 @@ test("attribution: a small TradingView Lightweight Charts link and the notice, a
   const note = page.getByTestId("chart-attribution");
   await expect(note).toBeVisible();
   await expect(note).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
-  const link = note.getByRole("link", { name: "Charts by TradingView Lightweight Charts" });
+  const link = note.getByRole("link", { name: "TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc." }); // the notice is the link
   await expect(link).toHaveAttribute("href", "https://www.tradingview.com/");
   // the library's own logo link is switched off: ours is the only link to tradingview.com on the page
   expect(await page.locator('a[href*="tradingview.com"]').count()).toBe(1);

@@ -68,7 +68,12 @@ for (const [w, h] of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       // the licence's link and whole notice are under the chart, not behind a tap
       await expect(page.getByTestId("chart-attribution")).toContainText("TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc.");
-      await expect(page.getByTestId("chart-attribution").getByRole("link", { name: "Charts by TradingView Lightweight Charts" })).toHaveAttribute("href", "https://www.tradingview.com/");
+      await expect(page.getByTestId("chart-attribution").getByRole("link", { name: "TradingView Lightweight Charts™ Copyright (c) 2025 TradingView, Inc." })).toHaveAttribute("href", "https://www.tradingview.com/");
+      // and it is one line, all of it on screen
+      const one = await page.getByTestId("chart-attribution").evaluate((el) => ({ h: el.getBoundingClientRect().height, over: el.scrollWidth > el.clientWidth + 1, right: el.getBoundingClientRect().right }));
+      expect(one.h, "one line of 10px text").toBeLessThanOrEqual(14);
+      expect(one.over, "the line is not cut off").toBe(false);
+      expect(one.right).toBeLessThanOrEqual(w + 0.5);
     });
 
     test("the header is one row: back, symbol, price and change; the app's own bars are gone", async ({ page }) => {

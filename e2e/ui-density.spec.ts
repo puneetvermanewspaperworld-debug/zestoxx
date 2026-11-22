@@ -210,7 +210,7 @@ test.describe("the screens for any NSE symbol (not only the twelve built in)", (
 
   test("a live symbol: Buy and Sell keep their size, and the five links are all there, enabled, 14px, 44px tall", async ({ page }) => {
     await openAny(page, "ITC");
-    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400.00");
     near((await box(page, "sheet-buy")).height, 49.5);
     near((await box(page, "sheet-buy")).width, 164.7);
     for (const id of ["sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) {

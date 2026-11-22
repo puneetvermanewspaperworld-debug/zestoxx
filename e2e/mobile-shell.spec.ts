@@ -159,7 +159,7 @@ test.describe("watchlists", () => {
       await expect(page.getByTestId(`wl-price-${s}`)).toHaveText(/\d/);
       await expect(page.getByTestId(`wl-chg-${s}`)).toHaveText(/[+−-]?\d+\.\d\d%/);
     }
-    await expect(page.getByTestId("wl-price-RELIANCE")).toHaveText("₹1,500");
+    await expect(page.getByTestId("wl-price-RELIANCE")).toHaveText("₹1,500.00");
     // New list
     await page.getByTestId("wl-new").click();
     await page.getByTestId("wl-name").fill("Banks");
@@ -216,7 +216,7 @@ test.describe("watchlists", () => {
     await page.getByTestId("wl-result-ITC").click();
     await expect(page.getByTestId("wl-search-message")).toContainText("added to My Watchlist");
     await expect(page.getByTestId("wl-count")).toHaveText("6/250");
-    await expect(page.getByTestId("wl-row-ITC")).toContainText("₹400");
+    await expect(page.getByTestId("wl-row-ITC")).toContainText("₹400.00");
     await expect.poll(() => (puts[puts.length - 1] as { watchlist?: string[] } | undefined)?.watchlist).toEqual(["RELIANCE", "TCS", "NIFTY50", "BANKNIFTY", "BTC", "ITC"]);
     await page.getByTestId("wl-open-ITC").click();
     await expect(page.getByTestId("sheet-buy")).toBeEnabled();
@@ -295,7 +295,7 @@ test.describe("the symbol sheet", () => {
     await page.getByTestId("wl-open-RELIANCE").click();
     const sheet = page.getByTestId("symbol-sheet");
     await expect(sheet.getByTestId("sheet-name")).toHaveText("Reliance Industries");
-    await expect(sheet.getByTestId("sheet-price")).toHaveText("₹1,500");
+    await expect(sheet.getByTestId("sheet-price")).toHaveText("₹1,500.00");
     await expect(sheet.getByTestId("sheet-change")).toHaveText(/[+−-]?\d/);
     for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-chain", "sheet-alert", "sheet-notes", "sheet-gtt", "show-20-depth"]) {
       const b = (await sheet.getByTestId(id).boundingBox())!;
@@ -312,8 +312,8 @@ test.describe("the symbol sheet", () => {
     // real depth, five levels at most, and the day's range
     await expect(sheet.getByTestId("depth-levels")).toContainText("1,499.9");
     await expect(sheet.getByTestId("depth-levels")).toContainText("1,500.05");
-    await expect(sheet.getByTestId("range-low")).toHaveText("Low ₹1,481");
-    await expect(sheet.getByTestId("range-high")).toHaveText("High ₹1,512");
+    await expect(sheet.getByTestId("range-low")).toHaveText("Low ₹1,481.00");
+    await expect(sheet.getByTestId("range-high")).toHaveText("High ₹1,512.00");
     // Show 20 depth says what it cannot do, instead of rows
     await expect(sheet.getByTestId("depth-20-note")).toHaveCount(0);
     await sheet.getByTestId("show-20-depth").click();
@@ -333,7 +333,7 @@ test.describe("the symbol sheet", () => {
     // an index: no order book
     await page.getByTestId("wl-open-NIFTY50").click();
     await expect(page.getByTestId("depth-message")).toContainText("no order book");
-    await expect(page.getByTestId("range-low")).toHaveText(/^Low .*25,150$/);
+    await expect(page.getByTestId("range-low")).toHaveText(/^Low .*25,150.00$/);
     await page.getByTestId("sheet-close").click();
     // an empty book (the feed answers with zero levels)
     await page.getByTestId("wl-new").click();
@@ -346,7 +346,7 @@ test.describe("the symbol sheet", () => {
     await expect(page.getByTestId("depth-message")).toBeVisible();
     await expect(page.getByTestId("range-unavailable")).toBeVisible(); // a day's range of zeros is not shown either
     await expect(page.getByTestId("quote-only-note")).toHaveCount(0); // any NSE equity can be charted and traded now
-    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400.00");
     for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) await expect(page.getByTestId(id)).toBeEnabled();
   });
 
@@ -450,7 +450,7 @@ test.describe("orders: GTT and stop-loss", () => {
     await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("gtt-error")).toContainText("hold 10");
     await page.getByTestId("gtt-qty").fill("5");
-    await expect(page.getByTestId("gtt-kind")).toHaveText("Stop-loss: sell 5 when the price reaches ₹1,450");
+    await expect(page.getByTestId("gtt-kind")).toHaveText("Stop-loss: sell 5 when the price reaches ₹1,450.00");
     await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("result-status")).toHaveText("GTT created");
     await page.getByTestId("action-done").click();
@@ -489,7 +489,7 @@ test.describe("orders: GTT and stop-loss", () => {
     await page.getByTestId("orders-tab-executed").click();
     const row = page.locator('[data-testid^="log-order-"]').first();
     await expect(row).toContainText("SELL 5 RELIANCE", { timeout: 10_000 });
-    await expect(row).toContainText("Filled at ₹1,470");
+    await expect(row).toContainText("Filled at ₹1,470.00");
     await expect(row).toContainText("GTT");
     await expect(page.locator('[data-testid^="simulated-"]')).toHaveCount(0); // watched live: not simulated
     await page.getByTestId("orders-tab-gtt").click();
@@ -512,7 +512,7 @@ test.describe("orders: GTT and stop-loss", () => {
     await page.getByTestId("orders-tab-executed").click();
     const row = page.locator('[data-testid^="log-order-"]').first();
     await expect(row).toContainText("SELL 5 RELIANCE", { timeout: 15_000 });
-    await expect(row).toContainText("Filled at ₹1,400"); // the trigger price (the 11:00 candle opened above it)
+    await expect(row).toContainText("Filled at ₹1,400.00"); // the trigger price (the 11:00 candle opened above it)
     await expect(row).toContainText("10 Nov"); // the day of the candle
     await expect(row.locator('[data-testid^="simulated-"]')).toContainText("Simulated");
     await expect(row.locator('[data-testid^="simulated-"]')).toContainText("cannot watch prices while it is closed");
@@ -526,7 +526,7 @@ test.describe("orders: GTT and stop-loss", () => {
     await go(page, "/app/orders", { portfolio: { ...seed, openOrders: [gtt] }, candles: { source: "live", bars: [bar("2026-11-10T09:15:00", 1380, 1385, 1370, 1375)] } });
     await dismissNotice(page);
     await page.getByTestId("orders-tab-executed").click();
-    await expect(page.locator('[data-testid^="log-order-"]').first()).toContainText("Filled at ₹1,380", { timeout: 15_000 });
+    await expect(page.locator('[data-testid^="log-order-"]').first()).toContainText("Filled at ₹1,380.00", { timeout: 15_000 });
   });
 
   test("it stays open when no candle crossed, and when the candles cannot be fetched", async ({ browser }) => {
@@ -614,10 +614,10 @@ test.describe("portfolio: Holdings, Positions and privacy", () => {
     await expect(page.getByRole("tab")).toHaveText(["Holdings1", "Positions1"]);
     await expect(page.getByTestId("settlement-note")).toContainText("T+1");
     const held = page.getByTestId("pf-rows-holdings").getByTestId("pf-row-RELIANCE");
-    await expect(held).toContainText("6 @ ₹1,400");
+    await expect(held).toContainText("6 @ ₹1,400.00");
     await page.getByTestId("pf-tab-positions").click();
     const pos = page.getByTestId("pf-rows-positions").getByTestId("pf-row-RELIANCE");
-    await expect(pos).toContainText("4 @ ₹1,430");
+    await expect(pos).toContainText("4 @ ₹1,430.00");
     await expect(page.getByTestId("settlement-note")).toContainText("Today's trades");
   });
 
@@ -627,7 +627,7 @@ test.describe("portfolio: Holdings, Positions and privacy", () => {
     await page.goto("/app/portfolio", { waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
     await dismissNotice(page);
-    await expect(page.getByTestId("pf-rows-holdings").getByTestId("pf-row-RELIANCE")).toContainText("10 @ ₹1,400");
+    await expect(page.getByTestId("pf-rows-holdings").getByTestId("pf-row-RELIANCE")).toContainText("10 @ ₹1,400.00");
     await page.getByTestId("pf-tab-positions").click();
     await expect(page.getByTestId("pf-empty-positions")).toBeVisible();
   });
@@ -645,13 +645,13 @@ test.describe("portfolio: Holdings, Positions and privacy", () => {
     await expect(page.getByTestId("pf-rows-holdings").getByTestId("pf-row-pnl")).toHaveText("***");
     await expect(page.getByTestId("pf-rows-holdings").getByTestId("pf-row-value")).toHaveText("****");
     // the top bar's balance
-    await expect(page.getByText("₹9,00,000")).toHaveCount(0);
+    await expect(page.getByText("₹9,00,000.00")).toHaveCount(0);
     // another place: the dashboard
     await page.goto("/app/dashboard", { waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
     await expect(page.getByText("****").first()).toBeVisible();
     await expect(page.getByText("***", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(/₹9,00,000|₹10,00,000/)).toHaveCount(0);
+    await expect(page.getByText(/₹9,00,000.00|₹10,00,000.00/)).toHaveCount(0);
     // remembered on this device
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
@@ -841,7 +841,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
   test("Buy, Sell, View chart, Set alert and Create GTT are all enabled for a stock the app does not chart on its own, at its live price", async ({ page }) => {
     await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
     await openFromList(page, "ITC");
-    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400.00");
     await expect(page.getByTestId("sheet-name")).toContainText("ITC");
     await expect(page.getByTestId("sheet-change")).toHaveText("+1.52%"); // (400 - 394) / 394
     for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) await expect(page.getByTestId(id), id).toBeEnabled();
@@ -853,18 +853,18 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     const { puts, book } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
     await openFromList(page, "ITC");
     await page.getByTestId("sheet-buy").click();
-    await expect(page.getByTestId("strip-price")).toHaveText("₹400");
+    await expect(page.getByTestId("strip-price")).toHaveText("₹400.00");
     await page.getByTestId("action-submit").click();
-    await expect(page.getByTestId("result-line")).toContainText("Bought 1 ITC at ₹400");
+    await expect(page.getByTestId("result-line")).toContainText("Bought 1 ITC at ₹400.00");
     await expect.poll(() => (puts[puts.length - 1] as { holdings?: Record<string, { qty: number; avgPrice: number }>; cash?: number } | undefined)?.holdings?.ITC).toEqual({ qty: 1, avgPrice: 400 });
     expect((puts[puts.length - 1] as { cash: number }).cash).toBe(999_600);
     await page.getByTestId("action-done").click();
     book.ITC.ltp = 405;
     await nextPoll(page);
-    await expect(page.getByTestId("sheet-price")).toHaveText("₹405");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹405.00");
     await page.getByTestId("sheet-buy").click();
     await page.getByTestId("action-submit").click();
-    await expect(page.getByTestId("result-line")).toContainText("Bought 1 ITC at ₹405");
+    await expect(page.getByTestId("result-line")).toContainText("Bought 1 ITC at ₹405.00");
   });
 
   test("View chart opens the chart page for it, with its own candles, fetched on demand", async ({ page }) => {
@@ -878,7 +878,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });
     await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-series")) ?? "{}").bars ?? 0, { timeout: 20_000 }).toBeGreaterThan(100);
     expect(seen.some((q) => q.includes("symbol=ITC") && q.includes("interval=1D") && q.includes("range=1Y"))).toBe(true);
-    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+    await expect(page.getByTestId("header-price")).toHaveText("₹400.00");
   });
 
   test("an alert on it fires while the app is open, once", async ({ page }) => {
@@ -891,7 +891,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await expect.poll(() => (puts[puts.length - 1] as { alerts?: { symbol: string; target: number; condition: string }[] } | undefined)?.alerts?.[0]).toMatchObject({ symbol: "ITC", target: 410, condition: "above" });
     book.ITC.ltp = 411;
     await nextPoll(page);
-    await expect(page.getByText(/ITC is now above ₹410/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/ITC is now above ₹410.00/)).toBeVisible({ timeout: 10_000 });
     await expect.poll(() => (puts[puts.length - 1] as { alerts?: unknown[] } | undefined)?.alerts).toEqual([]);
   });
 
@@ -912,7 +912,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await page.getByTestId("orders-tab-executed").click();
     const row = page.locator('[data-testid^="log-order-"]').first();
     await expect(row).toContainText("BUY 2 ITC", { timeout: 10_000 });
-    await expect(row).toContainText("Filled at ₹421");
+    await expect(row).toContainText("Filled at ₹421.00");
     await expect(row).toContainText("GTT");
   });
 
@@ -928,7 +928,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await page.getByTestId("orders-tab-executed").click();
     const row = page.locator('[data-testid^="log-order-"]').first();
     await expect(row).toContainText("SELL 5 ITC", { timeout: 10_000 });
-    await expect(row).toContainText("Filled at ₹389");
+    await expect(row).toContainText("Filled at ₹389.00");
   });
 
   test("a symbol with no recent trades says so, shows no price, and cannot be bought, sold or given a GTT", async ({ page }) => {
@@ -983,7 +983,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await page.waitForTimeout(1500);
     expect(quoteReqs.flat()).toEqual([]);
     await page.getByTestId("wl-open-ITC").click();
-    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400.00");
     expect([...new Set(quoteReqs.flat())]).toEqual(["ITC"]); // not SLEEPY or NIFTYBEES, which are only in the list
     await page.getByTestId("sheet-close").click();
     quoteReqs.length = 0;
@@ -995,7 +995,7 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
   test("however long a symbol stays on screen, the polling stays slow: one request every 15 seconds", async ({ page }) => {
     const { quoteReqs } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
     await openFromList(page, "ITC");
-    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400.00");
     quoteReqs.length = 0;
     for (let i = 0; i < 6; i++) await page.clock.runFor(10_000); // a minute
     await page.waitForTimeout(400);
@@ -1007,8 +1007,8 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await go(page, "/app/portfolio", { portfolio: anyPortfolio({ holdings: { ITC: { qty: 10, avgPrice: 380 } }, orderLog: [{ id: "1", symbol: "ITC", side: "buy", qty: 10, price: 380, mode: "market", time: "10:00:00 am", orderType: "MARKET", status: "filled", date: "2026-11-02" }] }) });
     await dismissNotice(page);
     const row = page.getByTestId("pf-row-ITC");
-    await expect(row).toContainText("10 @ ₹380");
-    await expect(row).toContainText("₹4,000"); // 10 x 400, the live price
+    await expect(row).toContainText("10 @ ₹380.00");
+    await expect(row).toContainText("₹4,000.00"); // 10 x 400, the live price
   });
 });
 
@@ -1017,9 +1017,9 @@ test.describe("any NSE symbol on a desktop", () => {
 
   test("the chart page opens for it with its price and an order form that fills at that price", async ({ page }) => {
     const { puts } = await go(page, "/app/trade/ITC", { portfolio: anyPortfolio() });
-    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+    await expect(page.getByTestId("header-price")).toHaveText("₹400.00");
     await page.getByRole("button", { name: "Paper buy", exact: true }).click();
-    await expect(page.getByText(/Bought 1 ITC @ ₹400/)).toBeVisible();
+    await expect(page.getByText(/Bought 1 ITC @ ₹400.00/)).toBeVisible();
     await expect.poll(() => (puts[puts.length - 1] as { holdings?: Record<string, unknown> } | undefined)?.holdings?.ITC).toBeTruthy();
   });
 
@@ -1039,10 +1039,10 @@ test.describe("the terminal's main list on a desktop", () => {
     await page.getByTestId("sidebar-search").fill("itc");
     await page.getByTestId("sidebar-result-ITC").click();
     const row = page.getByTestId("sidebar-row-ITC");
-    await expect(row).toContainText("₹400");
+    await expect(row).toContainText("₹400.00");
     await expect.poll(() => (puts[puts.length - 1] as { watchlist?: string[] } | undefined)?.watchlist).toEqual(["RELIANCE", "TCS", "ITC"]);
     await row.click();
-    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+    await expect(page.getByTestId("header-price")).toHaveText("₹400.00");
     await page.getByTestId("sidebar-search").fill("pvt");
     await page.waitForTimeout(600);
     await expect(page.getByTestId("sidebar-result-IDX NIFTY PVT BANK")).toHaveCount(0);

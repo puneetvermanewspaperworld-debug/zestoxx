@@ -182,7 +182,7 @@ test("Movers with the market shut: the last-close note appears and blank changes
   await expect(note).toContainText("Market closed, last close shown");
   await expect(note).toContainText("available when the market is open");
   const flat = page.locator("tr", { hasText: "FLAT" });
-  await expect(flat.getByText("0.00")).toHaveCount(0);
+  await expect(flat.getByText("0.00", { exact: true })).toHaveCount(0); // a cell that is just 0.00 (a price such as 100.00 is not that)
   await expect(flat.locator("td:visible", { hasText: "--" })).toHaveCount(1); // the visible Chg % cell (the Chg column is hidden on a phone)
   await expect(page.locator("tr", { hasText: "TCS" })).toContainText("+2.40%");
 });

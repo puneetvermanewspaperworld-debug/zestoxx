@@ -22,6 +22,7 @@ export default function GttScreen({ symbol, editId, onClose, onLeave }: { symbol
   const { live, cash, holdings, openOrders, createGtt, cancelOrder, chgFor, hasFeedQuote, prevCloseFor, quoteStateOf } = useZestoxx();
   useWatchSymbols([symbol]);
   const existing = editId ? openOrders.find((o) => String(o.id) === editId && o.orderType === "GTT" && o.symbol === symbol) : undefined;
+  const [learn, setLearn] = useState(false);
   const [side, setSide] = useState<"buy" | "sell">(existing?.side ?? "sell");
   const [triggerText, setTriggerText] = useState(existing ? String(existing.limitPrice) : "");
   const [qtyText, setQtyText] = useState(existing ? String(existing.qty) : "1");
@@ -128,7 +129,11 @@ export default function GttScreen({ symbol, editId, onClose, onLeave }: { symbol
         </FormRow>
       </FormCard>
       <Notice tone="info" testId="gtt-note">
-        A simulated order, not guaranteed. Zestoxx checks the price while the app is open. If it is shut, the next time you open it the candles since you placed this order are checked, and it fills at the first candle that crossed the trigger, marked simulated. If you no longer have the cash or shares when it triggers, it is cancelled.
+        Simulated, not guaranteed: checked while Zestoxx is open.{" "}
+        <button type="button" data-compact data-testid="gtt-learn" aria-expanded={learn} onClick={() => setLearn((v) => !v)} className="font-medium text-blue-700 underline">
+          {learn ? "Show less" : "Learn more"}
+        </button>
+        {learn && <span data-testid="gtt-learn-text" className="mt-1.5 block">Zestoxx checks the price while the app is open. If it is shut, the next time you open it the candles since you placed this order are checked, and it fills at the first candle that crossed the trigger, marked simulated. Zestoxx checks the price while the app is open. If it is shut, the next time you open it the candles since you placed this order are checked, and it fills at the first candle that crossed the trigger, marked simulated. If you no longer have the cash or shares when it triggers, it is cancelled.</span>}
       </Notice>
       {existing && (
         <>

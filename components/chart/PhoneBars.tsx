@@ -298,11 +298,12 @@ export function StatusBar({ feed, settings, update, reset }: { feed: ChartContro
 export function PhoneAttribution({ right }: { /** at the right end of the line (landscape: where the price comes from) */ right?: React.ReactNode }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 px-2 py-0.5">
-      <p data-testid="chart-attribution" className="min-w-0 text-[10px] leading-[13px] text-slate-400">
+      {/* one line at any width: the notice is the link (the licence asks for both), and the words "Charts by ..." join it where there is room */}
+      <p data-testid="chart-attribution" className="min-w-0 zx-licence whitespace-nowrap text-[10px] leading-[13px] text-slate-400">
+        <span className="hidden min-[520px]:inline">{ATTRIBUTION_LINK_TEXT} · </span>
         <a href={TRADINGVIEW_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-500 underline-offset-2 hover:underline">
-          {ATTRIBUTION_LINK_TEXT}
+          {ATTRIBUTION_NOTICE}
         </a>
-        <span> · {ATTRIBUTION_NOTICE}</span>
       </p>
       {right}
     </div>

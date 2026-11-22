@@ -30,6 +30,7 @@ function report(scale: number[]): Report {
     const r = el.getBoundingClientRect();
     const s = getComputedStyle(el);
     if (r.width === 0 || r.height === 0 || s.visibility === "hidden" || s.display === "none") continue;
+    if (el.closest('[data-testid="chart-attribution"]')) continue; // the licence notice: one line, 9 or 10px (see .zx-licence)
     const px = parseFloat(s.fontSize);
     smallest = Math.min(smallest, px);
     if (!ok.has(px) && strays.length < 5) strays.push(`${px}px <${el.tagName.toLowerCase()}> "${t.slice(0, 28)}"`);

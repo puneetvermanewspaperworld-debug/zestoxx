@@ -14,7 +14,7 @@ test.describe("set", () => {
     await expect(page).toHaveURL(/act=alert&s=RELIANCE/);
     await expect(page.getByTestId("action-label")).toHaveText("Set alert");
     await expect(page.getByTestId("paper-badge")).toBeVisible();
-    await expect(page.getByTestId("strip-price")).toHaveText("₹1,500");
+    await expect(page.getByTestId("strip-price")).toHaveText("₹1,500.00");
     await page.getByTestId("alert-target").fill("1650");
     await expect(page.getByTestId("alert-away")).toHaveText("10.00% above the live price");
     await page.getByTestId("cond-below").click();
@@ -41,7 +41,7 @@ test.describe("set", () => {
     await page.getByTestId("alert-target").fill("1600");
     await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("result-status")).toHaveText("Alert set");
-    await expect(page.getByTestId("result-line")).toHaveText("Alert me when RELIANCE goes above ₹1,600");
+    await expect(page.getByTestId("result-line")).toHaveText("Alert me when RELIANCE goes above ₹1,600.00");
     await expect.poll(() => lastPut(puts)?.alerts?.[0]).toMatchObject({ symbol: "RELIANCE", condition: "above", target: 1600 });
     await page.getByTestId("result-alert-list").click();
     await expect(page).toHaveURL(/\/app\/orders\?tab=alerts$/);
@@ -65,11 +65,11 @@ test.describe("set", () => {
     await expect(err).toHaveText("Enter a target price above 0.");
     await page.getByTestId("alert-target").fill("1400"); // above 1,400 is true already
     await page.getByTestId("action-submit").click();
-    await expect(err).toContainText("The price is already at or above ₹1,400");
+    await expect(err).toContainText("The price is already at or above ₹1,400.00");
     await page.getByTestId("cond-below").click();
     await page.getByTestId("alert-target").fill("1600"); // below 1,600 is true already
     await page.getByTestId("action-submit").click();
-    await expect(err).toContainText("The price is already at or below ₹1,600");
+    await expect(err).toContainText("The price is already at or below ₹1,600.00");
     await expect(page.getByTestId("result-status")).toHaveCount(0);
   });
 
@@ -102,7 +102,7 @@ test.describe("the list, edit and delete", () => {
     expect(lastPut(puts)?.alerts?.[0].id).not.toBe("a1");
     await page.getByTestId("result-alert-list").click();
     await expect(page.locator('[data-testid^="alert-row-"]')).toHaveCount(1);
-    await expect(page.getByTestId("alert-list")).toContainText("₹1,700");
+    await expect(page.getByTestId("alert-list")).toContainText("₹1,700.00");
   });
 
   test("Delete this alert asks first, then it is gone from the list", async ({ page }) => {
@@ -129,7 +129,7 @@ test.describe("the list, edit and delete", () => {
     await page.getByTestId("alert-symbol").selectOption("TCS");
     await page.getByTestId("alert-new").click();
     await expect(page.getByTestId("action-symbol")).toHaveText("TCS");
-    await expect(page.getByTestId("strip-price")).toHaveText("₹4,200");
+    await expect(page.getByTestId("strip-price")).toHaveText("₹4,200.00");
   });
 
   test("an edit address for an alert that is not set says so; back closes it and the list keeps its tab", async ({ page }) => {

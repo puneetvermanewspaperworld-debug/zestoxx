@@ -17,14 +17,17 @@ test.describe("create", () => {
     await expect(page).toHaveURL(/act=gtt&s=RELIANCE/);
     await expect(page.getByTestId("action-label")).toHaveText("Create GTT");
     await expect(page.getByTestId("paper-badge")).toBeVisible();
-    await expect(page.getByTestId("strip-price")).toHaveText("₹1,500");
+    await expect(page.getByTestId("strip-price")).toHaveText("₹1,500.00");
     await page.getByTestId("gtt-trigger").fill("1350");
     await expect(page.getByTestId("gtt-away")).toHaveText("10.00% below LTP · Stop-loss");
-    await expect(page.getByTestId("gtt-limit")).toHaveText("₹1,350"); // the engine fills at the trigger
+    await expect(page.getByTestId("gtt-limit")).toHaveText("₹1,350.00"); // the engine fills at the trigger
     await page.getByTestId("gtt-trigger").fill("1650");
     await expect(page.getByTestId("gtt-away")).toHaveText("10.00% above LTP · Target");
     const note = await page.getByTestId("gtt-note").innerText();
-    for (const part of ["simulated", "not guaranteed", "first candle that crossed", "marked simulated"]) expect(note).toContain(part);
+    for (const part of ["Simulated", "not guaranteed"]) expect(note).toContain(part);
+    await page.getByTestId("gtt-learn").click(); // the rest is behind Learn more
+    const more = await page.getByTestId("gtt-note").innerText();
+    for (const part of ["first candle that crossed", "marked simulated"]) expect(more).toContain(part);
     // nothing the engine does not have
     for (const word of ["OCO", "Product", "CNC", "MIS"]) await expect(screen(page).getByText(word, { exact: false })).toHaveCount(0);
     await expect(page.getByTestId("gtt-delete")).toHaveCount(0); // a new GTT has nothing to delete
@@ -48,7 +51,7 @@ test.describe("create", () => {
     await page.getByTestId("gtt-qty").fill("5");
     await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("result-status")).toHaveText("GTT created");
-    await expect(page.getByTestId("result-line")).toContainText("Stop-loss: sell 5 RELIANCE when the price reaches ₹1,450");
+    await expect(page.getByTestId("result-line")).toContainText("Stop-loss: sell 5 RELIANCE when the price reaches ₹1,450.00");
     await expect.poll(() => lastPut(puts)?.openOrders?.[0]).toMatchObject({ orderType: "GTT", trigger: "below", limitPrice: 1450, qty: 5, side: "sell" });
     expect(typeof lastPut(puts)?.openOrders?.[0].placedAtMs).toBe("number");
     await page.getByTestId("result-gtt-list").click();
@@ -84,7 +87,7 @@ test.describe("create", () => {
     await page.getByTestId("side-buy").click();
     await page.getByTestId("gtt-trigger").fill("1600");
     await page.getByTestId("gtt-qty").fill("5");
-    await expect(page.getByTestId("funds-required")).toHaveText("₹8,000");
+    await expect(page.getByTestId("funds-required")).toHaveText("₹8,000.00");
     await submit.click();
     await expect(err).toContainText("Not enough virtual cash");
   });
