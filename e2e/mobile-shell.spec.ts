@@ -350,15 +350,16 @@ test.describe("the symbol sheet", () => {
     for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) await expect(page.getByTestId(id)).toBeEnabled();
   });
 
-  test("Buy opens the order form for that symbol; View chart opens the full-screen chart page", async ({ page }) => {
+  test("Buy opens the full-screen order screen for that symbol; View chart opens the full-screen chart page", async ({ page }) => {
     await go(page, "/app/watchlist");
     await dismissNotice(page);
     await page.getByTestId("wl-open-RELIANCE").click();
     await page.getByTestId("sheet-buy").click();
-    const panel = page.getByTestId("sheet-order-panel");
-    await expect(panel.getByText("Paper Trade")).toBeVisible();
-    await panel.getByRole("button", { name: "Paper buy", exact: true }).click();
-    await expect(panel.getByText(/Bought 1 RELIANCE/)).toBeVisible();
+    await expect(page.getByTestId("action-screen")).toBeVisible();
+    await expect(page.getByTestId("paper-badge")).toBeVisible();
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("result-line")).toContainText("Bought 1 RELIANCE");
+    await page.getByTestId("action-done").click();
     await page.getByTestId("sheet-chart").click();
     await expect(page).toHaveURL(/\/app\/trade\/RELIANCE$/);
     await expect(page.getByTestId("trade-screen")).toBeVisible(); // the full-screen chart page
@@ -834,16 +835,18 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     const { puts, book } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
     await openFromList(page, "ITC");
     await page.getByTestId("sheet-buy").click();
-    const panel = page.getByTestId("sheet-order-panel");
-    await panel.getByRole("button", { name: "Paper buy", exact: true }).click();
-    await expect(panel.getByText(/Bought 1 ITC @ ₹400/)).toBeVisible();
+    await expect(page.getByTestId("strip-price")).toHaveText("₹400");
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("result-line")).toContainText("Bought 1 ITC at ₹400");
     await expect.poll(() => (puts[puts.length - 1] as { holdings?: Record<string, { qty: number; avgPrice: number }>; cash?: number } | undefined)?.holdings?.ITC).toEqual({ qty: 1, avgPrice: 400 });
     expect((puts[puts.length - 1] as { cash: number }).cash).toBe(999_600);
+    await page.getByTestId("action-done").click();
     book.ITC.ltp = 405;
     await nextPoll(page);
     await expect(page.getByTestId("sheet-price")).toHaveText("₹405");
-    await panel.getByRole("button", { name: "Paper buy", exact: true }).click();
-    await expect(panel.getByText(/Bought 1 ITC @ ₹405/)).toBeVisible();
+    await page.getByTestId("sheet-buy").click();
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("result-line")).toContainText("Bought 1 ITC at ₹405");
   });
 
   test("View chart opens the chart page for it, with its own candles, fetched on demand", async ({ page }) => {

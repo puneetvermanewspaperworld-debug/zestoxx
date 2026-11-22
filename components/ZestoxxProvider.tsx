@@ -31,7 +31,7 @@ import {
   type SipStatus,
 } from "@/lib/orders";
 import { MAX_SYMBOLS_PER_LIST, PRIMARY_LIST, listNameError, type CustomList } from "@/lib/watchlists";
-import { fillShortfall, fundsError } from "@/lib/order-check";
+import { fillShortfall, fundsError, type OrderRequest, type OrderResult } from "@/lib/order-check";
 import { ORDER_TYPE_LABEL } from "@/lib/orders";
 import { GTT_CATCHUP_KEY, GTT_CATCHUP_SYMBOLS, MAX_OPEN_GTT, catchUpOnce, catchUpWindow, firstCrossing, type CatchUpEnv, gttError, gttKind, triggerDirection } from "@/lib/gtt";
 import type {
@@ -112,6 +112,8 @@ interface ZestoxxContextValue {
   setActiveView: (v: ViewId) => void;
   /** Place a paper order for the selected symbol. Returns the reason it was refused (funds, holdings, no price), or null when it was placed or filled. */
   onTrade: (t: TradeInput) => string | null;
+  /** Place a paper order for any symbol and get what came of it: filled, resting, or refused with the reason. */
+  placeOrder: (o: OrderRequest) => OrderResult;
   /** Market paper trade in an option contract (id from makeContractId); qty is in units, not lots. */
   tradeContract: (t: { id: string; side: "buy" | "sell"; qty: number; price: number }) => void;
   onAddAlert: (symId: string) => void;
@@ -621,41 +623,55 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     };
   }, [contractIds]);
 
-  const onTrade = useCallback(
-    ({ mode, side, qty, limitPrice, expiryDate }: TradeInput): string | null => {
-      const symbol = selectedRef.current;
+  /**
+   * Place a paper order for any symbol: a market order fills at the live price now; a limit or GTD order rests until the live price reaches it
+   * (while the app is open). Every order is checked against the account first (lib/order-check.ts), and a resting one again when it fills.
+   */
+  const placeOrder = useCallback(
+    ({ symbol, mode, side, qty, limitPrice, expiryDate }: OrderRequest): OrderResult => {
+      const refuse = (reason: string): OrderResult => ({ status: "refused", reason });
+      if (!isTradableId(symbol)) return refuse("Zestoxx cannot trade this symbol.");
       const held = holdingsRef.current[symbol]?.qty ?? 0;
       if (mode === "market") {
         // a paper market order fills at the live price; with none (a symbol with no recent trades) there is no order
         const at = live[symbol];
-        if (!(at > 0)) return "There is no live price for this symbol, so there is nothing to fill an order at.";
+        if (!(at > 0)) return refuse("There is no live price for this symbol, so there is nothing to fill an order at.");
         const err = fundsError({ side, qty, price: at, cash: cashRef.current, held, symbol });
-        if (err) return err;
+        if (err) return refuse(err);
         fillOrder(symbol, side, qty, at);
-        return null;
-      } else {
-        if (!isTradableId(symbol)) return "Zestoxx cannot trade this symbol.";
-        // a resting order is checked now, at its limit price, and again when it fills
-        const err = fundsError({ side, qty, price: limitPrice as number, cash: cashRef.current, held, symbol });
-        if (err) return err;
-        setOpenOrders((cur) => [
-          {
-            id: Date.now() + Math.random(),
-            symbol: selectedRef.current,
-            side,
-            qty,
-            limitPrice: limitPrice as number,
-            time: new Date().toLocaleTimeString("en-IN"),
-            orderType: mode === "gtd" ? "GTD" : "LIMIT",
-            placedDate: istClock().date,
-            expiryDate: mode === "gtd" ? expiryDate : undefined,
-          },
-          ...cur,
-        ]);
-        return null;
+        return { status: "filled", symbol, side, qty, price: at, cashAfter: cashRef.current };
       }
+      // a resting order is checked now, at its limit price, and again when it fills
+      if (!(Number(limitPrice) > 0)) return refuse("Enter a limit price above 0.");
+      const err = fundsError({ side, qty, price: limitPrice as number, cash: cashRef.current, held, symbol });
+      if (err) return refuse(err);
+      const orderType = mode === "gtd" ? "GTD" : "LIMIT";
+      setOpenOrders((cur) => [
+        {
+          id: Date.now() + Math.random(),
+          symbol,
+          side,
+          qty,
+          limitPrice: limitPrice as number,
+          time: new Date().toLocaleTimeString("en-IN"),
+          orderType,
+          placedDate: istClock().date,
+          expiryDate: mode === "gtd" ? expiryDate : undefined,
+        },
+        ...cur,
+      ]);
+      return { status: "pending", symbol, side, qty, limitPrice: limitPrice as number, orderType, expiryDate: mode === "gtd" ? expiryDate : undefined };
     },
     [live, fillOrder]
+  );
+
+  /** The desktop form's order for the selected symbol: the reason it was refused, or null. */
+  const onTrade = useCallback(
+    (t: TradeInput): string | null => {
+      const r = placeOrder({ ...t, symbol: selectedRef.current });
+      return r.status === "refused" ? r.reason : null;
+    },
+    [placeOrder]
   );
 
   const tradeContract = useCallback(
@@ -1279,6 +1295,7 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
     hasRealHistory,
     setActiveView,
     onTrade,
+    placeOrder,
     tradeContract,
     onAddAlert,
     cancelOrder,

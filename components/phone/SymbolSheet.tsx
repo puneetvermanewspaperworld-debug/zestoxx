@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BarChart3, Bell, FileText, SlidersHorizontal, Target } from "lucide-react";
-import OrderPanel from "@/components/OrderPanel";
+import { useAction } from "@/components/action/useAction";
 import Sheet from "@/components/chart/Sheet";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { fmt, fmtSigned } from "@/lib/helpers";
@@ -12,7 +12,6 @@ import { SYMBOL_MAP } from "@/lib/symbols";
 import { NO_RECENT_TRADES, NO_TRADES_NOTE, isTradableId } from "@/lib/dynamic-symbols";
 import { useWatchSymbols } from "@/components/useWatchSymbols";
 import { useExpiryToday } from "@/lib/useWatchlist";
-import { PAPER_BUY, PAPER_SELL } from "@/lib/labels";
 import { DEPTH_NOT_AVAILABLE, DEPTH_WHEN_OPEN } from "@/lib/depth-state";
 import { useMarketStatus } from "@/lib/useMarketStatus";
 import type { DepthLevel } from "@/lib/contract";
@@ -65,15 +64,15 @@ const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n 
  */
 export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string; quote: RowQuote; onClose: () => void }) {
   const router = useRouter();
-  const { setSelected, holdings, cash, onTrade, setAlerts, createGtt, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
+  const { setSelected, setAlerts, createGtt, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
   const tradable = isTradableId(symbol);
   const own = !!SYMBOL_MAP[symbol];
   useWatchSymbols([symbol]);
   const state = own ? undefined : quoteStateOf(symbol);
   const noTrades = state === "none";
   const type = quote.type;
-  const [panel, setPanel] = useState<"order" | "alert" | "notes" | "gtt" | null>(null);
-  const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");
+  const [panel, setPanel] = useState<"alert" | "notes" | "gtt" | null>(null);
+  const { openAction } = useAction();
   const expiryToday = useExpiryToday(symbol === "NIFTY50" || symbol === "BANKNIFTY" ? symbol : "NIFTY50");
   const showExpiry = (symbol === "NIFTY50" || symbol === "BANKNIFTY") && expiryToday === true;
   const price = tradable ? (live[symbol] > 0 ? live[symbol] : null) : quote.price;
@@ -82,7 +81,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
   const canOrder = tradable && price != null;
   const listed = tradable && state !== "unknown";
   const open = (p: typeof panel) => {
-    if (tradable && (p === "order" || p === "gtt")) setSelected(symbol);
+    if (tradable && p === "gtt") setSelected(symbol);
     setPanel((cur) => (cur === p ? null : p));
   };
 
@@ -128,22 +127,13 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
         )}
 
         <div className="mt-[var(--sheet-gap)] grid grid-cols-2 gap-5 px-2">
-          <button type="button" disabled={!canOrder} onClick={() => (setOrderSide("buy"), open("order"))} data-testid="sheet-buy" className="h-[var(--btn-primary-h)] rounded-lg bg-emerald-500 text-[14px] font-semibold text-white disabled:opacity-40">
+          <button type="button" disabled={!canOrder} onClick={() => (setSelected(symbol), openAction({ kind: "order", symbol, side: "buy" }))} data-testid="sheet-buy" className="h-[var(--btn-primary-h)] rounded-lg bg-emerald-500 text-[14px] font-semibold text-white disabled:opacity-40">
             Buy
           </button>
-          <button type="button" disabled={!canOrder} onClick={() => (setOrderSide("sell"), open("order"))} data-testid="sheet-sell" className="h-[var(--btn-primary-h)] rounded-lg bg-rose-500 text-[14px] font-semibold text-white disabled:opacity-40">
+          <button type="button" disabled={!canOrder} onClick={() => (setSelected(symbol), openAction({ kind: "order", symbol, side: "sell" }))} data-testid="sheet-sell" className="h-[var(--btn-primary-h)] rounded-lg bg-rose-500 text-[14px] font-semibold text-white disabled:opacity-40">
             Sell
           </button>
         </div>
-        {panel === "order" && canOrder && price != null && (
-          <div data-testid="sheet-order-panel" className="px-2" aria-label={`Paper ${orderSide}`}>
-            <p className="pb-1 text-[11.5px] text-slate-500">
-              Opened for a paper {orderSide}: choose the quantity and tap {orderSide === "buy" ? PAPER_BUY : PAPER_SELL}.
-            </p>
-            <OrderPanel symId={symbol} price={price} type={type} cash={cash} holdings={holdings} onTrade={onTrade} />
-          </div>
-        )}
-
         {/* text links, two rows with a hairline between: 44 px each, 71 px from one row's centre to the next */}
         <div className="px-2">
           <div className="mt-1 flex h-11 items-center justify-between">

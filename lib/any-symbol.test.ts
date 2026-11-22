@@ -199,7 +199,7 @@ describe("how the provider treats these symbols (the rules, checked in the sourc
     assert.match(src, /const sym = SYMBOL_MAP\[id\];\n\s+if \(!sym\) return;/);
   });
   it("a market order with no live price is not filled", () => {
-    assert.match(src, /const at = live\[symbol\];\n\s+if \(!\(at > 0\)\) return "There is no live price/);
+    assert.match(src, /const at = live\[symbol\];\n\s+if \(!\(at > 0\)\) return refuse\("There is no live price/);
   });
   it("a no-trades answer removes the price instead of keeping a stale one", () => {
     assert.match(src, /none\.forEach\(\(id\) => delete next\[id\]\)/);

@@ -62,7 +62,7 @@ test.describe("the symbol sheet's fields keep focus and take a whole number", ()
     await setup(page, "/app/watchlist");
     await page.getByTestId("wl-open-RELIANCE").click();
     await page.getByTestId("sheet-buy").click();
-    const qty = page.getByTestId("sheet-order-panel").getByRole("spinbutton").first();
+    const qty = page.getByTestId("order-qty"); // Buy is a full screen now
     expect(await typeKeepingFocus(page, qty, "300")).toBe("300");
   });
 

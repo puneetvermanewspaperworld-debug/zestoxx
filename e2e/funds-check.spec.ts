@@ -34,58 +34,60 @@ async function open(page: Page, portfolio: Record<string, unknown>) {
 }
 const lastPut = (puts: Record<string, unknown>[]) => puts[puts.length - 1] as { cash?: number; holdings?: Record<string, { qty: number }>; openOrders?: unknown[] } | undefined;
 
-async function orderPanel(page: Page, side: "buy" | "sell") {
+async function orderScreen(page: Page, side: "buy" | "sell") {
   await page.getByTestId("wl-open-RELIANCE").click();
   await page.getByTestId(side === "buy" ? "sheet-buy" : "sheet-sell").click();
-  return page.getByTestId("sheet-order-panel");
+  return page.getByTestId("action-screen");
 }
-async function place(panel: ReturnType<Page["getByTestId"]>, kind: "Market" | "Limit" | "GTD", qty: string, price: string | null, side: "buy" | "sell") {
-  await panel.getByRole("button", { name: kind, exact: true }).click();
-  const spin = panel.getByRole("spinbutton");
-  await spin.first().fill(qty);
-  if (price !== null) await spin.nth(1).fill(price);
-  await panel.getByRole("button", { name: side === "buy" ? "Paper buy" : "Paper sell", exact: true }).click();
+async function place(page: Page, kind: "Market" | "Limit" | "GTD", qty: string, price: string | null) {
+  await page.getByTestId("order-qty").fill(qty);
+  if (kind !== "Market") {
+    await page.getByTestId("mode-limit").click();
+    await page.getByTestId("order-limit").fill(price ?? "");
+    if (kind === "GTD") await page.getByTestId("validity-date").click();
+  }
+  await page.getByTestId("action-submit").click();
 }
 
 test.describe("when it is placed", () => {
   test("a resting limit buy that the cash cannot cover is refused at its limit price, and nothing is saved", async ({ page }) => {
     const { puts } = await open(page, { ...base, cash: 1000 });
-    const panel = await orderPanel(page, "buy");
-    await place(panel, "Limit", "10", "1400", "buy");
-    await expect(panel).toContainText("Not enough virtual cash: this needs ₹14,000 and you have ₹1,000");
+    await orderScreen(page, "buy");
+    await place(page, "Limit", "10", "1400");
+    await expect(page.getByTestId("order-error")).toHaveText("Not enough virtual cash: this needs ₹14,000 and you have ₹1,000.");
     await page.waitForTimeout(1200);
     expect(lastPut(puts)?.openOrders ?? []).toEqual([]);
   });
 
   test("it is checked at the limit price, not the market price: a limit under the cash is accepted even when the market price is over it", async ({ page }) => {
     const { puts } = await open(page, { ...base, cash: 1000 });
-    const panel = await orderPanel(page, "buy");
-    await place(panel, "Limit", "1", "900", "buy"); // 900 fits in 1,000; the market price (1,500) would not
-    await expect(panel).toContainText("Limit buy order placed");
+    await orderScreen(page, "buy");
+    await place(page, "Limit", "1", "900"); // 900 fits in 1,000; the market price (1,500) would not
+    await expect(page.getByTestId("result-line")).toContainText("Limit buy 1 RELIANCE");
     await expect.poll(() => (lastPut(puts)?.openOrders ?? []).length).toBe(1);
   });
 
   test("a resting limit sell with nothing held is refused", async ({ page }) => {
     const { puts } = await open(page, { ...base, cash: 1_000_000 });
-    const panel = await orderPanel(page, "sell");
-    await place(panel, "Limit", "1", "1600", "sell");
-    await expect(panel).toContainText("You only hold 0 unit(s) of RELIANCE.");
+    await orderScreen(page, "sell");
+    await place(page, "Limit", "1", "1600");
+    await expect(page.getByTestId("order-error")).toHaveText("You only hold 0 unit(s) of RELIANCE.");
     await page.waitForTimeout(1200);
     expect(lastPut(puts)?.openOrders ?? []).toEqual([]);
   });
 
   test("a GTD buy is checked the same way", async ({ page }) => {
     await open(page, { ...base, cash: 1000 });
-    const panel = await orderPanel(page, "buy");
-    await place(panel, "GTD", "10", "1400", "buy");
-    await expect(panel).toContainText("Not enough virtual cash");
+    await orderScreen(page, "buy");
+    await place(page, "GTD", "10", "1400");
+    await expect(page.getByTestId("order-error")).toContainText("Not enough virtual cash");
   });
 
   test("a market sell above the holding is refused, and the holding is untouched", async ({ page }) => {
     const { puts } = await open(page, { ...base, cash: 1000, holdings: { RELIANCE: { qty: 3, avgPrice: 1400 } } });
-    const panel = await orderPanel(page, "sell");
-    await place(panel, "Market", "4", null, "sell");
-    await expect(panel).toContainText("You only hold 3 unit(s) of RELIANCE.");
+    await orderScreen(page, "sell");
+    await place(page, "Market", "4", null);
+    await expect(page.getByTestId("order-error")).toHaveText("You only hold 3 unit(s) of RELIANCE.");
     await page.waitForTimeout(1200);
     expect(lastPut(puts)?.holdings?.RELIANCE?.qty ?? 3).toBe(3);
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { usePrivacy } from "@/components/usePrivacy";
 import { useZestoxx } from "@/components/ZestoxxProvider";
@@ -23,7 +24,9 @@ const signedINR = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtINR(Mat
 export default function PhonePortfolio() {
   const { cash, holdings, orderLog, live } = useZestoxx();
   const { hidden, toggle } = usePrivacy();
-  const [tab, setTab] = useState<Tab>("holdings");
+  // a link from an action screen's result can name the tab (?tab=positions): shares bought today are Positions until they settle
+  const named = useSearchParams().get("tab");
+  const [tab, setTab] = useState<Tab>(named === "positions" ? "positions" : "holdings");
   const today = istClock().date;
   const split = useMemo(() => splitHoldings(holdings, orderLog, today), [holdings, orderLog, today]);
   // An option contract with no mark yet (feed still loading) counts at cost, not NaN.

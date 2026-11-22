@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import AlertsView from "@/components/views/AlertsView";
 import { SipTab } from "@/components/views/OrdersView";
@@ -93,7 +94,9 @@ function LogCard({ o }: { o: OrderLogEntry }) {
  */
 export default function PhoneOrders() {
   const { openOrders, orderLog, cancelOrder, alerts, sips } = useZestoxx();
-  const [tab, setTab] = useState<Tab>("open");
+  // a link from an action screen's result can name the tab (?tab=executed)
+  const named = useSearchParams().get("tab");
+  const [tab, setTab] = useState<Tab>(() => (["open", "executed", "gtt", "baskets", "sips", "alerts"] as const).find((x) => x === named) ?? "open");
   const resting = openOrders.filter((o) => o.orderType !== "GTT");
   const gttOpen = openOrders.filter((o) => o.orderType === "GTT");
   const gttDone = orderLog.filter((o) => o.orderType === "GTT");

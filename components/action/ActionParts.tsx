@@ -91,7 +91,7 @@ export function Field({ id, value, onChange, inputMode = "decimal", placeholder,
         autoCorrect="off"
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
-        className="min-w-0 flex-1 bg-transparent px-3 font-mono text-slate-900 outline-none"
+        className="min-h-[44px] min-w-0 flex-1 bg-transparent px-3 font-mono text-slate-900 outline-none"
       />
       {unit && <span className="shrink-0 pr-3 text-[12px] text-slate-500">{unit}</span>}
     </div>

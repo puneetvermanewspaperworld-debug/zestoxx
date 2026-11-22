@@ -31,3 +31,20 @@ export function fundsError(o: FundsCheck): string | null {
 
 /** Why a resting order was cancelled when it came to fill, in words for a message. */
 export const fillShortfall = (side: "buy" | "sell"): string => (side === "buy" ? "not enough virtual cash" : "you no longer hold enough");
+
+/** An order a screen asks the account to place. */
+export interface OrderRequest {
+  symbol: string;
+  side: "buy" | "sell";
+  qty: number;
+  mode: "market" | "limit" | "gtd";
+  limitPrice?: number;
+  /** YYYY-MM-DD, GTD only */
+  expiryDate?: string;
+}
+
+/** What came of it: filled now (with the cash left), resting until its price comes (limit, or GTD until its date), or refused with the reason. */
+export type OrderResult =
+  | { status: "filled"; symbol: string; side: "buy" | "sell"; qty: number; price: number; cashAfter: number }
+  | { status: "pending"; symbol: string; side: "buy" | "sell"; qty: number; limitPrice: number; orderType: "LIMIT" | "GTD"; expiryDate?: string }
+  | { status: "refused"; reason: string };
