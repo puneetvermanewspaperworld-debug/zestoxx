@@ -7,6 +7,7 @@ import { FiiDiiSummaryCard, FuturesGainersCard, MarketMoversCard } from "@/compo
 import { useRowQuotes } from "@/components/phone/useRowQuotes";
 import { fmt, fmtINR, fmtSigned } from "@/lib/helpers";
 import { NEWS_NOT_CONNECTED } from "@/lib/news";
+import PrivacyEye from "@/components/PrivacyEye";
 import { usePrivacy } from "@/components/usePrivacy";
 import { maskPnl, maskValue } from "@/lib/privacy";
 
@@ -28,6 +29,10 @@ export default function DashboardView() {
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-white p-5">
+        {/* on a phone the eye is here too, since this card shows the balance and the profit and loss */}
+        <div className="mb-2 hidden justify-end phone:flex">
+          <PrivacyEye />
+        </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div>
             <div className="text-[10.5px] uppercase tracking-wide text-slate-500">Total Value</div>

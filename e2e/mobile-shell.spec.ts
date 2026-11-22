@@ -644,18 +644,18 @@ test.describe("portfolio: Holdings, Positions and privacy", () => {
     await expect(page.getByTestId("pf-pnl")).toHaveText("***");
     await expect(page.getByTestId("pf-rows-holdings").getByTestId("pf-row-pnl")).toHaveText("***");
     await expect(page.getByTestId("pf-rows-holdings").getByTestId("pf-row-value")).toHaveText("****");
-    // the top bar's balance
-    await expect(page.getByText("₹9,00,000.00")).toHaveCount(0);
+    // the balance is not in the phone's top bar at all
+    await expect(page.getByText("₹9,00,000.00").filter({ visible: true })).toHaveCount(0);
     // another place: the dashboard
     await page.goto("/app/dashboard", { waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
-    await expect(page.getByText("****").first()).toBeVisible();
+    await expect(page.getByText("****").filter({ visible: true }).first()).toBeVisible(); // (the phone's top bar no longer carries the balance)
     await expect(page.getByText("***", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/₹9,00,000.00|₹10,00,000.00/)).toHaveCount(0);
     // remembered on this device
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
-    await expect(page.getByText("****").first()).toBeVisible();
+    await expect(page.getByText("****").filter({ visible: true }).first()).toBeVisible(); // (the phone's top bar no longer carries the balance)
     await page.goto("/app/portfolio", { waitUntil: "domcontentloaded" });
     await page.getByTestId("app-content").waitFor();
     await expect(page.getByTestId("pf-total")).toHaveText("****");

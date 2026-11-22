@@ -17,7 +17,7 @@ export default function TopBar() {
   const market = useMarketStatus();
 
   return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 md:px-4 md:py-2.5">
+    <div data-testid="top-bar" className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 md:px-4 md:py-2.5">
       <Link href="/" className="flex items-center gap-2 md:hidden">
         <div className="flex h-6 w-6 items-center justify-center rounded bg-blue-600 font-display text-[11px] font-bold text-slate-50">
           Z
@@ -35,7 +35,8 @@ export default function TopBar() {
           </span>
         )}
       </div>
-      <div className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px]">
+      {/* the balance is on Portfolio and Account (and in the order screens' funds line), not in the phone's top bar */}
+      <div data-testid="top-bar-cash" className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px] phone:hidden">
         <Wallet size={13} className="text-blue-600" />
         <span className="font-mono text-slate-900">{maskValue(fmtINR(cash), hidden)}</span>
       </div>

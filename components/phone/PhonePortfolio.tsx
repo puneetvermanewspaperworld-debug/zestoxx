@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import PrivacyEye from "@/components/PrivacyEye";
 import { usePrivacy } from "@/components/usePrivacy";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { useAction } from "@/components/action/useAction";
@@ -26,7 +26,7 @@ export default function PhonePortfolio() {
   const { cash, holdings, orderLog, live } = useZestoxx();
   const { openAction } = useAction();
   const [none, setNone] = useState<string | null>(null);
-  const { hidden, toggle } = usePrivacy();
+  const { hidden } = usePrivacy();
   // a link from an action screen's result can name the tab (?tab=positions): shares bought today are Positions until they settle
   const named = useSearchParams().get("tab");
   const [tab, setTab] = useState<Tab>(named === "positions" ? "positions" : "holdings");
@@ -56,9 +56,7 @@ export default function PhonePortfolio() {
     <div className="space-y-2.5" data-testid="phone-portfolio">
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-display text-[20px] font-semibold text-slate-900">Portfolio</h1>
-        <button type="button" onClick={toggle} aria-pressed={hidden} aria-label={hidden ? "Show portfolio value and profit and loss" : "Hide portfolio value and profit and loss"} data-testid="privacy-eye" className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600">
-          {hidden ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
-        </button>
+        <PrivacyEye />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
