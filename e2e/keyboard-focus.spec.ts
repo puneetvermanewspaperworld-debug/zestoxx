@@ -46,7 +46,7 @@ test.describe("the symbol sheet's fields keep focus and take a whole number", ()
     await setup(page, "/app/watchlist");
     await page.getByTestId("wl-open-RELIANCE").click();
     await page.getByTestId("sheet-gtt").click();
-    expect(await typeKeepingFocus(page, page.getByTestId("gtt-trigger"), "1450")).toBe("1450");
+    expect(await typeKeepingFocus(page, page.getByTestId("gtt-trigger"), "1450")).toBe("1450"); // Create GTT is a full screen now
     expect(await typeKeepingFocus(page, page.getByTestId("gtt-qty"), "300")).toBe("300");
     expect(await page.getByTestId("gtt-trigger").inputValue()).toBe("1450"); // the first field was not reset either
   });

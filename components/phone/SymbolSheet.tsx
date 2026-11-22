@@ -7,7 +7,6 @@ import { useAction } from "@/components/action/useAction";
 import Sheet from "@/components/chart/Sheet";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { fmt, fmtSigned } from "@/lib/helpers";
-import { gttKind, triggerDirection } from "@/lib/gtt";
 import { SYMBOL_MAP } from "@/lib/symbols";
 import { NO_RECENT_TRADES, NO_TRADES_NOTE, isTradableId } from "@/lib/dynamic-symbols";
 import { useWatchSymbols } from "@/components/useWatchSymbols";
@@ -64,14 +63,14 @@ const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-500" : n 
  */
 export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string; quote: RowQuote; onClose: () => void }) {
   const router = useRouter();
-  const { setSelected, setAlerts, createGtt, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
+  const { setSelected, setAlerts, notes, setNote, live, quoteStateOf, chgFor, hasFeedQuote } = useZestoxx();
   const tradable = isTradableId(symbol);
   const own = !!SYMBOL_MAP[symbol];
   useWatchSymbols([symbol]);
   const state = own ? undefined : quoteStateOf(symbol);
   const noTrades = state === "none";
   const type = quote.type;
-  const [panel, setPanel] = useState<"alert" | "notes" | "gtt" | null>(null);
+  const [panel, setPanel] = useState<"alert" | "notes" | null>(null);
   const { openAction } = useAction();
   const expiryToday = useExpiryToday(symbol === "NIFTY50" || symbol === "BANKNIFTY" ? symbol : "NIFTY50");
   const showExpiry = (symbol === "NIFTY50" || symbol === "BANKNIFTY") && expiryToday === true;
@@ -80,10 +79,7 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
   const changePct = !tradable ? quote.changePct : price == null ? null : own || hasFeedQuote(symbol) ? chgFor(symbol) : null;
   const canOrder = tradable && price != null;
   const listed = tradable && state !== "unknown";
-  const open = (p: typeof panel) => {
-    if (tradable && p === "gtt") setSelected(symbol);
-    setPanel((cur) => (cur === p ? null : p));
-  };
+  const open = (p: typeof panel) => setPanel((cur) => (cur === p ? null : p));
 
   return (
     <Sheet title={symbol.replace(/^IDX /, "")} large onClose={onClose} testId="symbol-sheet">
@@ -144,13 +140,12 @@ export default function SymbolSheet({ symbol, quote, onClose }: { symbol: string
           <div className="flex h-11 items-center justify-between">
             <ActionButton icon={<Bell size={16} aria-hidden />} label="Set alert" testId="sheet-alert" disabled={!listed} pressed={panel === "alert"} onClick={() => open("alert")} />
             <ActionButton icon={<FileText size={16} aria-hidden />} label={notes[symbol] ? "Edit notes" : "Add notes"} testId="sheet-notes" pressed={panel === "notes"} onClick={() => open("notes")} />
-            <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!canOrder} pressed={panel === "gtt"} onClick={() => open("gtt")} />
+            <ActionButton icon={<Target size={16} aria-hidden />} label="Create GTT" testId="sheet-gtt" disabled={!canOrder} onClick={() => (setSelected(symbol), openAction({ kind: "gtt", symbol }))} />
           </div>
         </div>
 
         {panel === "alert" && listed && <AlertForm symbol={symbol} price={price} type={type} onDone={() => setPanel(null)} setAlerts={setAlerts} />}
         {panel === "notes" && <NotesForm symbol={symbol} initial={notes[symbol] ?? ""} onSave={(t) => (setNote(symbol, t), setPanel(null))} />}
-        {panel === "gtt" && canOrder && price != null && <GttForm symbol={symbol} price={price} type={type} onPlaced={() => setPanel(null)} createGtt={createGtt} />}
         {notes[symbol] && panel !== "notes" && (
           <p data-testid="saved-note" className="mx-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
             {notes[symbol]}
@@ -218,51 +213,6 @@ function NotesForm({ symbol, initial, onSave }: { symbol: string; initial: strin
       <textarea id="note-text" data-testid="note-text" value={text} maxLength={500} onChange={(e) => setText(e.target.value)} rows={3} className={field + " py-2"} />
       <button type="submit" data-testid="note-save" className="min-h-[44px] w-full rounded-lg bg-blue-600 text-[14px] font-semibold text-white">
         {text.trim() ? "Save note" : initial ? "Delete note" : "Save note"}
-      </button>
-    </form>
-  );
-}
-
-function GttForm({ symbol, price, type, onPlaced, createGtt }: { symbol: string; price: number; type: RowQuote["type"]; onPlaced: () => void; createGtt: ReturnType<typeof useZestoxx>["createGtt"] }) {
-  const [side, setSide] = useState<"buy" | "sell">("sell");
-  const [qty, setQty] = useState("1");
-  const [trigger, setTrigger] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const t = parseFloat(trigger);
-  const kind = t > 0 ? gttKind(side, triggerDirection(t, price)) : null;
-  return (
-    <form
-      data-testid="gtt-form"
-      className="mx-2 space-y-2 rounded-lg border border-slate-200 p-2.5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const err = createGtt({ symbol, side, qty: Number(qty), trigger: t });
-        if (err) return setError(err);
-        onPlaced();
-      }}
-    >
-      <p className="text-[12px] leading-snug text-slate-500">
-        Trades once {symbol} reaches your trigger (now {fmt(price, type)}): a sell below the price is a stop-loss, above it a target. It fires while Zestoxx is open; otherwise the next visit checks the candles and marks the fill as simulated.
-      </p>
-      <div className="flex gap-2" role="radiogroup" aria-label="GTT side">
-        {(["sell", "buy"] as const).map((s) => (
-          <button key={s} type="button" role="radio" aria-checked={side === s} onClick={() => (setSide(s), setError(null))} className={"min-h-[44px] flex-1 rounded-lg border text-[13px] font-medium " + (side === s ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600")}>
-            {s === "sell" ? "Sell" : "Buy"}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <input data-testid="gtt-trigger" inputMode="decimal" aria-label="Trigger price" placeholder="Trigger price" value={trigger} onChange={(e) => (setTrigger(e.target.value), setError(null))} className={field + " font-mono"} />
-        <input data-testid="gtt-qty" inputMode="numeric" aria-label="Quantity" placeholder="Qty" value={qty} onChange={(e) => (setQty(e.target.value), setError(null))} className={field + " font-mono"} />
-      </div>
-      {kind && (
-        <p data-testid="gtt-kind" className="text-[12px] font-medium text-slate-700">
-          {kind}: {side} {qty || "?"} when the price reaches {fmt(t, type)}
-        </p>
-      )}
-      {error && <p role="alert" data-testid="gtt-error" className="text-[12px] text-rose-500">{error}</p>}
-      <button type="submit" data-testid="gtt-save" className="min-h-[44px] w-full rounded-lg bg-blue-600 text-[14px] font-semibold text-white">
-        Create GTT
       </button>
     </form>
   );

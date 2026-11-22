@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAction } from "@/components/action/useAction";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import AlertsView from "@/components/views/AlertsView";
 import { SipTab } from "@/components/views/OrdersView";
@@ -28,6 +29,7 @@ const Chip = ({ children, tone = "slate" }: { children: React.ReactNode; tone?: 
 
 function OpenCard({ o, onCancel }: { o: OpenOrder; onCancel: (id: number) => void }) {
   const gtt = o.orderType === "GTT";
+  const { openAction } = useAction();
   return (
     <li data-testid={`open-order-${o.id}`} className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex items-start justify-between gap-2">
@@ -45,9 +47,16 @@ function OpenCard({ o, onCancel }: { o: OpenOrder; onCancel: (id: number) => voi
           <span className="text-[11px] text-slate-400">{o.orderType === "GTD" && o.expiryDate ? `till ${fmtIsoDate(o.expiryDate)}` : o.orderType === "GTT" ? "till triggered" : "today"}</span>
         </div>
       </div>
-      <button type="button" onClick={() => onCancel(o.id)} data-testid={`cancel-order-${o.id}`} aria-label={`Cancel ${o.side} ${o.qty} ${displayName(o.symbol)}`} className="mt-2 min-h-[44px] w-full rounded-lg border border-slate-200 text-[13px] font-medium text-rose-600">
-        Cancel order
-      </button>
+      <div className={"mt-2 grid gap-2 " + (gtt ? "grid-cols-2" : "grid-cols-1")}>
+        {gtt && (
+          <button type="button" onClick={() => openAction({ kind: "gtt", symbol: o.symbol, editId: String(o.id) })} data-testid={`edit-order-${o.id}`} aria-label={`Edit ${o.side} ${o.qty} ${displayName(o.symbol)}`} className="min-h-[44px] rounded-lg border border-slate-200 text-[13px] font-medium text-blue-700">
+            Edit GTT
+          </button>
+        )}
+        <button type="button" onClick={() => onCancel(o.id)} data-testid={`cancel-order-${o.id}`} aria-label={`Cancel ${o.side} ${o.qty} ${displayName(o.symbol)}`} className="min-h-[44px] rounded-lg border border-slate-200 text-[13px] font-medium text-rose-600">
+          Cancel order
+        </button>
+      </div>
     </li>
   );
 }

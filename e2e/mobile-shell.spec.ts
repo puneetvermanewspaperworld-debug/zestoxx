@@ -438,15 +438,17 @@ test.describe("orders: GTT and stop-loss", () => {
     await page.getByTestId("sheet-gtt").click();
     // refused: a trigger at the price, and more than is held
     await page.getByTestId("gtt-trigger").fill("1500");
-    await page.getByTestId("gtt-save").click();
+    await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("gtt-error")).toContainText("too close");
     await page.getByTestId("gtt-trigger").fill("1450");
     await page.getByTestId("gtt-qty").fill("11");
-    await page.getByTestId("gtt-save").click();
+    await page.getByTestId("action-submit").click();
     await expect(page.getByTestId("gtt-error")).toContainText("hold 10");
     await page.getByTestId("gtt-qty").fill("5");
     await expect(page.getByTestId("gtt-kind")).toHaveText("Stop-loss: sell 5 when the price reaches ₹1,450");
-    await page.getByTestId("gtt-save").click();
+    await page.getByTestId("action-submit").click();
+    await expect(page.getByTestId("result-status")).toHaveText("GTT created");
+    await page.getByTestId("action-done").click();
     await page.getByTestId("sheet-close").click();
     await page.getByTestId("nav-orders").click();
     await page.getByTestId("orders-tab-gtt").click();
@@ -472,7 +474,8 @@ test.describe("orders: GTT and stop-loss", () => {
     await page.getByTestId("sheet-gtt").click();
     await page.getByTestId("gtt-trigger").fill("1480");
     await page.getByTestId("gtt-qty").fill("5");
-    await page.getByTestId("gtt-save").click();
+    await page.getByTestId("action-submit").click();
+    await page.getByTestId("action-done").click();
     await page.getByTestId("sheet-close").click();
     px.RELIANCE = 1470; // the next quote is under the trigger
     await page.clock.runFor(30_000);
@@ -778,9 +781,10 @@ for (const [w, h] of SIZES) {
       await dismissNotice(page);
       await page.getByTestId("wl-open-RELIANCE").click();
       await page.getByTestId("sheet-gtt").click();
-      await expect(page.getByTestId("gtt-form")).toBeVisible();
+      await expect(page.getByTestId("action-screen")).toBeVisible();
       expect(await noSideways(page)).toBe(true);
       expect(await smallControls(page)).toEqual([]);
+      await page.getByTestId("action-back").click();
       await page.getByTestId("sheet-alert").click();
       await page.getByTestId("sheet-notes").click();
       await page.getByTestId("sheet-buy").click();
@@ -882,9 +886,10 @@ test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => 
     await page.getByTestId("sheet-gtt").click();
     await page.getByTestId("gtt-trigger").fill("420");
     await page.getByTestId("gtt-qty").fill("2");
-    await page.getByRole("radiogroup", { name: "GTT side" }).getByRole("radio", { name: "Buy" }).click();
+    await page.getByRole("radiogroup", { name: "Side" }).getByRole("radio", { name: "Buy" }).click();
     await expect(page.getByTestId("gtt-kind")).toContainText("Buy on breakout");
-    await page.getByTestId("gtt-save").click();
+    await page.getByTestId("action-submit").click();
+    await page.getByTestId("action-done").click();
     await page.getByTestId("sheet-close").click();
     book.ITC.ltp = 421;
     await nextPoll(page);

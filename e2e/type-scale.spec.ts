@@ -94,7 +94,7 @@ test.describe("a wide screen keeps its sizes", () => {
   });
 });
 
-test.describe("the row sheet with the GTT form open needs little scrolling", () => {
+test.describe("the row sheet needs little scrolling", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
   async function open(page: Page) {
@@ -106,8 +106,7 @@ test.describe("the row sheet with the GTT form open needs little scrolling", () 
     await page.getByTestId("app-content").waitFor();
     const x = page.getByTestId("guest-notice-dismiss");
     if (await x.count()) await x.click();
-    await page.getByTestId("wl-open-RELIANCE").click();
-    await page.getByTestId("sheet-gtt").click();
+    await page.getByTestId("wl-open-RELIANCE").click(); // the GTT and order forms are full screens now, so the sheet holds no form
     await page.waitForTimeout(500);
   }
 

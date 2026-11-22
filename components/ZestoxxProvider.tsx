@@ -119,7 +119,11 @@ interface ZestoxxContextValue {
   onAddAlert: (symId: string) => void;
   cancelOrder: (id: number) => void;
   /** Place a GTT / stop-loss order: trades the quantity when the price reaches the trigger. Returns an error message, or null when placed. */
-  createGtt: (o: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }) => string | null;
+  /**
+   * Place a GTT. With `replaceId` it edits one: the open GTT with that id is cancelled and the new one is created, starting now (the time it was
+   * placed resets). Returns an error message, or null when placed.
+   */
+  createGtt: (o: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }, replaceId?: number) => string | null;
   /**
    * Keep live quotes coming for these symbols while the caller is on screen (the owner key is the caller's own; an empty list stops it). Only
    * NSE equities and ETFs the app does not chart on its own need this: the twelve it charts are always priced.
@@ -953,21 +957,24 @@ export function ZestoxxProvider({ children }: { children: React.ReactNode }) {
 
   /** Place a GTT / stop-loss order at the price now: it fires while the app is open, and the next visit checks the candles it missed. */
   const createGtt = useCallback(
-    ({ symbol, side, qty, trigger }: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }): string | null => {
+    ({ symbol, side, qty, trigger }: { symbol: string; side: "buy" | "sell"; qty: number; trigger: number }, replaceId?: number): string | null => {
       const priceNow = liveRef.current[symbol];
+      const old = replaceId == null ? undefined : openOrdersRef.current.find((o) => o.id === replaceId && o.orderType === "GTT");
+      if (replaceId != null && !old) return "That GTT is no longer open: it may have triggered or been cancelled.";
       if (!isTradableId(symbol)) return "Zestoxx cannot trade this symbol.";
       if (!(priceNow > 0)) return isDynamicEquity(symbol) ? "There is no live price for this symbol (no recent trades), so a GTT cannot be placed yet." : "There is no price for this symbol yet. Try again in a moment.";
-      if (openOrdersRef.current.filter((o) => o.orderType === "GTT").length >= MAX_OPEN_GTT) return `You can have up to ${MAX_OPEN_GTT} open GTT orders. Cancel one first.`;
+      if (openOrdersRef.current.filter((o) => o.orderType === "GTT" && o !== old).length >= MAX_OPEN_GTT) return `You can have up to ${MAX_OPEN_GTT} open GTT orders. Cancel one first.`;
       const err = gttError({ side, qty, trigger, priceNow, heldQty: holdingsRef.current[symbol]?.qty ?? 0, cash: cashRef.current });
       if (err) return err;
       const direction = triggerDirection(trigger, priceNow);
+      if (old) closeOrders([old], "cancelled"); // an edit is a cancel and a new order: the old one stays in the history as cancelled
       setOpenOrders((cur) => [
         { id: Date.now() + Math.random(), symbol, side, qty, limitPrice: trigger, time: new Date().toLocaleTimeString("en-IN"), orderType: "GTT" as const, placedDate: istClock().date, trigger: direction, placedAtMs: Date.now() },
         ...cur,
       ]);
       return null;
     },
-    []
+    [closeOrders]
   );
 
   const setNote = useCallback((symbol: string, text: string) => {
