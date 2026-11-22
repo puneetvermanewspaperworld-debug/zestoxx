@@ -182,3 +182,73 @@ test.describe("at 360px", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 });
+
+test.describe("the screens for any NSE symbol (not only the twelve built in)", () => {
+  const quotes = { ITC: { state: "live", ltp: 400, prevClose: 394, name: "ITC Ltd" }, SLEEPY: { state: "none", prevClose: 88, name: "Sleepy Smallcap Ltd" } } as const;
+  async function openAny(page: Page, symbol: "ITC" | "SLEEPY") {
+    await mockMarket(page);
+    await page.route("**/api/portfolio", (r) => (r.request().method() === "PUT" ? r.fulfill({ json: { ok: true } }) : r.fulfill({ json: { ...portfolio, lists: [{ name: "Z", symbols: ["ITC", "SLEEPY"] }] } })));
+    await page.route("**/api/symbol-detail**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+    await page.route("**/api/quotes**", (r) => {
+      const syms = decodeURIComponent(new URL(r.request().url()).searchParams.get("symbols") ?? "").split(",").filter(Boolean);
+      return r.fulfill({ json: { source: "live", quotes: Object.fromEntries(syms.map((s) => [s, (quotes as Record<string, unknown>)[s] ?? { state: "unknown", prevClose: 0 }])) } });
+    });
+    await page.route("**/api/watchlist?symbols=**", (r) => r.fulfill({ json: { source: "unavailable" } }));
+    await page.route("**/api/watchlist-search**", (r) => r.fulfill({ json: { results: [{ symbol: "ITC", name: "ITC Ltd", kind: "equity", fno: true }] } }));
+    await page.goto("/app/watchlist", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("app-content").waitFor();
+    const x = page.getByTestId("guest-notice-dismiss");
+    if (await x.count()) await x.click();
+    await page.getByTestId("wl-tab-Z").click();
+    await page.getByTestId(`wl-open-${symbol}`).click();
+    await expect(page.getByTestId("symbol-sheet")).toBeVisible();
+    await page.waitForTimeout(800);
+  }
+  const noSideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+
+  test("a live symbol: Buy and Sell keep their size, and the five links are all there, enabled, 14px, 44px tall", async ({ page }) => {
+    await openAny(page, "ITC");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    near((await box(page, "sheet-buy")).height, 49.5);
+    near((await box(page, "sheet-buy")).width, 164.7);
+    for (const id of ["sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) {
+      await expect(page.getByTestId(id), id).toBeEnabled();
+      expect((await box(page, id)).height).toBeGreaterThanOrEqual(43.5);
+      near((await style(page, id)).size, 14.2, 0.5);
+    }
+    expect(await noSideways(page)).toBe(true);
+  });
+
+  test('"No recent trades": the sheet header stays on one line, the note is 12px, Buy, Sell and GTT are off at their usual size, and nothing scrolls sideways', async ({ page }) => {
+    await openAny(page, "SLEEPY");
+    await expect(page.getByTestId("sheet-price")).toHaveText("No recent trades");
+    const header = await page.getByTestId("sheet-price").evaluate((e) => e.parentElement!.getBoundingClientRect().height);
+    near(header, 31, 1); // one line: the name gives way (it is cut with an ellipsis), the price text does not wrap
+    const note = await page.getByTestId("no-trades-note").evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+    expect(note).toBe(12);
+    for (const id of ["sheet-buy", "sheet-sell", "sheet-gtt"]) await expect(page.getByTestId(id), id).toBeDisabled();
+    near((await box(page, "sheet-buy")).height, 49.5);
+    expect(await noSideways(page)).toBe(true);
+    // the chart page for it: the order form is replaced by the explanation, which is on the type scale too
+    await page.getByTestId("sheet-chart").click();
+    await expect(page).toHaveURL(/\/app\/trade\/SLEEPY$/);
+    await expect(page.getByTestId("paper-buy")).toBeDisabled();
+    expect(await noSideways(page)).toBe(true);
+  });
+
+  test("adding a symbol outside the twelve to My Watchlist from the search: the panel closes, the row is 66px, the count goes up", async ({ page }) => {
+    await openAny(page, "ITC");
+    await page.getByTestId("sheet-close").click();
+    await page.getByTestId("wl-tab-My Watchlist").click();
+    await page.getByTestId("wl-search-input").fill("itc");
+    const results = page.getByTestId("wl-results");
+    await expect(results).toBeVisible();
+    near((await results.boundingBox())!.width, 390, 0.5);
+    for (const b of await results.getByRole("button").all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+    await page.getByTestId("wl-result-ITC").click();
+    await expect(results).toHaveCount(0);
+    await expect(page.getByTestId("wl-count")).toHaveText("6/250");
+    near((await box(page, "wl-row-ITC")).y - (await box(page, "wl-row-NIFTY50")).y, 66.1); // row to row (the last row has no hairline under it)
+    expect(await noSideways(page)).toBe(true);
+  });
+});
