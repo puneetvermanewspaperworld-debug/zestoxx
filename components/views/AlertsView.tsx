@@ -3,7 +3,9 @@
 import React, { useState } from "react";
 import { BellRing } from "lucide-react";
 import { useZestoxx } from "@/components/ZestoxxProvider";
-import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
+import { SYMBOLS, typeOf } from "@/lib/symbols";
+import { isTradableId } from "@/lib/dynamic-symbols";
+import { useWatchSymbols } from "@/components/useWatchSymbols";
 import { fmt } from "@/lib/helpers";
 
 export default function AlertsView() {
@@ -11,6 +13,9 @@ export default function AlertsView() {
   const [symbol, setSymbol] = useState(alertPrefill || SYMBOLS[0].id);
   const [condition, setCondition] = useState<"above" | "below">("above");
   const [target, setTarget] = useState("");
+  // a symbol the app does not chart on its own (opened from a sheet's "Set alert") is offered too, and its quote kept coming
+  const extra = isTradableId(symbol) && !SYMBOLS.some((s) => s.id === symbol) ? symbol : null;
+  useWatchSymbols([symbol]);
 
   const addAlert = () => {
     if (!target || parseFloat(target) <= 0) return;
@@ -42,6 +47,7 @@ export default function AlertsView() {
               onChange={(e) => setSymbol(e.target.value)}
               className="mt-0.5 block rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[12.5px] text-slate-900 outline-none phone:min-h-[44px]"
             >
+              {extra && <option value={extra}>{extra}</option>}
               {SYMBOLS.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.id}
@@ -93,7 +99,7 @@ export default function AlertsView() {
               >
                 <span className="text-slate-900">
                   {a.symbol} {a.condition}{" "}
-                  <span className="font-mono">{fmt(a.target, SYMBOL_MAP[a.symbol].type)}</span>
+                  <span className="font-mono">{fmt(a.target, typeOf(a.symbol))}</span>
                 </span>
                 <button
                   onClick={() => removeAlert(a.id)}

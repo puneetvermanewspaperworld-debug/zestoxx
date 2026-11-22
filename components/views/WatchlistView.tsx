@@ -1,5 +1,6 @@
 "use client";
 
+import { isTradableId } from "@/lib/dynamic-symbols";
 import PhoneWatchlist from "@/components/phone/PhoneWatchlist";
 import { useScreenMode } from "@/lib/useScreenMode";
 import React, { useEffect, useMemo, useState } from "react";
@@ -9,7 +10,7 @@ import { ArrowLeft, Plus, Search, Sparkles, X } from "lucide-react";
 import Watchlist from "@/components/Watchlist";
 import { useZestoxx } from "@/components/ZestoxxProvider";
 import { fmt, fmtINR, fmtOi } from "@/lib/helpers";
-import { SYMBOLS, SYMBOL_MAP } from "@/lib/symbols";
+import { SYMBOL_MAP } from "@/lib/symbols";
 import { useExpiryToday, useWatchRows } from "@/lib/useWatchlist";
 import {
   MAX_LIST_NAME,
@@ -24,9 +25,6 @@ const tone = (n: number | null) => (n == null || n === 0 ? "text-slate-400" : n 
 const signed = (n: number | null, digits = 2) => (n == null ? "--" : (n > 0 ? "+" : "") + n.toFixed(digits));
 
 type Tab = { kind: "explore" } | { kind: "primary" } | { kind: "list"; name: string };
-
-/** Symbols the terminal can chart and paper-trade — everything else is a live quote only. */
-const TRADEABLE_STOCKS = SYMBOLS.filter((s) => s.type === "stock").map((s) => s.id);
 
 /* ------------------------------------------------------------- index cards -- */
 
@@ -109,7 +107,7 @@ function WatchTable({
             return (
               <tr key={symbol} className="border-b border-blue-50 hover:bg-slate-50">
                 <td className="px-3 py-2.5">
-                  {SYMBOL_MAP[symbol] ? (
+                  {isTradableId(symbol) ? (
                     <Link href={`/app/trade/${symbol}`} className="font-medium text-blue-600 hover:underline">
                       {symbol}
                     </Link>
@@ -166,7 +164,7 @@ const Empty = ({ children }: { children: React.ReactNode }) => (
 
 const Skeleton = () => <div className="h-[260px] animate-pulse bg-slate-50" aria-busy="true" />;
 
-const QUOTE_ONLY_NOTE = `Live NSE quotes. Charts and paper trading cover ${TRADEABLE_STOCKS.join(", ")} and the indices — click one of those to open it.`;
+const QUOTE_ONLY_NOTE = "Live NSE quotes. Click a stock or ETF to open its chart and paper-trade it.";
 
 /* ---------------------------------------------------------- popular lists ---- */
 
@@ -430,7 +428,7 @@ function CustomListPanel({ name, onDeleted }: { name: string; onDeleted: () => v
 /* --------------------------------------------------------------- the view ---- */
 
 function DesktopWatchlistView() {
-  const { watchlist, selected, setSelected, addToWatchlist, removeFromWatchlist, live, lists, createList, setActiveView } =
+  const { watchlist, selected, setSelected, addToWatchlist, removeFromWatchlist, lists, createList, setActiveView } =
     useZestoxx();
   const [tab, setTab] = useState<Tab>({ kind: "explore" });
   const [popular, setPopular] = useState<PopularList | null>(null);
@@ -571,7 +569,6 @@ function DesktopWatchlistView() {
                 }}
                 onAdd={addToWatchlist}
                 onRemove={removeFromWatchlist}
-                live={live}
               />
             </div>
           )}

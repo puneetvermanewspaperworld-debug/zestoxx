@@ -20,7 +20,7 @@ export function computePulse(
   histories: Record<string, Candle[]>,
   prevClose: number
 ): PulseResult {
-  const candles = histories[symId];
+  const candles = histories[symId] ?? [];
   const price = live[symId];
   const momentum = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0; // day change %
   const lastRsi = [...rsiSeries(candles, 14)].reverse().find((v) => v != null) ?? 50;

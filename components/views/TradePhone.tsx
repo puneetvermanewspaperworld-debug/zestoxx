@@ -25,6 +25,8 @@ export interface TradePhoneProps {
   selected: string;
   type: AssetType;
   price: number;
+  /** what the header says in place of the price when there is none (a symbol with no recent trades) */
+  noPriceText?: string;
   chg: number;
   source: "live" | "sim" | undefined;
   /** the chart's theme: the whole screen follows it */
@@ -87,7 +89,7 @@ export default function TradePhone(p: TradePhoneProps) {
       </div>
       <div className="mt-0.5 flex items-center gap-1.5">
         <span data-testid="header-price" className="font-mono text-[13px] font-semibold leading-tight text-slate-900">
-          {fmt(p.price, p.type)}
+          {p.price > 0 ? fmt(p.price, p.type) : (p.noPriceText ?? "--")}
         </span>
         <span data-testid="header-change" className={"flex items-center gap-0.5 font-mono text-[11.5px] leading-tight " + (p.chg >= 0 ? "text-emerald-600" : "text-rose-500")}>
           {p.chg >= 0 ? <TrendingUp size={12} aria-hidden /> : <TrendingDown size={12} aria-hidden />}
@@ -137,10 +139,10 @@ export default function TradePhone(p: TradePhoneProps) {
     </>
   ) : (
     <>
-      <button type="button" onClick={() => openDrawer("trade")} data-testid="paper-buy" className={"min-h-[44px] rounded-md bg-emerald-500 text-[13px] font-semibold text-white " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
+      <button type="button" disabled={!(p.price > 0)} onClick={() => openDrawer("trade")} data-testid="paper-buy" className={"min-h-[44px] rounded-md bg-emerald-500 text-[13px] font-semibold text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
         {PAPER_BUY}
       </button>
-      <button type="button" onClick={() => openDrawer("trade")} data-testid="paper-sell" className={"min-h-[44px] rounded-md bg-rose-500 text-[13px] font-semibold text-white " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
+      <button type="button" disabled={!(p.price > 0)} onClick={() => openDrawer("trade")} data-testid="paper-sell" className={"min-h-[44px] rounded-md bg-rose-500 text-[13px] font-semibold text-white disabled:opacity-40 " + (small ? "shrink-0 whitespace-nowrap px-2.5" : "flex-1")}>
         {PAPER_SELL}
       </button>
     </>

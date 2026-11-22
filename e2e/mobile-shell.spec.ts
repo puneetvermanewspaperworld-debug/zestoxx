@@ -14,13 +14,26 @@ interface Opts {
   expiry?: string;
   candles?: { source: "live"; bars: number[][] } | { source: "unavailable" };
   chain?: Record<string, unknown>;
+  /** what /api/quotes says about the symbols the app does not chart on its own (a default set when absent); "down" = the feed does not answer */
+  quotes?: Record<string, { state: "live" | "none" | "unknown"; ltp?: number; prevClose: number; name?: string }> | "down";
 }
+
+export type QuoteBook = Record<string, { state: "live" | "none" | "unknown"; ltp?: number; prevClose: number; name?: string }>;
 
 /** Everything the app asks the server for, answered: the market (clock fixed on Wed 11 Nov 2026, 13:50 IST), the saved portfolio, search, prices of other symbols, depth. */
 async function mock(page: Page, o: Opts = {}) {
   await mockMarket(page);
   const puts: Record<string, unknown>[] = [];
   const px = { RELIANCE: 1500 };
+  // the symbols the app does not chart on its own: what the quote route answers (changeable mid-test), and every request it got
+  const book: QuoteBook = o.quotes && o.quotes !== "down" ? o.quotes : { ITC: { state: "live", ltp: 400, prevClose: 394, name: "ITC Ltd" }, NIFTYBEES: { state: "live", ltp: 275, prevClose: 270, name: "Nippon Nifty ETF" }, SLEEPY: { state: "none", prevClose: 88, name: "Sleepy Smallcap Ltd" } };
+  const quoteReqs: string[][] = [];
+  await page.route("**/api/quotes**", (r) => {
+    const syms = decodeURIComponent(new URL(r.request().url()).searchParams.get("symbols") ?? "").split(",").filter(Boolean);
+    quoteReqs.push(syms);
+    if (o.quotes === "down") return r.fulfill({ json: { source: "unavailable", reason: "feed error" } });
+    return r.fulfill({ json: { source: "live", quotes: Object.fromEntries(syms.map((x) => [x, book[x] ?? { state: "unknown", prevClose: 0 }])) } });
+  });
   await page.route("**/api/portfolio", (r) => {
     if (r.request().method() === "PUT") {
       puts.push(JSON.parse(r.request().postData() ?? "{}"));
@@ -38,6 +51,7 @@ async function mock(page: Page, o: Opts = {}) {
       { symbol: "IDX NIFTY PVT BANK", name: "Nifty Pvt Bank", kind: "index", fno: false },
       { symbol: "NIFTY50", name: "Nifty 50", kind: "index", fno: true },
       { symbol: "TCS", name: "Tata Consultancy Services", kind: "equity", fno: true },
+      { symbol: "SLEEPY", name: "Sleepy Smallcap Ltd", kind: "equity", fno: false },
     ];
     return r.fulfill({ json: { results: all.filter((x) => x.symbol.toLowerCase().includes(q) || x.name.toLowerCase().includes(q)) } });
   });
@@ -55,7 +69,7 @@ async function mock(page: Page, o: Opts = {}) {
   });
   if (o.candles) await page.route("**/api/candles**", (r) => r.fulfill({ json: o.candles }));
   if (o.chain) await page.route("**/api/options-chain**", (r) => r.fulfill({ json: o.chain }));
-  return { puts, px };
+  return { puts, px, book, quoteReqs };
 }
 
 async function go(page: Page, path: string, o: Opts = {}) {
@@ -195,13 +209,37 @@ test.describe("watchlists", () => {
     await expect(page.getByTestId("wl-result-ITC")).toBeDisabled();
   });
 
-  test("My Watchlist holds the symbols Zestoxx can chart: another symbol is refused with a way out", async ({ page }) => {
-    await go(page, "/app/watchlist");
+  test("My Watchlist holds any stock or ETF from the instrument list: it is added, priced, saved and opens the sheet", async ({ page }) => {
+    const { puts } = await go(page, "/app/watchlist");
     await dismissNotice(page);
     await page.getByTestId("wl-search-input").fill("itc");
     await page.getByTestId("wl-result-ITC").click();
-    await expect(page.getByTestId("wl-search-message")).toContainText("another list");
+    await expect(page.getByTestId("wl-search-message")).toContainText("added to My Watchlist");
+    await expect(page.getByTestId("wl-count")).toHaveText("6/250");
+    await expect(page.getByTestId("wl-row-ITC")).toContainText("₹400");
+    await expect.poll(() => (puts[puts.length - 1] as { watchlist?: string[] } | undefined)?.watchlist).toEqual(["RELIANCE", "TCS", "NIFTY50", "BANKNIFTY", "BTC", "ITC"]);
+    await page.getByTestId("wl-open-ITC").click();
+    await expect(page.getByTestId("sheet-buy")).toBeEnabled();
+    await expect(page.getByTestId("sheet-chart")).toBeEnabled();
+  });
+
+  test("My Watchlist still refuses an index it cannot chart, with a way out", async ({ page }) => {
+    await go(page, "/app/watchlist");
+    await dismissNotice(page);
+    await page.getByTestId("wl-search-input").fill("pvt");
+    await page.getByTestId("wl-result-IDX NIFTY PVT BANK").click();
+    await expect(page.getByTestId("wl-search-message")).toContainText("Add an index to another list");
     await expect(page.getByTestId("wl-count")).toHaveText("5/250");
+  });
+
+  test("a full My Watchlist (250) takes no 251st: the results are disabled and the count stays", async ({ page }) => {
+    const full = ["RELIANCE", ...Array.from({ length: 249 }, (_, i) => `S${String(i).padStart(3, "0")}`)];
+    await go(page, "/app/watchlist", { portfolio: { watchlist: full, cash: 1_000_000, holdings: {}, orderLog: [], alerts: [] } });
+    await dismissNotice(page);
+    await expect(page.getByTestId("wl-count")).toHaveText("250/250");
+    await page.getByTestId("wl-search-input").fill("itc");
+    await expect(page.getByTestId("wl-result-ITC")).toBeDisabled(); // a full list takes no more
+    await expect(page.getByTestId("wl-count")).toHaveText("250/250");
   });
 
   test("Edit moves rows up and down (kept, saved) and removes them; every button is 44 px", async ({ page }) => {
@@ -307,9 +345,9 @@ test.describe("the symbol sheet", () => {
     await expect(page.getByTestId("depth-levels")).toHaveCount(0);
     await expect(page.getByTestId("depth-message")).toBeVisible();
     await expect(page.getByTestId("range-unavailable")).toBeVisible(); // a day's range of zeros is not shown either
-    await expect(page.getByTestId("quote-only-note")).toBeVisible(); // not a symbol Zestoxx charts
-    for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-alert", "sheet-gtt"]) await expect(page.getByTestId(id)).toBeDisabled();
-    await expect(page.getByTestId("sheet-notes")).toBeEnabled();
+    await expect(page.getByTestId("quote-only-note")).toHaveCount(0); // any NSE equity can be charted and traded now
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) await expect(page.getByTestId(id)).toBeEnabled();
   });
 
   test("Buy opens the order form for that symbol; View chart opens the full-screen chart page", async ({ page }) => {
@@ -737,3 +775,231 @@ for (const [w, h] of SIZES) {
   });
 }
 
+
+/* ------------------------------------------------------------------------------------------------------------------------------------------ */
+/* Any NSE equity or ETF from Upstox's instrument list: its quote and candles are fetched on demand, paper orders fill at its live price, and alerts
+ * and GTT work. A symbol with no recent trades has no price and cannot be bought or sold. The feed is mocked (see mock(): /api/quotes). */
+
+const anyPortfolio = (extra: Record<string, unknown> = {}) => ({ watchlist: ["RELIANCE", "TCS"], cash: 1_000_000, holdings: {}, orderLog: [], alerts: [], lists: [{ name: "Z", symbols: ["ITC", "SLEEPY", "NIFTYBEES"] }], ...extra });
+const openFromList = async (page: Page, symbol: string) => {
+  await dismissNotice(page);
+  await page.getByTestId("wl-tab-Z").click();
+  await page.getByTestId(`wl-open-${symbol}`).click();
+  await expect(page.getByTestId("symbol-sheet")).toBeVisible();
+};
+/** let the clock run so the app's next quote poll happens (15 s apart, never closer than 5 s) */
+const nextPoll = async (page: Page) => {
+  await page.clock.runFor(16_000);
+  await page.waitForTimeout(400);
+};
+
+test.describe("any NSE symbol: the sheet, orders, chart, alerts and GTT", () => {
+  test.use(phone(390, 844));
+
+  test("Buy, Sell, View chart, Set alert and Create GTT are all enabled for a stock the app does not chart on its own, at its live price", async ({ page }) => {
+    await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await openFromList(page, "ITC");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    await expect(page.getByTestId("sheet-name")).toContainText("ITC");
+    await expect(page.getByTestId("sheet-change")).toHaveText("+1.52%"); // (400 - 394) / 394
+    for (const id of ["sheet-buy", "sheet-sell", "sheet-chart", "sheet-alert", "sheet-gtt", "sheet-notes"]) await expect(page.getByTestId(id), id).toBeEnabled();
+    await expect(page.getByTestId("quote-only-note")).toHaveCount(0);
+    await expect(page.getByTestId("no-trades-note")).toHaveCount(0);
+  });
+
+  test("a paper buy fills at the live price, and the next price is the one after it moves", async ({ page }) => {
+    const { puts, book } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await openFromList(page, "ITC");
+    await page.getByTestId("sheet-buy").click();
+    const panel = page.getByTestId("sheet-order-panel");
+    await panel.getByRole("button", { name: "Paper buy", exact: true }).click();
+    await expect(panel.getByText(/Bought 1 ITC @ ₹400/)).toBeVisible();
+    await expect.poll(() => (puts[puts.length - 1] as { holdings?: Record<string, { qty: number; avgPrice: number }>; cash?: number } | undefined)?.holdings?.ITC).toEqual({ qty: 1, avgPrice: 400 });
+    expect((puts[puts.length - 1] as { cash: number }).cash).toBe(999_600);
+    book.ITC.ltp = 405;
+    await nextPoll(page);
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹405");
+    await panel.getByRole("button", { name: "Paper buy", exact: true }).click();
+    await expect(panel.getByText(/Bought 1 ITC @ ₹405/)).toBeVisible();
+  });
+
+  test("View chart opens the chart page for it, with its own candles, fetched on demand", async ({ page }) => {
+    const seen: string[] = [];
+    await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    page.on("request", (r) => r.url().includes("/api/candles") && seen.push(new URL(r.url()).search));
+    await openFromList(page, "ITC");
+    await page.getByTestId("sheet-chart").click();
+    await expect(page).toHaveURL(/\/app\/trade\/ITC$/);
+    await expect(page.getByTestId("trade-screen")).toBeVisible();
+    await page.getByTestId("trade-chart").waitFor({ timeout: 30_000 });
+    await expect.poll(async () => JSON.parse((await page.getByTestId("trade-chart").getAttribute("data-series")) ?? "{}").bars ?? 0, { timeout: 20_000 }).toBeGreaterThan(100);
+    expect(seen.some((q) => q.includes("symbol=ITC") && q.includes("interval=1D") && q.includes("range=1Y"))).toBe(true);
+    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+  });
+
+  test("an alert on it fires while the app is open, once", async ({ page }) => {
+    const { puts, book } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await openFromList(page, "ITC");
+    await page.getByTestId("sheet-alert").click();
+    await page.getByTestId("alert-target").fill("410");
+    await page.getByTestId("alert-save").click();
+    await expect.poll(() => (puts[puts.length - 1] as { alerts?: { symbol: string; target: number; condition: string }[] } | undefined)?.alerts?.[0]).toMatchObject({ symbol: "ITC", target: 410, condition: "above" });
+    book.ITC.ltp = 411;
+    await nextPoll(page);
+    await expect(page.getByText(/ITC is now above ₹410/)).toBeVisible({ timeout: 10_000 });
+    await expect.poll(() => (puts[puts.length - 1] as { alerts?: unknown[] } | undefined)?.alerts).toEqual([]);
+  });
+
+  test("a buy-on-breakout GTT fills at the price that crossed the trigger", async ({ page }) => {
+    const { book } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await openFromList(page, "ITC");
+    await page.getByTestId("sheet-gtt").click();
+    await page.getByTestId("gtt-trigger").fill("420");
+    await page.getByTestId("gtt-qty").fill("2");
+    await page.getByRole("radiogroup", { name: "GTT side" }).getByRole("radio", { name: "Buy" }).click();
+    await expect(page.getByTestId("gtt-kind")).toContainText("Buy on breakout");
+    await page.getByTestId("gtt-save").click();
+    await page.getByTestId("sheet-close").click();
+    book.ITC.ltp = 421;
+    await nextPoll(page);
+    await page.getByTestId("nav-orders").click();
+    await page.getByTestId("orders-tab-executed").click();
+    const row = page.locator('[data-testid^="log-order-"]').first();
+    await expect(row).toContainText("BUY 2 ITC", { timeout: 10_000 });
+    await expect(row).toContainText("Filled at ₹421");
+    await expect(row).toContainText("GTT");
+  });
+
+  test("a stop-loss on a held stock fires on the way down, and it is quoted while it is only held (not on screen)", async ({ page }) => {
+    const { book, quoteReqs } = await go(page, "/app/watchlist", {
+      portfolio: anyPortfolio({ holdings: { ITC: { qty: 10, avgPrice: 380 } }, openOrders: [{ symbol: "ITC", side: "sell", qty: 5, limitPrice: 390, time: "10:00:00 am", orderType: "GTT", placedDate: "2026-11-11", trigger: "below", placedAtMs: Date.parse("2026-11-11T13:00:00+05:30") }] }),
+    });
+    await dismissNotice(page);
+    await expect.poll(() => quoteReqs.flat().includes("ITC"), { timeout: 10_000 }).toBe(true); // an open GTT and a position keep it quoted
+    book.ITC.ltp = 389;
+    await nextPoll(page);
+    await page.getByTestId("nav-orders").click();
+    await page.getByTestId("orders-tab-executed").click();
+    const row = page.locator('[data-testid^="log-order-"]').first();
+    await expect(row).toContainText("SELL 5 ITC", { timeout: 10_000 });
+    await expect(row).toContainText("Filled at ₹389");
+  });
+
+  test("a symbol with no recent trades says so, shows no price, and cannot be bought, sold or given a GTT", async ({ page }) => {
+    await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await openFromList(page, "SLEEPY");
+    await expect(page.getByTestId("sheet-price")).toHaveText("No recent trades");
+    await expect(page.getByTestId("sheet-change")).toHaveText("--");
+    await expect(page.getByTestId("no-trades-note")).toContainText("never makes a price up");
+    for (const id of ["sheet-buy", "sheet-sell", "sheet-gtt"]) await expect(page.getByTestId(id), id).toBeDisabled();
+    for (const id of ["sheet-chart", "sheet-alert", "sheet-notes"]) await expect(page.getByTestId(id), id).toBeEnabled();
+    await expect(page.getByTestId("sheet-order-panel")).toHaveCount(0);
+    // the chart page has no order form, and no price
+    await page.getByTestId("sheet-chart").click();
+    await expect(page).toHaveURL(/\/app\/trade\/SLEEPY$/);
+    await expect(page.getByTestId("header-price")).toHaveText("No recent trades");
+    await expect(page.getByTestId("paper-buy")).toBeDisabled();
+    await expect(page.getByTestId("paper-sell")).toBeDisabled();
+    await page.getByTestId("drawer-toggle").click();
+    await expect(page.getByTestId("no-price-panel")).toContainText("No recent trades");
+    await expect(page.getByText("Paper Trade", { exact: true })).toHaveCount(0); // no order form, only the explanation
+  });
+
+  test("a market buy with no price is refused by the app itself, not just by a disabled button", async ({ page }) => {
+    const { puts } = await go(page, "/app/trade/SLEEPY", { portfolio: anyPortfolio() });
+    await page.getByTestId("drawer-toggle").click();
+    await expect(page.getByTestId("no-price-panel")).toBeVisible();
+    await page.waitForTimeout(1500);
+    const last = puts[puts.length - 1] as { holdings?: Record<string, unknown>; cash?: number } | undefined;
+    expect(last?.holdings?.SLEEPY).toBeUndefined();
+    expect(last?.cash ?? 1_000_000).toBe(1_000_000);
+  });
+
+  test("a symbol that is not on the NSE list says so", async ({ page }) => {
+    await go(page, "/app/trade/NOSUCH", { portfolio: anyPortfolio() });
+    await page.getByTestId("drawer-toggle").click();
+    await expect(page.getByTestId("no-price-panel")).toContainText("Not on the NSE list");
+    await expect(page.getByTestId("paper-buy")).toBeDisabled();
+  });
+
+  test("when the quote feed does not answer there is no price and no order, and it says so", async ({ page }) => {
+    await go(page, "/app/watchlist", { portfolio: anyPortfolio(), quotes: "down" });
+    await openFromList(page, "ITC");
+    await expect(page.getByTestId("quote-unavailable-note")).toBeVisible();
+    await expect(page.getByTestId("sheet-price")).toHaveText("--");
+    for (const id of ["sheet-buy", "sheet-sell", "sheet-gtt"]) await expect(page.getByTestId(id), id).toBeDisabled();
+  });
+
+  test("quotes are asked for only the symbol on screen, together, and stop when it is closed", async ({ page }) => {
+    const { quoteReqs } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await dismissNotice(page);
+    await page.getByTestId("wl-tab-Z").click(); // three symbols in the list, none open: no quote requests for them
+    await page.waitForTimeout(1500);
+    expect(quoteReqs.flat()).toEqual([]);
+    await page.getByTestId("wl-open-ITC").click();
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    expect([...new Set(quoteReqs.flat())]).toEqual(["ITC"]); // not SLEEPY or NIFTYBEES, which are only in the list
+    await page.getByTestId("sheet-close").click();
+    quoteReqs.length = 0;
+    await page.clock.runFor(60_000);
+    await page.waitForTimeout(400);
+    expect(quoteReqs.flat()).toEqual([]);
+  });
+
+  test("however long a symbol stays on screen, the polling stays slow: one request every 15 seconds", async ({ page }) => {
+    const { quoteReqs } = await go(page, "/app/watchlist", { portfolio: anyPortfolio() });
+    await openFromList(page, "ITC");
+    await expect(page.getByTestId("sheet-price")).toHaveText("₹400");
+    quoteReqs.length = 0;
+    for (let i = 0; i < 6; i++) await page.clock.runFor(10_000); // a minute
+    await page.waitForTimeout(400);
+    expect(quoteReqs.length).toBeGreaterThanOrEqual(3);
+    expect(quoteReqs.length).toBeLessThanOrEqual(5);
+  });
+
+  test("a held stock is valued at its live price on the Portfolio screen", async ({ page }) => {
+    await go(page, "/app/portfolio", { portfolio: anyPortfolio({ holdings: { ITC: { qty: 10, avgPrice: 380 } }, orderLog: [{ id: "1", symbol: "ITC", side: "buy", qty: 10, price: 380, mode: "market", time: "10:00:00 am", orderType: "MARKET", status: "filled", date: "2026-11-02" }] }) });
+    await dismissNotice(page);
+    const row = page.getByTestId("pf-row-ITC");
+    await expect(row).toContainText("10 @ ₹380");
+    await expect(row).toContainText("₹4,000"); // 10 x 400, the live price
+  });
+});
+
+test.describe("any NSE symbol on a desktop", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("the chart page opens for it with its price and an order form that fills at that price", async ({ page }) => {
+    const { puts } = await go(page, "/app/trade/ITC", { portfolio: anyPortfolio() });
+    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+    await page.getByRole("button", { name: "Paper buy", exact: true }).click();
+    await expect(page.getByText(/Bought 1 ITC @ ₹400/)).toBeVisible();
+    await expect.poll(() => (puts[puts.length - 1] as { holdings?: Record<string, unknown> } | undefined)?.holdings?.ITC).toBeTruthy();
+  });
+
+  test("with no recent trades the order form is replaced by the explanation", async ({ page }) => {
+    await go(page, "/app/trade/SLEEPY", { portfolio: anyPortfolio() });
+    await expect(page.getByTestId("no-price-panel")).toContainText("No recent trades");
+    await expect(page.getByTestId("header-price")).toHaveText("No recent trades");
+    await expect(page.getByRole("button", { name: "Paper buy", exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe("the terminal's main list on a desktop", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("a search adds any stock or ETF from the instrument list, prices it, and opens it; an index is not offered; the ticker tape shows it too", async ({ page }) => {
+    const { puts } = await go(page, "/app/trade/RELIANCE", { portfolio: anyPortfolio({ lists: [] }) });
+    await page.getByTestId("sidebar-search").fill("itc");
+    await page.getByTestId("sidebar-result-ITC").click();
+    const row = page.getByTestId("sidebar-row-ITC");
+    await expect(row).toContainText("₹400");
+    await expect.poll(() => (puts[puts.length - 1] as { watchlist?: string[] } | undefined)?.watchlist).toEqual(["RELIANCE", "TCS", "ITC"]);
+    await row.click();
+    await expect(page.getByTestId("header-price")).toHaveText("₹400");
+    await page.getByTestId("sidebar-search").fill("pvt");
+    await page.waitForTimeout(600);
+    await expect(page.getByTestId("sidebar-result-IDX NIFTY PVT BANK")).toHaveCount(0);
+    await expect(page.locator(".ticker-strip").first()).toContainText("ITC");
+  });
+});

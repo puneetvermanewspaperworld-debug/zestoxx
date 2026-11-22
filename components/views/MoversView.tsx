@@ -1,10 +1,10 @@
 "use client";
 
+import { isTradableId } from "@/lib/dynamic-symbols";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Flame } from "lucide-react";
 import { fmtINR, fmtIsoDate, fmtOi } from "@/lib/helpers";
-import { SYMBOL_MAP } from "@/lib/symbols";
 import { useMovers } from "@/lib/useMovers";
 import DataBadge from "@/components/DataBadge";
 import { moversNote, noChangeFigure } from "@/lib/closed-notes";
@@ -127,7 +127,7 @@ function StockTable({ rows, showLot, open }: { rows: StockMover[]; showLot?: boo
           {rows.map((r) => (
             <tr key={r.symbol} className="border-b border-blue-50 hover:bg-slate-50">
               <td className="px-2 py-2.5 sm:px-3">
-                {SYMBOL_MAP[r.symbol] ? (
+                {isTradableId(r.symbol) ? (
                   <Link href={`/app/trade/${r.symbol}`} className="font-medium text-blue-600 hover:underline">
                     {r.symbol}
                   </Link>
